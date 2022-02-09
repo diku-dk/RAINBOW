@@ -4,9 +4,9 @@ name: Testing your commit on libIsl
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   miniconda:
