@@ -34,9 +34,9 @@ jobs:
             conda install coverage
             coverage run  -m unittest python/isl/test/test_*/test_*.py
             coverage report
-      - name: Run Test and Coverage
+      - name: Format the code
         shell: bash -l {0}
         run: |
           conda install --name test black -y
-          black python/isl  
+          black python/isl
 
