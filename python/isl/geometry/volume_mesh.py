@@ -156,11 +156,11 @@ def to_tetrahedrons(Vin, T, scale=0.9):
         pj = Vin[T[idx, 1]]
         pk = Vin[T[idx, 2]]
         pm = Vin[T[idx, 3]]
-        c = (pi+pj+pk+pm)/4.0
-        i = idx*4 + 0
-        j = idx*4 + 1
-        k = idx*4 + 2
-        m = idx*4 + 3
+        c = (pi + pj + pk + pm) / 4.0
+        i = idx * 4 + 0
+        j = idx * 4 + 1
+        k = idx * 4 + 2
+        m = idx * 4 + 3
         Vout[i] = c + (pi - c) * scale
         Vout[j] = c + (pj - c) * scale
         Vout[k] = c + (pk - c) * scale
@@ -181,6 +181,7 @@ def create_loop_subdivision(V, T):
     :param T:   The input tetrahedrons.
     :return:    The output is the sub-divived mesh as a V-array and T-array.
     """
+
     def create_midpoint(_i, _j, _pi, _pj, _lut, _offset):
         key = (_i, _j) if _i < _j else (_j, _i)
         if key in _lut:
@@ -190,10 +191,11 @@ def create_loop_subdivision(V, T):
             idx = len(_lut)
             _lut[key] = (idx, p)
         return idx + _offset, p
+
     offset = len(V)
     lut = {}
     K = len(T)
-    T = np.concatenate((T, np.zeros((7*K, 4), dtype=np.int64)), axis=0)
+    T = np.concatenate((T, np.zeros((7 * K, 4), dtype=np.int64)), axis=0)
     last = K
     for e in range(K):
         i, j, k, m = T[e]
@@ -209,12 +211,12 @@ def create_loop_subdivision(V, T):
         km, pkm = create_midpoint(k, m, pk, pm, lut, offset)
         T[e] = [im, jm, km, m]
         T[last] = [ij, ik, im, i]
-        T[last+1] = [ij, jk, jm, j]
-        T[last+2] = [ik, km, jk, k]
-        T[last+3] = [ik, im, ij, jm]
-        T[last+4] = [ik, ij, jk, jm]
-        T[last+5] = [ik, jk, km, jm]
-        T[last+6] = [ik, km, im, jm]
+        T[last + 1] = [ij, jk, jm, j]
+        T[last + 2] = [ik, km, jk, k]
+        T[last + 3] = [ik, im, ij, jm]
+        T[last + 4] = [ik, ij, jk, jm]
+        T[last + 5] = [ik, jk, km, jm]
+        T[last + 6] = [ik, km, im, jm]
         last = last + 7
     C = len(lut)
     P = np.zeros((C, 3), dtype=np.float64)
@@ -266,7 +268,9 @@ def compute_neighbors(T):
         face_info[e * 4 + 1, :] = sorted([i, k, m]) + [e, 1]
         face_info[e * 4 + 2, :] = sorted([i, j, m]) + [e, 2]
         face_info[e * 4 + 3, :] = sorted([i, j, k]) + [e, 3]
-    face_info = face_info[np.lexsort((face_info[:, 0], face_info[:, 1], face_info[:, 2]))]
+    face_info = face_info[
+        np.lexsort((face_info[:, 0], face_info[:, 1], face_info[:, 2]))
+    ]
     for i in range(4 * len(T) - 1):
         if np.array_equal(face_info[i, 0:3], face_info[i + 1, 0:3]):
             # We have found a shared face in tetrahedral mesh
@@ -299,7 +303,9 @@ def compute_surface(T, N):
     """
     K = np.count_nonzero(N < 0)  # Number of surface triangles
     S = -np.ones((K, 3), dtype=np.int32)  # Face indexed array of surface triangles
-    O = -np.ones((K, 2), dtype=np.int32)  # Indexes of the tetrahedral element where a surface triangles comes from.
+    O = -np.ones(
+        (K, 2), dtype=np.int32
+    )  # Indexes of the tetrahedral element where a surface triangles comes from.
     s = 0
     for e in range(len(N)):
         i, j, k, m = T[e]
@@ -331,6 +337,7 @@ def compute_surface(T, N):
 class VertexTetrahedronCirculator:
     """
     """
+
     def __init__(self, V, T):
         """
 

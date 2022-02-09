@@ -20,7 +20,7 @@ def create_soft_body(engine, body_name, V, T) -> None:
     :return:            Nothing.
     """
     if body_name in engine.bodies:
-        raise RuntimeError('Soft body already exist with that name')
+        raise RuntimeError("Soft body already exist with that name")
 
     # Create body
     body = SoftBody(body_name)
@@ -45,14 +45,14 @@ def create_soft_body(engine, body_name, V, T) -> None:
 
     # Setup material space signed distance field
     max_length = (body.x0.max(axis=0) - body.x0.min(axis=0)).max()
-    boundary = max(max_length*0.1, engine.params.envelope*2)
+    boundary = max(max_length * 0.1, engine.params.envelope * 2)
     body.grid = GRID.create_signed_distance(
         body.x0,
         body.surface,
         engine.params.resolution,
         engine.params.resolution,
         engine.params.resolution,
-        boundary
+        boundary,
     )
 
     # Create spatial volume mesh variables
@@ -62,12 +62,13 @@ def create_soft_body(engine, body_name, V, T) -> None:
     # Create bounding volume hierarchy data-structure (BVH), this will always be updated to live in
     # spatial coordinates and is tested against the signed distance field (who lives in constant material space) to
     # generate contact points.
-    body.bvh = BVH.make_bvh(body.x,
-                            body.surface,
-                            engine.params.K,
-                            engine.params.bvh_chunk_size,
-                            engine.params.envelope
-                            )
+    body.bvh = BVH.make_bvh(
+        body.x,
+        body.surface,
+        engine.params.K,
+        engine.params.bvh_chunk_size,
+        engine.params.envelope,
+    )
 
     # To have proper global indexing into assembled matrices and vectors we need to know this body nodel
     # index offset into this global space.
@@ -88,7 +89,7 @@ def create_dirichlet_conditions(engine, body_name, phi) -> None:
     :return:             Nothing.
     """
     if body_name not in engine.bodies:
-        raise ValueError('Engine does not contain soft body of name', body_name)
+        raise ValueError("Engine does not contain soft body of name", body_name)
 
     body = engine.bodies[body_name]
     for i in range(len(body.x0)):
@@ -112,7 +113,7 @@ def create_traction_conditions(engine, body_name, phi, load) -> None:
     if not isinstance(load, np.ndarray):
         raise TypeError
     if body_name not in engine.bodies:
-        raise ValueError('Engine does not contain soft body of name', body_name)
+        raise ValueError("Engine does not contain soft body of name", body_name)
     body = engine.bodies[body_name]
     for triangle in body.surface:
         # Check that the triangle is inside phi volume
@@ -134,9 +135,9 @@ def set_velocity(engine, body_name, v) -> None:
     :return:            Nothing.
     """
     if len(v) != 3:
-        raise ValueError('v input must be of length 3', body_name)
+        raise ValueError("v input must be of length 3", body_name)
     if body_name not in engine.bodies:
-        raise ValueError('Engine does not contain soft body of name', body_name)
+        raise ValueError("Engine does not contain soft body of name", body_name)
     body = engine.bodies[body_name]
     for i in range(len(body.u)):
         body.u[i] = v
@@ -152,12 +153,12 @@ def set_type(engine, body_name, body_type) -> None:
     :return:            Nothing.
     """
     if body_name not in engine.bodies:
-        raise ValueError('Engine does not contain soft body of name', body_name)
-    if not body_type.lower() in ['fixed', 'free']:
-        raise ValueError('Body type must be fixed or free', body_type)
+        raise ValueError("Engine does not contain soft body of name", body_name)
+    if not body_type.lower() in ["fixed", "free"]:
+        raise ValueError("Body type must be fixed or free", body_type)
     body = engine.bodies[body_name]
     body.is_fixed = False
-    if body_type.lower() == 'fixed':
+    if body_type.lower() == "fixed":
         body.is_fixed = True
 
 
@@ -172,14 +173,18 @@ def create_surfaces_interaction(engine, material_A, material_B, mu) -> None:
     :return:            Nothing.
     """
     if material_A not in engine.materials:
-        raise ValueError('Engine did not have material with name ', material_A)
+        raise ValueError("Engine did not have material with name ", material_A)
     if material_B not in engine.materials:
-        raise ValueError('Engine did not have material with name ', material_B)
+        raise ValueError("Engine did not have material with name ", material_B)
     if engine.surfaces_interactions.exist_interaction(material_A, material_B):
-        raise RuntimeError('Surfaces interaction  already exist')
+        raise RuntimeError("Surfaces interaction  already exist")
     if (np.array(mu) < 0.0).any():
-        raise RuntimeError('Illegal mu value')
-    key = (material_A, material_B) if material_A < material_B else (material_B, material_A)
+        raise RuntimeError("Illegal mu value")
+    key = (
+        (material_A, material_B)
+        if material_A < material_B
+        else (material_B, material_A)
+    )
     interaction = SurfacesInteraction()
     interaction.mu = mu
     engine.surfaces_interactions.storage[key] = interaction
@@ -194,7 +199,7 @@ def create_material(engine, material_name) -> None:
     :return:                 Nothing.
     """
     if material_name in engine.materials:
-        raise ValueError('Engine already have a material with name ', material_name)
+        raise ValueError("Engine already have a material with name ", material_name)
     material = MaterialDescription()
     material.name = material_name
     engine.materials[material_name] = material
@@ -210,23 +215,17 @@ def set_material(engine, body_name, material_name) -> None:
     :return:               Nothing.
     """
     if body_name not in engine.bodies:
-        raise ValueError('Engine does not contain soft body of name', body_name)
+        raise ValueError("Engine does not contain soft body of name", body_name)
     body = engine.bodies[body_name]
     if material_name not in engine.materials:
-        raise ValueError('Engine did not have a material with name ', material_name)
+        raise ValueError("Engine did not have a material with name ", material_name)
     material = engine.materials[material_name]
     body.material_description = material
     body.M_array = SOLVER.Native.compute_mass_element_array(
-        body.material_description.rho,
-        body.vol0,
-        body.T,
-        body.is_lumped
+        body.material_description.rho, body.vol0, body.T, body.is_lumped
     )
     body.C_array = SOLVER.Native.compute_damping_element_array(
-        body.material_description.c,
-        body.vol0,
-        body.T,
-        body.is_lumped
+        body.material_description.c, body.vol0, body.T, body.is_lumped
     )
 
 
@@ -241,11 +240,11 @@ def set_elasticity(engine, material_name, E, nu) -> None:
     :return:               Nothing.
     """
     if material_name not in engine.materials:
-        raise ValueError('Engine did not have a material with name ', material_name)
+        raise ValueError("Engine did not have a material with name ", material_name)
     if E <= 0:
-        raise ValueError('E must be positive')
+        raise ValueError("E must be positive")
     if nu < 0 or nu > 0.5:
-        raise ValueError('nu must be in range 0 to 1/2')
+        raise ValueError("nu must be in range 0 to 1/2")
     material = engine.materials[material_name]
     material.E = E
     material.nu = nu
@@ -261,9 +260,9 @@ def set_viscosity(engine, material_name, c) -> None:
     :return:                Nothing.
     """
     if material_name not in engine.materials:
-        raise ValueError('Engine did not have a material with name ', material_name)
+        raise ValueError("Engine did not have a material with name ", material_name)
     if c < 0:
-        raise ValueError('c must be non-negative')
+        raise ValueError("c must be non-negative")
     material = engine.materials[material_name]
     material.c = c
 
@@ -278,9 +277,9 @@ def set_mass_density(engine, material_name, rho) -> None:
     :return:                Nothing.
     """
     if material_name not in engine.materials:
-        raise ValueError('Engine did not have a material with name ', material_name)
+        raise ValueError("Engine did not have a material with name ", material_name)
     if rho < 0:
-        raise ValueError('rho must be non-negative')
+        raise ValueError("rho must be non-negative")
     material = engine.materials[material_name]
     material.rho = rho
 
@@ -294,12 +293,12 @@ def set_constitutive_model(engine, material_name, model) -> None:
     :param model:           A reference to a constitutive model class.
     :return:                Nothing.
     """
-    if not hasattr(model, 'pk1_stress'):
+    if not hasattr(model, "pk1_stress"):
         raise TypeError
-    if not hasattr(model, 'energy_density'):
+    if not hasattr(model, "energy_density"):
         raise TypeError
     if material_name not in engine.materials:
-        raise ValueError('Engine did not have a material with name ', material_name)
+        raise ValueError("Engine did not have a material with name ", material_name)
     material = engine.materials[material_name]
     material.constitutive_model = model
 
@@ -314,7 +313,7 @@ def set_gravity(engine, body_name, g) -> None:
     :return:               Nothing.
     """
     if body_name not in engine.bodies:
-        raise ValueError('Engine does not contain soft body of name', body_name)
+        raise ValueError("Engine does not contain soft body of name", body_name)
     if len(g) != 3:
         raise ValueError("Gravity acceleration must be a 3D vector")
     body = engine.bodies[body_name]

@@ -18,21 +18,23 @@ class Node:
 
 
 class SubTree:
-
     def __init__(self, size):
         self.nodes = [Node() for _ in range(size)]
         self.height = 0
 
 
 class Tree:
-
     def __init__(self):
         self.root = None
         self.chunks = []
 
 
 def _is_root(node):
-    return node.parent == Node.UNDEFINED and node.start != Node.UNDEFINED and node.end != Node.UNDEFINED
+    return (
+        node.parent == Node.UNDEFINED
+        and node.start != Node.UNDEFINED
+        and node.end != Node.UNDEFINED
+    )
 
 
 def _is_leaf(node):
@@ -40,7 +42,11 @@ def _is_leaf(node):
 
 
 def _is_undefined(node):
-    return node.parent == Node.UNDEFINED and node.start == Node.UNDEFINED and node.end == Node.UNDEFINED
+    return (
+        node.parent == Node.UNDEFINED
+        and node.start == Node.UNDEFINED
+        and node.end == Node.UNDEFINED
+    )
 
 
 def _refit_sub_tree(V, T, sub_tree, K, envelope=0.0) -> None:
@@ -104,8 +110,12 @@ def _make_sub_tree(parent_idx, free_idx, first, last, sub_tree):
 
         mid_idx = math.floor((first + last) / 2.0)
 
-        left_height, free_idx = _make_sub_tree(left_idx, free_idx, first, mid_idx, sub_tree)
-        right_height, free_idx = _make_sub_tree(right_idx, free_idx, mid_idx + 1, last, sub_tree)
+        left_height, free_idx = _make_sub_tree(
+            left_idx, free_idx, first, mid_idx, sub_tree
+        )
+        right_height, free_idx = _make_sub_tree(
+            right_idx, free_idx, mid_idx + 1, last, sub_tree
+        )
 
         return max(left_height, right_height) + 1, free_idx
     else:
@@ -182,7 +192,7 @@ def make_bvh(X, T, K, N, envelope=0.0):
     """
     tree = Tree()
     L = int((N + 1) / 2)  # Number of leaves in a balanced binary tree with N nodes
-    M = len(T)            # Number of data elements in the mesh
+    M = len(T)  # Number of data elements in the mesh
     C = math.ceil(M / L)  # Number of chunks to divide the mesh into
 
     for c in range(C):

@@ -2,7 +2,6 @@ from heapq import heappop, heappush
 
 
 class Heap:
-
     def __init__(self, verbose=False):
         self._heap = []
         self._finder = {}
@@ -17,7 +16,7 @@ class Heap:
     def push(self, idx, value):
         item = (value, idx)
         if self._verbose:
-            print('pushing: ', item)
+            print("pushing: ", item)
         self._finder[idx] = item
         heappush(self._heap, item)
 
@@ -32,7 +31,7 @@ class Heap:
 
             del self._finder[idx]
             if self._verbose:
-                print('popping:', value, idx)
+                print("popping:", value, idx)
             return idx
         return None
 
@@ -47,25 +46,25 @@ def test_heap():
     Q.push(2, 0.2)
     Q.push(3, 100.1)
     Q.push(4, 0.0)
-    print('Initial Queue: ', Q)
+    print("Initial Queue: ", Q)
 
     idx = Q.pop()
-    print('Popped: ', idx, ' Queue: ', Q)
+    print("Popped: ", idx, " Queue: ", Q)
 
     Q.update(3, 0.01)
-    print('Updated Queue: ', Q)
+    print("Updated Queue: ", Q)
 
     idx = Q.pop()
-    print('Popped: ', idx, ' Queue: ', Q)
+    print("Popped: ", idx, " Queue: ", Q)
 
     idx = Q.pop()
-    print('Popped: ', idx, ' Queue: ', Q)
+    print("Popped: ", idx, " Queue: ", Q)
 
     idx = Q.pop()
-    print('Popped: ', idx, ' Queue: ', Q)
+    print("Popped: ", idx, " Queue: ", Q)
 
     idx = Q.pop()
-    print('Popped: ', idx, ' Queue: ', Q)
+    print("Popped: ", idx, " Queue: ", Q)
 
     Q.push(1, 0.0)
     Q.push(2, 10.0)
@@ -74,8 +73,8 @@ def test_heap():
 
     while Q:
         idx = Q.pop()
-        print('Popped: ', idx, ' Queue: ', Q)
+        print("Popped: ", idx, " Queue: ", Q)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_heap()

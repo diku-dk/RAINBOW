@@ -16,32 +16,32 @@ def from_array(data):
 
 def from_string(value):
 
-    if value == 'identity':
+    if value == "identity":
         return identity()
 
-    if value.startswith('rx:'):
-        degrees = float( value.strip('rx:') )
+    if value.startswith("rx:"):
+        degrees = float(value.strip("rx:"))
         radians = ANGLE.degrees_to_radians(degrees)
         return Rx(radians)
 
-    if value.startswith('ry:'):
-        degrees = float( value.strip('ry:') )
+    if value.startswith("ry:"):
+        degrees = float(value.strip("ry:"))
         radians = ANGLE.degrees_to_radians(degrees)
         return Ry(radians)
 
-    if value.startswith('rz:'):
-        degrees = float( value.strip('rz:') )
+    if value.startswith("rz:"):
+        degrees = float(value.strip("rz:"))
         radians = ANGLE.degrees_to_radians(degrees)
         return Rz(radians)
 
-    if value.startswith('ru:'):
-        (degrees_str, axis_str) = value.strip('ru:').split(':')
+    if value.startswith("ru:"):
+        (degrees_str, axis_str) = value.strip("ru:").split(":")
         degrees = float(degrees_str)
         radians = ANGLE.degrees_to_radians(degrees)
         axis = V3.from_string(axis_str)
         return Ru(radians, axis)
 
-    return np.fromstring(value.strip('[]'), dtype=np.float64, count=4, sep=',')
+    return np.fromstring(value.strip("[]"), dtype=np.float64, count=4, sep=",")
 
 
 def from_vector3(w):
@@ -60,27 +60,27 @@ def unit(q):
 
 
 def Ru(radians, axis):
-    c = cos(radians/2.0)
-    s = sin(radians/2.0)
+    c = cos(radians / 2.0)
+    s = sin(radians / 2.0)
     n = axis / np.linalg.norm(axis)
     return from_array([c, s * n[0], s * n[1], s * n[2]])
 
 
 def Rx(radians):
-    c = cos(radians/2.0)
-    s = sin(radians/2.0)
+    c = cos(radians / 2.0)
+    s = sin(radians / 2.0)
     return from_array([c, s, 0.0, 0.0])
 
 
 def Ry(radians):
-    c = cos(radians/2.0)
-    s = sin(radians/2.0)
+    c = cos(radians / 2.0)
+    s = sin(radians / 2.0)
     return from_array([c, 0.0, s, 0.0])
 
 
 def Rz(radians):
-    c = cos(radians/2.0)
-    s = sin(radians/2.0)
+    c = cos(radians / 2.0)
+    s = sin(radians / 2.0)
     return from_array([c, 0.0, 0.0, s])
 
 
@@ -184,47 +184,65 @@ def prod_array(Qa, Qb):
     """
     if Qa.ndim == 1 and Qb.ndim == 2:
         N = len(Qb)
-        first  = (Qa[0]*Qb[:,0] - Qa[1]*Qb[:,1] - Qa[2]*Qb[:,2] - Qa[3]*Qb[:,3]).reshape(N,1)
-        second = (Qa[0]*Qb[:,1] + Qa[1]*Qb[:,0] + Qa[2]*Qb[:,3] - Qa[3]*Qb[:,2]).reshape(N,1)
-        third  = (Qa[0]*Qb[:,2] - Qa[1]*Qb[:,3] + Qa[2]*Qb[:,0] + Qa[3]*Qb[:,1]).reshape(N,1)
-        fourth = (Qa[0]*Qb[:,3] + Qa[1]*Qb[:,2] - Qa[2]*Qb[:,1] + Qa[3]*Qb[:,0]).reshape(N,1)
+        first = (
+            Qa[0] * Qb[:, 0] - Qa[1] * Qb[:, 1] - Qa[2] * Qb[:, 2] - Qa[3] * Qb[:, 3]
+        ).reshape(N, 1)
+        second = (
+            Qa[0] * Qb[:, 1] + Qa[1] * Qb[:, 0] + Qa[2] * Qb[:, 3] - Qa[3] * Qb[:, 2]
+        ).reshape(N, 1)
+        third = (
+            Qa[0] * Qb[:, 2] - Qa[1] * Qb[:, 3] + Qa[2] * Qb[:, 0] + Qa[3] * Qb[:, 1]
+        ).reshape(N, 1)
+        fourth = (
+            Qa[0] * Qb[:, 3] + Qa[1] * Qb[:, 2] - Qa[2] * Qb[:, 1] + Qa[3] * Qb[:, 0]
+        ).reshape(N, 1)
         return np.concatenate([first, second, third, fourth], axis=1)
     if Qa.ndim == 2 and Qb.ndim == 1:
         N = len(Qa)
-        first  = (Qa[:,0]*Qb[0] - Qa[:,1]*Qb[1] - Qa[:,2]*Qb[2] - Qa[:,3]*Qb[3]).reshape(N,1)
-        second = (Qa[:,0]*Qb[1] + Qa[:,1]*Qb[0] + Qa[:,2]*Qb[3] - Qa[:,3]*Qb[2]).reshape(N,1)
-        third  = (Qa[:,0]*Qb[2] - Qa[:,1]*Qb[3] + Qa[:,2]*Qb[0] + Qa[:,3]*Qb[1]).reshape(N,1)
-        fourth = (Qa[:,0]*Qb[3] + Qa[:,1]*Qb[2] - Qa[:,2]*Qb[1] + Qa[:,3]*Qb[0]).reshape(N,1)
+        first = (
+            Qa[:, 0] * Qb[0] - Qa[:, 1] * Qb[1] - Qa[:, 2] * Qb[2] - Qa[:, 3] * Qb[3]
+        ).reshape(N, 1)
+        second = (
+            Qa[:, 0] * Qb[1] + Qa[:, 1] * Qb[0] + Qa[:, 2] * Qb[3] - Qa[:, 3] * Qb[2]
+        ).reshape(N, 1)
+        third = (
+            Qa[:, 0] * Qb[2] - Qa[:, 1] * Qb[3] + Qa[:, 2] * Qb[0] + Qa[:, 3] * Qb[1]
+        ).reshape(N, 1)
+        fourth = (
+            Qa[:, 0] * Qb[3] + Qa[:, 1] * Qb[2] - Qa[:, 2] * Qb[1] + Qa[:, 3] * Qb[0]
+        ).reshape(N, 1)
         return np.concatenate([first, second, third, fourth], axis=1)
     if Qa.ndim == 2 and Qb.ndim == 2:
-        raise NotImplementedError("Quaternion multiplication between two arrays of Quaternions has not yet been implemented")
+        raise NotImplementedError(
+            "Quaternion multiplication between two arrays of Quaternions has not yet been implemented"
+        )
 
     raise ValueError("Either one or both of the arguments has to be a quaternion array")
 
 
 def rotate_array(q, rs):
     conjugated = conjugate(q)
-    qrs = np.concatenate((np.zeros((len(rs),1)),rs), axis=1)
+    qrs = np.concatenate((np.zeros((len(rs), 1)), rs), axis=1)
     inner = prod_array(q, qrs)
     outer = prod_array(inner, conjugated)
 
-    return outer[:,1:]
+    return outer[:, 1:]
 
 
 def to_angle_axis(Q):
-    ct2 = Q[0]                   # cos(theta / 2)
+    ct2 = Q[0]  # cos(theta / 2)
     st2 = np.linalg.norm(Q[1:])  # | sin(theta / 2) |
 
     theta = 2.0 * atan2(st2, ct2)
 
     if st2 > 0.0:
-        return theta, Q[1:]/st2
+        return theta, Q[1:] / st2
 
     return theta, V3.zero()
 
 
 def to_angle(Q, axis):
-    ct2 = Q[0]                   # cos(theta / 2)
+    ct2 = Q[0]  # cos(theta / 2)
     st2 = np.linalg.norm(Q[1:])  # | sin(theta / 2) |
 
     if np.dot(Q[1:], axis) >= 0.0:
@@ -233,7 +251,7 @@ def to_angle(Q, axis):
         theta = 2.0 * atan2(st2, -ct2)
 
     if theta > pi:
-        theta -= 2.0*pi
+        theta -= 2.0 * pi
 
     return theta
 
@@ -248,7 +266,7 @@ def lerp(a, b, t):
     :return:     Returns q(t) = (1-t)*a + t*b
     """
     t = clamp(t, 0.0, 1.0)
-    return a + (b-a)*t
+    return a + (b - a) * t
 
 
 def slerp(a, b, t):
@@ -276,10 +294,10 @@ def slerp(a, b, t):
 
     omega = acos(dot)
     sin_omega = sin(omega)
-    t_omega = t*omega
-    x = (sin(omega - t_omega) / sin_omega)
-    z = (sin(t_omega) / sin_omega)
-    y = - z if flip else z
+    t_omega = t * omega
+    x = sin(omega - t_omega) / sin_omega
+    z = sin(t_omega) / sin_omega
+    y = -z if flip else z
     return x * a + y * b
 
 
@@ -298,6 +316,4 @@ def hat(q):
     :param q:
     :return:
     """
-    return make(q[3], - q[2], q[1], -q[0])
-
-
+    return make(q[3], -q[2], q[1], -q[0])

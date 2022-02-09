@@ -4,10 +4,9 @@ import isl.math.vector3 as V3
 
 
 class CoordSys:
-
     def __init__(self):
-        self.q = Q.identity()      # Orientation stored as a quaternion
-        self.r = V3.zero()             # Position of Origin
+        self.q = Q.identity()  # Orientation stored as a quaternion
+        self.r = V3.zero()  # Position of Origin
 
 
 def make(r, q):
@@ -60,6 +59,5 @@ def make_coordsys_from_to(A, B):
     """
     A2B = CoordSys()
     A2B.q = Q.unit(Q.prod(Q.conjugate(B.q), A.q))
-    A2B.r = Q.rotate( Q.conjugate(B.q), A.r - B.r)
+    A2B.r = Q.rotate(Q.conjugate(B.q), A.r - B.r)
     return A2B
-

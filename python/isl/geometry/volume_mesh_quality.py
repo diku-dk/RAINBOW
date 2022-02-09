@@ -8,6 +8,7 @@ from isl.geometry.tetrahedron import is_left_orientation
 
 def vl(pi, pj, pk, pm):
     from math import fabs
+
     V = fabs(compute_signed_volume(pi, pj, pk, pm))
     Lij = V3.norm(pi - pj)
     Lik = V3.norm(pi - pk)
@@ -21,6 +22,7 @@ def vl(pi, pj, pk, pm):
 
 def rl(pi, pj, pk, pm):
     from math import sqrt
+
     Lij = V3.norm(pi - pj)
     Lik = V3.norm(pi - pk)
     Lim = V3.norm(pi - pm)
@@ -41,6 +43,7 @@ def rr(pi, pj, pk, pm):
 def theta(pi, pj, pk, pm):
     from math import fabs
     from math import sqrt
+
     V = fabs(compute_signed_volume(pi, pj, pk, pm))
     Eij = pi - pj
     Eik = pi - pk

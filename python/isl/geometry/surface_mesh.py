@@ -46,9 +46,9 @@ def scale_to_unit(mesh):
     :return:
     """
     (l, u) = aabb(mesh)
-    center = (l+u)/2.0
+    center = (l + u) / 2.0
     translate(mesh, -center)
-    s = 1.0 / np.max(u-l)
+    s = 1.0 / np.max(u - l)
     scale(mesh, s, s, s)
     translate(mesh, center)
 
@@ -81,35 +81,37 @@ def axis_sort(mesh, axis):
     new2old = sorted(range(len(mesh.T)), key=lambda k: triangle_mean[k])
     mesh.T = mesh.T[new2old]
 
-    
+
 def profile_sweep(profile, slices):
     N = len(profile)
     J = slices
 
     if N <= 2:
-        raise RuntimeError('profile_sweep(): Profile must have at least 3 points')
+        raise RuntimeError("profile_sweep(): Profile must have at least 3 points")
 
     if J <= 2:
-        raise RuntimeError('profile_sweep(): Sweep must have at least 3 slices to be a proper volume.')
+        raise RuntimeError(
+            "profile_sweep(): Sweep must have at least 3 slices to be a proper volume."
+        )
 
-    K = (N-2)*J + 2   # Total number of vertices
-    bottom = K-1      # Index to bottom vertex
-    top = K-2         # Index to top vertex
-    H = N-2           # Number of latitude circles
-    F = 2*J*(N-2)     # Total number of triangle faces
+    K = (N - 2) * J + 2  # Total number of vertices
+    bottom = K - 1  # Index to bottom vertex
+    top = K - 2  # Index to top vertex
+    H = N - 2  # Number of latitude circles
+    F = 2 * J * (N - 2)  # Total number of triangle faces
 
     V = np.zeros((K, 3), dtype=np.float64)
     T = np.zeros((F, 3), dtype=np.int)
 
     # Make a 2D grid of vertices by sweeping profile around y-axis
-    dtheta = 2.0 * np.pi / J     # The angle of each slice
+    dtheta = 2.0 * np.pi / J  # The angle of each slice
 
     v = 0
     for j in range(J):
         theta = j * dtheta
         R = Q.Ru(theta, V3.j())
         for i in range(H):
-            V[v, :] = Q.rotate(R, profile[i+1])
+            V[v, :] = Q.rotate(R, profile[i + 1])
             v = v + 1
 
     # Now fill in top and bottom vertices
@@ -128,25 +130,25 @@ def profile_sweep(profile, slices):
         # b 0 (N-2) | b (N-2) 2*(N-2)
         #
         left = j
-        right = ((j+1) % J)
+        right = (j + 1) % J
         vi = bottom
-        vj = H*right
-        vk = H*left
+        vj = H * right
+        vk = H * left
         T[f, :] = (vi, vj, vk)
         f = f + 1
 
     # Make faces for middle-rings
-    for i in range(H-1):     # ring number
-        for j in range(J):   # slice number
+    for i in range(H - 1):  # ring number
+        for j in range(J):  # slice number
             left = j
-            right = (j+1) % J
-            up = i+1
+            right = (j + 1) % J
+            up = i + 1
             down = i
 
-            vi = left*H + down
-            vj = right*H + down
-            vk = right*H + up
-            vm = left*H + up
+            vi = left * H + down
+            vj = right * H + down
+            vk = right * H + up
+            vm = left * H + up
 
             T[f, :] = (vi, vj, vk)
             f = f + 1
@@ -155,7 +157,7 @@ def profile_sweep(profile, slices):
 
     # Make faces for top - ring
     for j in range(J):
-        offset = (N - 3)
+        offset = N - 3
         left = j
         right = (j + 1) % J
 
@@ -170,14 +172,14 @@ def profile_sweep(profile, slices):
 
 
 def create_cylinder(radius, height, slices=12, segments=1):
-    profile = [V3.zero() for _ in range(segments+3)]
-    profile[0] = V3.make(0.0, -height/2.0, 0.0)
-    profile[1] = V3.make(radius, -height/2.0, 0.0)
-    dh = height/segments 
+    profile = [V3.zero() for _ in range(segments + 3)]
+    profile[0] = V3.make(0.0, -height / 2.0, 0.0)
+    profile[1] = V3.make(radius, -height / 2.0, 0.0)
+    dh = height / segments
     for i in range(segments):
-        h = dh*(i+1) - height/2.0
-        profile[i+2] = V3.make(radius, h, 0.0)
-    profile[-1] = V3.make(0.0, height/2.0, 0.0)
+        h = dh * (i + 1) - height / 2.0
+        profile[i + 2] = V3.make(radius, h, 0.0)
+    profile[-1] = V3.make(0.0, height / 2.0, 0.0)
     # profile = [
     #    V3.make(0.0, -height/2.0, 0.0),
     #    V3.make(radius, -height/2.0, 0.0),
@@ -191,7 +193,7 @@ def create_cone(radius, height, slices=12):
     profile = [
         V3.make(0.0, 0.0, 0.0),
         V3.make(radius, 0.0, 0.0),
-        V3.make(0.0, height, 0.0)
+        V3.make(0.0, height, 0.0),
     ]
     return profile_sweep(profile, slices)
 
@@ -201,23 +203,23 @@ def create_conical(bottom_radius, top_radius, height, slices=12):
         V3.make(0.0, 0.0, 0.0),
         V3.make(bottom_radius, 0.0, 0.0),
         V3.make(top_radius, height, 0.0),
-        V3.make(0.0, height, 0.0)
+        V3.make(0.0, height, 0.0),
     ]
     return profile_sweep(profile, slices)
 
 
 def create_sphere(radius, slices=12, segments=12):
     profile = [V3.zero() for _ in range(segments)]
-    dtheta = np.pi / (segments-1)
+    dtheta = np.pi / (segments - 1)
     for i in range(segments):
-        theta = dtheta*i
+        theta = dtheta * i
         R = Q.Ru(theta, V3.k())
         profile[i] = Q.rotate(R, V3.make(0.0, -radius, 0.0))
     return profile_sweep(profile, slices)
 
 
 def create_ellipsoid(a, b, c, slices=12, segments=12):
-    V, T = create_sphere(1.0,  slices, segments)
+    V, T = create_sphere(1.0, slices, segments)
     s = np.array((a, b, c), dtype=np.float64)
     for i in range(len(V)):
         V[i, :] = np.multiply(V[i, :], s)
@@ -226,11 +228,11 @@ def create_ellipsoid(a, b, c, slices=12, segments=12):
 
 def create_capsule(radius, height, slices=12, segments=12):
     profile = [V3.zero() for _ in range(segments)]
-    dtheta = np.pi / (segments-1)
+    dtheta = np.pi / (segments - 1)
     for i in range(segments):
-        theta = dtheta*i
+        theta = dtheta * i
         R = Q.Ru(theta, V3.k())
-        dh = -height/2.0 if i < (segments/2) else height/2.0
+        dh = -height / 2.0 if i < (segments / 2) else height / 2.0
         profile[i] = Q.rotate(R, V3.make(0.0, -radius, 0.0)) + V3.make(0.0, dh, 0.0)
     return profile_sweep(profile, slices)
 
@@ -263,12 +265,12 @@ def create_cuboid(p0, p1, p2, p3, p4, p5, p6, p7):
     V[7, :] = p7
 
     quads = [
-      [0, 1, 2, 3],  # front face
-      [4, 7, 6, 5],  # back face
-      [4, 0, 3, 7],  # left face
-      [1, 5, 6, 2],  # right face
-      [7, 3, 2, 6],  # top face
-      [5, 1, 0, 4],  # bottom face
+        [0, 1, 2, 3],  # front face
+        [4, 7, 6, 5],  # back face
+        [4, 0, 3, 7],  # left face
+        [1, 5, 6, 2],  # right face
+        [7, 3, 2, 6],  # top face
+        [5, 1, 0, 4],  # bottom face
     ]
 
     for i in range(6):
@@ -276,8 +278,8 @@ def create_cuboid(p0, p1, p2, p3, p4, p5, p6, p7):
         vj = quads[i][1]
         vk = quads[i][2]
         vm = quads[i][3]
-        T[i*2+0, :] = (vi, vj, vk)
-        T[i*2+1, :] = (vi, vk, vm)
+        T[i * 2 + 0, :] = (vi, vj, vk)
+        T[i * 2 + 1, :] = (vi, vk, vm)
     return V, T
 
 
@@ -287,13 +289,13 @@ def create_box(width, height, depth):
 
     V[0, :] = V3.make(-width, -height, -depth) * 0.5
     V[1, :] = V3.make(width, -height, -depth) * 0.5
-    V[3, :] = V3.make(width,  height, -depth) * 0.5
-    V[2, :] = V3.make(-width,  height, -depth) * 0.5
+    V[3, :] = V3.make(width, height, -depth) * 0.5
+    V[2, :] = V3.make(-width, height, -depth) * 0.5
 
-    V[4, :] = V3.make(-width, -height,  depth) * 0.5
-    V[5, :] = V3.make(width, -height,  depth) * 0.5
-    V[7, :] = V3.make(width,  height,  depth) * 0.5
-    V[6, :] = V3.make(-width,  height,  depth) * 0.5
+    V[4, :] = V3.make(-width, -height, depth) * 0.5
+    V[5, :] = V3.make(width, -height, depth) * 0.5
+    V[7, :] = V3.make(width, height, depth) * 0.5
+    V[6, :] = V3.make(-width, height, depth) * 0.5
     #
     #          6                        7
     #
@@ -335,8 +337,9 @@ def create_convex_hull(points):
     """
     # TODO 2021-05-08 Kenny: Replace with libigl functionality when available in python.
     from pyhull.convex_hull import ConvexHull
+
     H = ConvexHull(points)
-    N = len(H.points)    # Number of vertices
+    N = len(H.points)  # Number of vertices
     K = len(H.vertices)  # Number of triangles
     V = np.zeros((N, 3), dtype=np.float64)
     T = np.zeros((K, 3), dtype=np.int)

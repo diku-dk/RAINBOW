@@ -25,28 +25,28 @@ class MassProperties:
         self.Iyz = 0.0
 
     def __str__(self):
-        layout = '.2f'
-        txt = '( m='
+        layout = ".2f"
+        txt = "( m="
         txt = txt + format(self.mass, layout)
-        txt += ', x='
+        txt += ", x="
         txt = txt + format(self.x, layout)
-        txt += ', y='
+        txt += ", y="
         txt = txt + format(self.y, layout)
-        txt += ', z='
+        txt += ", z="
         txt = txt + format(self.z, layout)
-        txt += ', Ixx='
+        txt += ", Ixx="
         txt = txt + format(self.Ixx, layout)
-        txt += ', Iyy='
+        txt += ", Iyy="
         txt = txt + format(self.Iyy, layout)
-        txt += ', Izz='
+        txt += ", Izz="
         txt = txt + format(self.Izz, layout)
-        txt += ', Ixy='
+        txt += ", Ixy="
         txt = txt + format(self.Ixy, layout)
-        txt += ', Ixz='
+        txt += ", Ixz="
         txt = txt + format(self.Ixz, layout)
-        txt += ', Iyz='
+        txt += ", Iyz="
         txt = txt + format(self.Iyz, layout)
-        txt += ')'
+        txt += ")"
         return txt
 
 
@@ -75,7 +75,7 @@ def __compute_projected_face_integral(V, T, idx, X, Y):
     Pabb = 0.0
     for e in range(3):
         i0 = e
-        i1 = (e + 1) % 3        
+        i1 = (e + 1) % 3
         v0 = V[T[idx, i0], :]
         v1 = V[T[idx, i1], :]
         a0 = v0[X]
@@ -162,7 +162,7 @@ def compute_mass_properties(V, T, density: float):
         # Compute face plane of triangle, n: normal, w: offset to origin
         n = V3.unit(V3.cross(pj - pi, pk - pi))
         p_avg = (pi + pj + pk) / 3.0
-        w = - np.dot(n, p_avg)
+        w = -np.dot(n, p_avg)
 
         Z = V3.max_abs_component(n)
         X = (Z + 1) % 3
@@ -177,31 +177,47 @@ def compute_mass_properties(V, T, density: float):
         k3 = k2 * k1
         k4 = k3 * k1
 
-        (P1, Pa, Paa, Paaa, Pb, Pbb, Pbbb, Pab, Paab, Pabb) = __compute_projected_face_integral(V, T, idx, X, Y)
+        (
+            P1,
+            Pa,
+            Paa,
+            Paaa,
+            Pb,
+            Pbb,
+            Pbbb,
+            Pab,
+            Paab,
+            Pabb,
+        ) = __compute_projected_face_integral(V, T, idx, X, Y)
 
         Fa = k1 * Pa
         Fb = k1 * Pb
         Fc = -k2 * (nA * Pa + nB * Pb + w * P1)
         Faa = k1 * Paa
         Fbb = k1 * Pbb
-        Fcc = k3 * (nA * nA * Paa + 2.0 * nA * nB * Pab + nB * nB * Pbb + w * (2.0 * (nA * Pa + nB * Pb) + w * P1))
+        Fcc = k3 * (
+            nA * nA * Paa
+            + 2.0 * nA * nB * Pab
+            + nB * nB * Pbb
+            + w * (2.0 * (nA * Pa + nB * Pb) + w * P1)
+        )
         Faaa = k1 * Paaa
         Fbbb = k1 * Pbbb
         Fccc = -k4 * (
-                nA * nA * nA * Paaa +
-                3.0 * nA * nA * nB * Paab +
-                3.0 * nA * nB * nB * Pabb +
-                nB * nB * nB * Pbbb +
-                3.0 * w * (nA * nA * Paa + 2.0 * nA * nB * Pab + nB * nB * Pbb) +
-                w * w * (3.0 * (nA * Pa + nB * Pb) + w * P1)
+            nA * nA * nA * Paaa
+            + 3.0 * nA * nA * nB * Paab
+            + 3.0 * nA * nB * nB * Pabb
+            + nB * nB * nB * Pbbb
+            + 3.0 * w * (nA * nA * Paa + 2.0 * nA * nB * Pab + nB * nB * Pbb)
+            + w * w * (3.0 * (nA * Pa + nB * Pb) + w * P1)
         )
         Faab = k1 * Paab
         Fbbc = -k2 * (nA * Pabb + nB * Pbbb + w * Pbb)
         Fcca = k3 * (
-                nA * nA * Paaa +
-                2.0 * nA * nB * Paab +
-                nB * nB * Pabb +
-                w * (2.0 * (nA * Paa + nB * Pab) + w * Pa)
+            nA * nA * Paaa
+            + 2.0 * nA * nB * Paab
+            + nB * nB * Pabb
+            + w * (2.0 * (nA * Paa + nB * Pab) + w * Pa)
         )
         if X == 0:
             T0 += n[0] * Fa
@@ -239,11 +255,13 @@ def compute_mass_properties(V, T, density: float):
         prop.Ixx = density * (T2[1] + T2[2])
         prop.Iyy = density * (T2[2] + T2[0])
         prop.Izz = density * (T2[0] + T2[1])
-        prop.Ixy = - density * TP[0]
-        prop.Iyz = - density * TP[1]
-        prop.Ixz = - density * TP[2]
+        prop.Ixy = -density * TP[0]
+        prop.Iyz = -density * TP[1]
+        prop.Ixz = -density * TP[2]
     else:
-        raise RuntimeError('compute_mass_properties(): internal error, bad mesh encountered')
+        raise RuntimeError(
+            "compute_mass_properties(): internal error, bad mesh encountered"
+        )
     too_small = 1.0e-10
     prop.mass = prop.mass if prop.mass > too_small else 0.0
     prop.Ixx = prop.Ixx if prop.Ixx > too_small else 0.0
@@ -265,19 +283,20 @@ def __rotate_to_model_space_orientation(prop):
     :return:       Mass properties rotated into body frame.
     """
     A = M3.make(
-        prop.Ixx, prop.Ixy, prop.Ixz,
-        prop.Ixy, prop.Iyy, prop.Iyz,
-        prop.Ixz, prop.Iyz, prop.Izz
+        prop.Ixx,
+        prop.Ixy,
+        prop.Ixz,
+        prop.Ixy,
+        prop.Iyy,
+        prop.Iyz,
+        prop.Ixz,
+        prop.Iyz,
+        prop.Izz,
     )
 
     d, R = np.linalg.eig(A)
 
-    permutations = [[0, 1, 2],
-                    [0, 2, 1],
-                    [1, 0, 2],
-                    [2, 0, 1],
-                    [1, 2, 0],
-                    [2, 1, 0]]
+    permutations = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [2, 0, 1], [1, 2, 0], [2, 1, 0]]
 
     order = [0, 0, 0]
     for p in permutations:
@@ -290,7 +309,7 @@ def __rotate_to_model_space_orientation(prop):
 
     # Ensure we have a special orthogonal matrix
     if np.linalg.det(R) < 0.0:
-        R[:, 0] = - R[:, 0]
+        R[:, 0] = -R[:, 0]
 
     q = Q.from_matrix(R)  # from body space to model space
 
@@ -312,9 +331,9 @@ def __translate_to_body_space_origin(prop_model):
 
     # Translation to apply to model space coordinates to get into body space coordinates
     #  (assuming coordinate frames are aligned)
-    x = - prop_model.x
-    y = - prop_model.y
-    z = - prop_model.z
+    x = -prop_model.x
+    y = -prop_model.y
+    z = -prop_model.z
 
     prop_body.Ixx = prop_model.Ixx - m * (y * y + z * z)
     prop_body.Iyy = prop_model.Iyy - m * (x * x + z * z)
@@ -355,7 +374,7 @@ def xform_model_2_body_space(prop):
     #   | p_mf | = |  q -r | | p_bf |
     #   |  1   |   |  0  1 | | 1    |
     #
-    r_bf2mf = - r
+    r_bf2mf = -r
     q_bf2mf = q
 
     return r_bf2mf, q_bf2mf, m, I_body
@@ -374,7 +393,7 @@ def update_inertia_tensor(R, Bv):
     :param Bv: An inertia tensor entity in body frame (ie a vector not a matrix)
     :return: The inertia tensor entity in the corresponding world frame.
     """
-    '''
+    """
       KE 30-08-2004: The formulas below was computed using Matlab, that is
       syms R00 R01 R02  R10 R11 R12 R20 R21 R22 real;
       syms I00 I01 I02  I10 I11 I12 I20 I21 I22 real;
@@ -382,16 +401,40 @@ def update_inertia_tensor(R, Bv):
       R = [ R00, R01 , R02; R10, R11, R12; R20, R21, R22]
       W = R*I*R'
       simplify(W)
-    '''
+    """
     # RT = np.transpose(R)
     # I = M3.diag_from_array(Bv)
     # W = R.dot(I.dot(RT))
     # TODO 2017-02-12 Kenny : We can hand optimize this to exploit zero-pattern of Bv
     W = M3.zero()
-    W[0, 0] = R[0, 0] * R[0, 0] * Bv[0] + R[0, 1] * R[0, 1] * Bv[1] + R[0, 2] * R[0, 2] * Bv[2]
-    W[1, 1] = R[1, 0] * R[1, 0] * Bv[0] + R[1, 1] * R[1, 1] * Bv[1] + R[1, 2] * R[1, 2] * Bv[2]
-    W[2, 2] = R[2, 0] * R[2, 0] * Bv[0] + R[2, 1] * R[2, 1] * Bv[1] + R[2, 2] * R[2, 2] * Bv[2]
-    W[1, 0] = W[0, 1] = R[1, 0] * R[0, 0] * Bv[0] + R[1, 1] * R[0, 1] * Bv[1] + R[1, 2] * R[0, 2] * Bv[2]
-    W[2, 0] = W[0, 2] = R[2, 0] * R[0, 0] * Bv[0] + R[2, 1] * R[0, 1] * Bv[1] + R[2, 2] * R[0, 2] * Bv[2]
-    W[2, 1] = W[1, 2] = R[1, 0] * R[2, 0] * Bv[0] + R[1, 1] * R[2, 1] * Bv[1] + R[1, 2] * R[2, 2] * Bv[2]
+    W[0, 0] = (
+        R[0, 0] * R[0, 0] * Bv[0]
+        + R[0, 1] * R[0, 1] * Bv[1]
+        + R[0, 2] * R[0, 2] * Bv[2]
+    )
+    W[1, 1] = (
+        R[1, 0] * R[1, 0] * Bv[0]
+        + R[1, 1] * R[1, 1] * Bv[1]
+        + R[1, 2] * R[1, 2] * Bv[2]
+    )
+    W[2, 2] = (
+        R[2, 0] * R[2, 0] * Bv[0]
+        + R[2, 1] * R[2, 1] * Bv[1]
+        + R[2, 2] * R[2, 2] * Bv[2]
+    )
+    W[1, 0] = W[0, 1] = (
+        R[1, 0] * R[0, 0] * Bv[0]
+        + R[1, 1] * R[0, 1] * Bv[1]
+        + R[1, 2] * R[0, 2] * Bv[2]
+    )
+    W[2, 0] = W[0, 2] = (
+        R[2, 0] * R[0, 0] * Bv[0]
+        + R[2, 1] * R[0, 1] * Bv[1]
+        + R[2, 2] * R[0, 2] * Bv[2]
+    )
+    W[2, 1] = W[1, 2] = (
+        R[1, 0] * R[2, 0] * Bv[0]
+        + R[1, 1] * R[2, 1] * Bv[1]
+        + R[1, 2] * R[2, 2] * Bv[2]
+    )
     return W

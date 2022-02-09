@@ -7,7 +7,6 @@ import isl.geometry.surface_mesh as MESH
 
 
 class _ShapeHelper:
-
     @staticmethod
     def make_mesh_node(V, F, color=None, opacity_value=1.0, wire_frame_on=False):
         F = F.astype(dtype=np.uint32, copy=True).ravel()
@@ -32,23 +31,26 @@ class _ShapeHelper:
         opacity_value = np.clip(opacity_value, 0.0, 1.0)
         transparency_value = True if opacity_value < 1.0 else False
 
-        attributes = {"color": p3js.BufferAttribute(attribute_colors),
-                      "index": p3js.BufferAttribute(F, normalized=False),
-                      "position": p3js.BufferAttribute(V, normalized=False)}
+        attributes = {
+            "color": p3js.BufferAttribute(attribute_colors),
+            "index": p3js.BufferAttribute(F, normalized=False),
+            "position": p3js.BufferAttribute(V, normalized=False),
+        }
 
         geometry = p3js.BufferGeometry(attributes=attributes)
-        material = p3js.MeshStandardMaterial(vertexColors='VertexColors',
-                                             reflectivity=1.0,
-                                             side='FrontSide',
-                                             roughness=0.5,
-                                             metalness=0.25,
-                                             flatShading=True,
-                                             polygonOffset=True,
-                                             polygonOffsetFactor=1,
-                                             polygonOffsetUnits=5,
-                                             opacity=opacity_value,
-                                             transparent=transparency_value
-                                             )
+        material = p3js.MeshStandardMaterial(
+            vertexColors="VertexColors",
+            reflectivity=1.0,
+            side="FrontSide",
+            roughness=0.5,
+            metalness=0.25,
+            flatShading=True,
+            polygonOffset=True,
+            polygonOffsetFactor=1,
+            polygonOffsetUnits=5,
+            opacity=opacity_value,
+            transparent=transparency_value,
+        )
         mesh = p3js.Mesh(geometry=geometry, material=material)
         if wire_frame_on:
             wf_geometry = p3js.WireframeGeometry(mesh.geometry)
@@ -56,7 +58,7 @@ class _ShapeHelper:
             wire_frame = p3js.LineSegments(wf_geometry, wf_material)
             mesh.add(wire_frame)
 
-        mesh.geometry.exec_three_obj_method('computeVertexNormals')
+        mesh.geometry.exec_three_obj_method("computeVertexNormals")
         return mesh
 
     @staticmethod
@@ -70,7 +72,7 @@ class _ShapeHelper:
             wf_material = p3js.LineBasicMaterial(color="#AAAA00", linewidth=0.01)
             wire_frame = p3js.LineSegments(wf_geometry, wf_material)
             mesh.children = (wire_frame,)
-        mesh.geometry.exec_three_obj_method('computeVertexNormals')
+        mesh.geometry.exec_three_obj_method("computeVertexNormals")
 
     @staticmethod
     def make_arrow_node(color):
@@ -92,7 +94,6 @@ class _ShapeHelper:
 
 
 class _QuiverHelper:
-
     @staticmethod
     def create_quiver_node(V, N, scale=1.0, color=(0.1, 0.1, 0.7)):
         quiver = p3js.Group()
@@ -149,7 +150,6 @@ class _QuiverHelper:
 
 
 class Viewer:
-
     def __init__(self, width=600, height=480):
         self.quivers = {}
         self.meshes = {}
@@ -157,36 +157,41 @@ class Viewer:
         self.height = int(height)
         self.aspect = 1.0 * self.width / self.height
         self.fov = 30.0
-        self.flash_light = p3js.DirectionalLight(color='white',
-                                                 position=[0, 0, 1],
-                                                 intensity=0.6
-                                                 )
+        self.flash_light = p3js.DirectionalLight(
+            color="white", position=[0, 0, 1], intensity=0.6
+        )
         self.sun_light = p3js.AmbientLight(intensity=0.5)
-        self.camera = p3js.PerspectiveCamera(position=[0, 0, 20],
-                                             lookAt=[0, 0, 0],
-                                             fov=self.fov,
-                                             aspect=self.aspect,
-                                             children=[self.flash_light]
-                                             )
+        self.camera = p3js.PerspectiveCamera(
+            position=[0, 0, 20],
+            lookAt=[0, 0, 0],
+            fov=self.fov,
+            aspect=self.aspect,
+            children=[self.flash_light],
+        )
         self.orbit = p3js.OrbitControls(controlling=self.camera)
-        self.scene = p3js.Scene(children=[self.camera, self.sun_light],
-                                background="#FFFFFF"
-                                )
-        self.renderer = p3js.Renderer(camera=self.camera,
-                                      scene=self.scene,
-                                      controls=[self.orbit],
-                                      width=self.width,
-                                      height=self.height,
-                                      antialias=True
-                                      )
+        self.scene = p3js.Scene(
+            children=[self.camera, self.sun_light], background="#FFFFFF"
+        )
+        self.renderer = p3js.Renderer(
+            camera=self.camera,
+            scene=self.scene,
+            controls=[self.orbit],
+            width=self.width,
+            height=self.height,
+            antialias=True,
+        )
 
     def show(self):
         display(self.renderer)
 
-    def create_mesh(self, name, V, T, color=None, opacity_value=1.0, wire_frame_on=True):
+    def create_mesh(
+        self, name, V, T, color=None, opacity_value=1.0, wire_frame_on=True
+    ):
         if name in self.meshes:
             raise ValueError("Mesh with that name already exists")
-        mesh_node = _ShapeHelper.make_mesh_node(V, T, color, opacity_value, wire_frame_on)
+        mesh_node = _ShapeHelper.make_mesh_node(
+            V, T, color, opacity_value, wire_frame_on
+        )
         self.meshes[name] = mesh_node
         self.scene.add(mesh_node)
 
