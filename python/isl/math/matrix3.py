@@ -25,15 +25,19 @@ def ones():
 
 
 def make(A00, A01, A02, A10, A11, A12, A20, A21, A22):
-    return np.array([[A00, A01, A02], [A10, A11, A12], [A20, A21, A22]], dtype=np.float64)
+    return np.array(
+        [[A00, A01, A02], [A10, A11, A12], [A20, A21, A22]], dtype=np.float64
+    )
 
 
-def make_from_rows( row0, row1, row2):
+def make_from_rows(row0, row1, row2):
     return np.array([row0, row1, row2], dtype=np.float64)
 
 
-def make_from_cols( col0, col1, col2):
-    return make(col0[0],col1[0],col2[0],col0[1],col1[1],col2[1],col0[2],col1[2],col2[2])
+def make_from_cols(col0, col1, col2):
+    return make(
+        col0[0], col1[0], col2[0], col0[1], col1[1], col2[1], col0[2], col1[2], col2[2]
+    )
 
 
 def star(v):
@@ -43,7 +47,9 @@ def star(v):
     :param v:
     :return:
     """
-    return np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]], dtype=np.float64)
+    return np.array(
+        [[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]], dtype=np.float64
+    )
 
 
 def ortonormalize(A):
@@ -113,14 +119,18 @@ def polar_decomposition(A):
     eigvals, eigvecs = np.linalg.eigh(S2)
 
     # Check that all eigenvalues are positive
-    if not (eigvals>0).all():
+    if not (eigvals > 0).all():
         raise ValueError("polar_decomposition(): Not all eigenvalues are positive")
 
     v0 = V3.make(eigvecs[0, 0], eigvecs[1, 0], eigvecs[2, 0])
     v1 = V3.make(eigvecs[0, 1], eigvecs[1, 1], eigvecs[2, 1])
     v2 = V3.make(eigvecs[0, 2], eigvecs[1, 2], eigvecs[2, 2])
 
-    S = np.outer(v0, v0) * np.sqrt(eigvals[0]) + np.outer(v1, v1) * np.sqrt(eigvals[1]) + np.outer(v2, v2) * np.sqrt(eigvals[2])
+    S = (
+        np.outer(v0, v0) * np.sqrt(eigvals[0])
+        + np.outer(v1, v1) * np.sqrt(eigvals[1])
+        + np.outer(v2, v2) * np.sqrt(eigvals[2])
+    )
     R = np.matmul(A, np.linalg.inv(S))
     return R, S
 
@@ -142,16 +152,16 @@ def polar_decomposition_array(As):
     eigvals, eigvecs = np.linalg.eigh(S2)
 
     # Check that all eigenvalues are positive
-    if not (eigvals>0).all():
+    if not (eigvals > 0).all():
         raise ValueError("polar_decomposition(): Not all eigenvalues are positive")
 
     v0 = eigvecs[:, :, 0]
     v1 = eigvecs[:, :, 1]
     v2 = eigvecs[:, :, 2]
 
-    first_term = v0[..., None]*v0[:, None] * np.sqrt(eigvals[:,0])[:, None, None]
-    second_term = v1[..., None]*v1[:, None] * np.sqrt(eigvals[:,1])[:, None, None]
-    third_term = v2[..., None]*v2[:, None] * np.sqrt(eigvals[:,2])[:, None, None]
+    first_term = v0[..., None] * v0[:, None] * np.sqrt(eigvals[:, 0])[:, None, None]
+    second_term = v1[..., None] * v1[:, None] * np.sqrt(eigvals[:, 1])[:, None, None]
+    third_term = v2[..., None] * v2[:, None] * np.sqrt(eigvals[:, 2])[:, None, None]
     S = first_term + second_term + third_term
 
     R = np.matmul(As, np.linalg.inv(S))

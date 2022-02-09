@@ -4,9 +4,9 @@ from math import atan2, asin, pi
 
 class EulerXYZ:
     def __init__(self, alpha, beta, gamma):
-        self.alpha = alpha       # Rotation angle around x-axis in radians
-        self.beta = beta         # Rotation angle around y-axis in radians
-        self.gamma = gamma       # Rotation angle around z-axis in radians
+        self.alpha = alpha  # Rotation angle around x-axis in radians
+        self.beta = beta  # Rotation angle around y-axis in radians
+        self.gamma = gamma  # Rotation angle around z-axis in radians
 
 
 def make_euler_xyz_from_matrix(R):
@@ -20,7 +20,7 @@ def make_euler_xyz_from_matrix(R):
 
     if r20 >= 1.0:
         rz = atan2(-r01, -r02)
-        ry = - pi / 2.0
+        ry = -pi / 2.0
         rx = 0.0
     elif r20 <= -1.0:
         rz = atan2(-r01, r02)

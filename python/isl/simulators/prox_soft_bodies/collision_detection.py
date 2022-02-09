@@ -21,7 +21,7 @@ def _update_bvh(engine, stats, debug_on):
     """
     update_bvh_timer = None
     if debug_on:
-        update_bvh_timer = Timer('update_bvh')
+        update_bvh_timer = Timer("update_bvh")
         update_bvh_timer.start()
     for body in engine.bodies.values():
         # Bounding volume hierarchy (BVH) traversal testing is done
@@ -30,15 +30,11 @@ def _update_bvh(engine, stats, debug_on):
         # reflect its current world space position. That is we used the current
         # spatial coordinates of the soft bodies to refit the BVs in the BVH tree.
         BVH.refit_bvh(
-            body.x,
-            body.surface,
-            body.bvh,
-            engine.params.K,
-            engine.params.envelope
-            )
+            body.x, body.surface, body.bvh, engine.params.K, engine.params.envelope
+        )
     if debug_on:
         update_bvh_timer.end()
-        stats['update_bvh'] = update_bvh_timer.elapsed
+        stats["update_bvh"] = update_bvh_timer.elapsed
     return stats
 
 
@@ -53,7 +49,7 @@ def _narrow_phase(engine, stats, debug_on):
     """
     narrow_phase_timer = None
     if debug_on:
-        narrow_phase_timer = Timer('narrow_phase', 8)
+        narrow_phase_timer = Timer("narrow_phase", 8)
         narrow_phase_timer.start()
     # We do not currently have any intelligent broad phase collision detection system to identify a pair
     # of sufficiently close bodies. Hence, we simply just test all possible pair of bodies for collision. This
@@ -73,8 +69,10 @@ def _narrow_phase(engine, stats, debug_on):
             overlaps[(bodyA, bodyB)] = np.array(results, dtype=np.int32)
     if debug_on:
         narrow_phase_timer.end()
-        stats['narrow_phase'] = narrow_phase_timer.elapsed
-        stats['number_of_overlaps'] = np.sum([len(results) for results in overlaps.values()])
+        stats["narrow_phase"] = narrow_phase_timer.elapsed
+        stats["number_of_overlaps"] = np.sum(
+            [len(results) for results in overlaps.values()]
+        )
     return overlaps, stats
 
 
@@ -87,9 +85,9 @@ def _xform_triangle_to_model_space(P, X, X0):
     :param X0:  The input tetrahedron corners in material space.
     :return:    The return values are the triangle corner points in tetrahedron B's material coordinate space.
     """
-    assert(P.shape == (3, 3))
-    assert(X.shape == (4, 3))
-    assert(X0.shape == (4, 3))
+    assert P.shape == (3, 3)
+    assert X.shape == (4, 3)
+    assert X0.shape == (4, 3)
     P0 = np.zeros(P.shape, dtype=np.float64)
     w0 = BC.compute_barycentric_tetrahedron(X[0], X[1], X[2], X[3], P[0])
     w1 = BC.compute_barycentric_tetrahedron(X[0], X[1], X[2], X[3], P[1])
@@ -117,8 +115,8 @@ def _xform_contact_to_world(p, n, XA, XB, X0B):
     omegaB = BC.compute_barycentric_tetrahedron(X0B[0], X0B[1], X0B[2], X0B[3], p)
     p = np.dot(XB.T, omegaB)
     omegaA = BC.compute_barycentric_tetrahedron(XA[0], XA[1], XA[2], XA[3], p)
-    D = XB[0:3]-XB[3]
-    D0 = X0B[0:3]-X0B[3]
+    D = XB[0:3] - XB[3]
+    D0 = X0B[0:3] - X0B[3]
     n = D.dot(np.linalg.solve(D0, n))
     return p, n, omegaA, omegaB
 
@@ -138,25 +136,27 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
     model_space_update_timer = None
     contact_point_generation_timer = None
     if debug_on:
-        model_space_update_timer = Timer('model_space_update')
-        contact_optimization_timer = Timer('contact_optimization')
-        contact_point_generation_timer = Timer('contact_point_generation')
+        model_space_update_timer = Timer("model_space_update")
+        contact_optimization_timer = Timer("contact_optimization")
+        contact_point_generation_timer = Timer("contact_point_generation")
 
     # Loop over all triangles from body A that are colliding with body B
     for k in range(len(results)):
-        idx_triA, idx_triB = results[k]    # Get the triangle face indices
-        idx_tetA = bodyA.owner[idx_triA]   # Get index of tetrahedron that f_a comes from
-        idx_tetB = bodyB.owner[idx_triB]   # Get index of tetrahedron that f_b comes from
+        idx_triA, idx_triB = results[k]  # Get the triangle face indices
+        idx_tetA = bodyA.owner[idx_triA]  # Get index of tetrahedron that f_a comes from
+        idx_tetB = bodyB.owner[idx_triB]  # Get index of tetrahedron that f_b comes from
 
         if debug_on:
             contact_optimization_timer.start()
             model_space_update_timer.start()
 
         # Transform triangle A into model coordinates of body B.
-        P = bodyA.x[idx_triA, :]    # Triangle face A vertices in world space
-        XB = bodyB.x[idx_tetB, :]    # Tetrahedron B vertices in world space
+        P = bodyA.x[idx_triA, :]  # Triangle face A vertices in world space
+        XB = bodyB.x[idx_tetB, :]  # Tetrahedron B vertices in world space
         X0B = bodyB.x0[idx_tetB, :]  # Tetrahedron B vertices in material space
-        P0 = _xform_triangle_to_model_space(P, XB, X0B)  # Vertices of triangle A in the body space of body B.
+        P0 = _xform_triangle_to_model_space(
+            P, XB, X0B
+        )  # Vertices of triangle A in the body space of body B.
 
         if debug_on:
             model_space_update_timer.end()
@@ -169,7 +169,9 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
         # corner vertices of body A's triangle then we compute the norm of the gradients at
         # corner points of the triangle, and lastly we pick the corner point with the smallest
         # gradient norm.
-        gradients = np.linalg.norm([GRID.get_gradient(bodyB.grid, p_b) for p_b in P0], axis=1)
+        gradients = np.linalg.norm(
+            [GRID.get_gradient(bodyB.grid, p_b) for p_b in P0], axis=1
+        )
         x_i = P0[np.argmin(gradients)]
 
         # Next we are ready for performing the actual optimization, and we set up
@@ -186,8 +188,8 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
             # Knowing that 's_i' has a "better" descent direction we update 'x_i' by "dragging" it
             # in the direction of 's_i'. The step-size that we update 'x_i' with is given by alpha.
             # We decrease the value of alpha as we iterate to ensure we do not overstep our minimizer.
-            alpha = 2/(i+2)
-            x_i = x_i + alpha*(s_i - x_i)
+            alpha = 2 / (i + 2)
+            x_i = x_i + alpha * (s_i - x_i)
             # Before continuing to the next iterate we check for convergence to see if we can make
             # an early exit. We use a simple tolerance test. Note that our "objective" is more like the directional
             # derivative. Hence, if the smallest directional derivative gets slightly positive then it means we will
@@ -215,21 +217,23 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
                 if V3.norm(n) > 0:
                     XA = bodyB.x[idx_tetA, :]  # Tetrahedron A vertices in world space
                     p, n, omegaA, omegaB = _xform_contact_to_world(x_i, n, XA, XB, X0B)
-                    cp = ContactPoint(bodyB, bodyA, idx_tetB, idx_tetA, omegaB, omegaA, p, n, gap)
+                    cp = ContactPoint(
+                        bodyB, bodyA, idx_tetB, idx_tetA, omegaB, omegaA, p, n, gap
+                    )
                     engine.contact_points.append(cp)
         if debug_on:
             contact_point_generation_timer.end()
     # Before we exit we just make sure we collect any stats and timings.
     if debug_on:
-        if 'model_space_update' not in stats:
-            stats['model_space_update'] = 0
-        stats['model_space_update'] += model_space_update_timer.total
-        if 'contact_optimization' not in stats:
-            stats['contact_optimization'] = 0
-        stats['contact_optimization'] += contact_optimization_timer.total
-        if 'contact_point_generation' not in stats:
-            stats['contact_point_generation'] = 0
-        stats['contact_point_generation'] += contact_point_generation_timer.total
+        if "model_space_update" not in stats:
+            stats["model_space_update"] = 0
+        stats["model_space_update"] += model_space_update_timer.total
+        if "contact_optimization" not in stats:
+            stats["contact_optimization"] = 0
+        stats["contact_optimization"] += contact_optimization_timer.total
+        if "contact_point_generation" not in stats:
+            stats["contact_point_generation"] = 0
+        stats["contact_point_generation"] += contact_point_generation_timer.total
     return stats
 
 
@@ -244,7 +248,7 @@ def _contact_determination(overlaps, engine, stats, debug_on):
     """
     contact_determination_timer = None
     if debug_on:
-        contact_determination_timer = Timer('contact_determination', 8)
+        contact_determination_timer = Timer("contact_determination", 8)
         contact_determination_timer.start()
     engine.contact_points = []
     for key, results in overlaps.items():
@@ -253,23 +257,22 @@ def _contact_determination(overlaps, engine, stats, debug_on):
         #  the triangle pair information to warp a triangle from local space of one body
         #  into the local SDF space of the other body. However, we just need one pair where
         #  a specific triangle is part of, not all pairs where the triangle is part of.
-        _compute_contacts(engine,
-                          stats,
-                          key[0],  # Body A
-                          key[1],  # Body B
-                          results,
-                          debug_on
-                          )
-        _compute_contacts(engine,
-                          stats,
-                          key[1],  # Body B
-                          key[0],  # Body A
-                          results[:, [1, 0]],  # Observe we swap columns because role of body A and body B is swapped.
-                          debug_on
-                          )
+        _compute_contacts(
+            engine, stats, key[0], key[1], results, debug_on  # Body A  # Body B
+        )
+        _compute_contacts(
+            engine,
+            stats,
+            key[1],  # Body B
+            key[0],  # Body A
+            results[
+                :, [1, 0]
+            ],  # Observe we swap columns because role of body A and body B is swapped.
+            debug_on,
+        )
     if debug_on:
         contact_determination_timer.end()
-        stats['contact_determination'] = contact_determination_timer.elapsed
+        stats["contact_determination"] = contact_determination_timer.elapsed
     return stats
 
 
@@ -291,21 +294,23 @@ def _contact_reduction(engine, stats, debug_on):
     """
     reduction_timer = None
     if debug_on:
-        reduction_timer = Timer('contact_point_reduction', 8)
+        reduction_timer = Timer("contact_point_reduction", 8)
         reduction_timer.start()
     # TODO 2020-09-07 Kristian: This brute force implementation can be implemented better
     reduced_list = []
     for cp1 in engine.contact_points:
         unique = True
         for cp2 in reduced_list:
-            if {cp1.bodyA, cp1.bodyB} == {cp2.bodyA, cp2.bodyB} and (cp1.p == cp2.p).all():
+            if {cp1.bodyA, cp1.bodyB} == {cp2.bodyA, cp2.bodyB} and (
+                cp1.p == cp2.p
+            ).all():
                 unique = False
         if unique:
             reduced_list.append(cp1)
     engine.contact_points = reduced_list
     if debug_on:
         reduction_timer.end()
-        stats['contact_point_reduction'] = reduction_timer.elapsed
+        stats["contact_point_reduction"] = reduction_timer.elapsed
     return stats
 
 
@@ -324,7 +329,7 @@ def run_collision_detection(engine, stats, debug_on):
     """
     collision_detection_timer = None
     if debug_on:
-        collision_detection_timer = Timer('collision_detection')
+        collision_detection_timer = Timer("collision_detection")
         collision_detection_timer.start()
     stats = _update_bvh(engine, stats, debug_on)
     overlaps, stats = _narrow_phase(engine, stats, debug_on)
@@ -332,5 +337,5 @@ def run_collision_detection(engine, stats, debug_on):
     stats = _contact_reduction(engine, stats, debug_on)
     if debug_on:
         collision_detection_timer.end()
-        stats['collision_detection_time'] = collision_detection_timer.elapsed
+        stats["collision_detection_time"] = collision_detection_timer.elapsed
     return stats

@@ -2,7 +2,7 @@ import numpy as np
 
 
 def zero():
-    return np.zeros((3, ), dtype=np.float64)
+    return np.zeros((3,), dtype=np.float64)
 
 
 def ones():
@@ -18,26 +18,26 @@ def make_vec4(x, y, z, w):
 
 
 def from_string(value):
-    if value == 'ones':
+    if value == "ones":
         return ones()
 
-    if value == 'zero':
+    if value == "zero":
         return zero()
 
-    if value == 'i':
+    if value == "i":
         return i()
 
-    if value == 'j':
+    if value == "j":
         return j()
 
-    if value == 'k':
+    if value == "k":
         return k()
 
-    if value.startswith('rand:'):
-        (lower_str, upper_str) = value.strip('rand:').split(':')
+    if value.startswith("rand:"):
+        (lower_str, upper_str) = value.strip("rand:").split(":")
         return rand(float(lower_str), float(upper_str))
 
-    return np.fromstring(value.strip('[]'), dtype=np.float64, count=3, sep=',')
+    return np.fromstring(value.strip("[]"), dtype=np.float64, count=3, sep=",")
 
 
 def i():
@@ -141,26 +141,26 @@ def greather_than_equal(a, b):
     return not less(a, b)
 
 
-if __name__ == '__main__':
-    print(max_abs_component(np.array([1.0, 0.0, 0.0], )))
-    print(max_abs_component(np.array([-1.0, 0.0, 0.0], )))
-    print(max_abs_component( np.array([0.0, 1.0, 0.0], )))
-    print(max_abs_component(np.array([0.0, -1.0, 0.0], )))
-    print(max_abs_component( np.array([0.0, 0.0, 1.0], )))
-    print(max_abs_component(np.array([0.0, 0.0, -1.0], )))
+if __name__ == "__main__":
+    print(max_abs_component(np.array([1.0, 0.0, 0.0],)))
+    print(max_abs_component(np.array([-1.0, 0.0, 0.0],)))
+    print(max_abs_component(np.array([0.0, 1.0, 0.0],)))
+    print(max_abs_component(np.array([0.0, -1.0, 0.0],)))
+    print(max_abs_component(np.array([0.0, 0.0, 1.0],)))
+    print(max_abs_component(np.array([0.0, 0.0, -1.0],)))
 
-    print(max_abs_component(np.array([1.0, 0.5, 0.1], )))
-    print(max_abs_component(np.array([-1.0, 0.5, 0.1], )))
-    print(max_abs_component(np.array([0.5, 1.0, 0.1], )))
-    print(max_abs_component(np.array([0.5, -1.0, 0.1], )))
-    print(max_abs_component(np.array([0.1, 0.5, 1.0], )))
-    print(max_abs_component(np.array([-0.1, 0.5, -1.0], )))
+    print(max_abs_component(np.array([1.0, 0.5, 0.1],)))
+    print(max_abs_component(np.array([-1.0, 0.5, 0.1],)))
+    print(max_abs_component(np.array([0.5, 1.0, 0.1],)))
+    print(max_abs_component(np.array([0.5, -1.0, 0.1],)))
+    print(max_abs_component(np.array([0.1, 0.5, 1.0],)))
+    print(max_abs_component(np.array([-0.1, 0.5, -1.0],)))
 
-    print(max_abs_component(np.array([1.0, 0.0, 1.0], )))
-    print(max_abs_component(np.array([-1.0, 0.0, -1.0], )))
-    print(max_abs_component(np.array([0.0, 1.0, 1.0], )))
-    print(max_abs_component(np.array([0.0, -1.0, -1.0], )))
-    print(max_abs_component(np.array([1.0, 1.0, 0.0], )))
-    print(max_abs_component(np.array([-1.0, -1.0, 0.0], )))
-    print(max_abs_component(np.array([1.0, 1.0, 1.0], )))
-    print(max_abs_component(np.array([-1.0, -1.0, 1.0], )))
+    print(max_abs_component(np.array([1.0, 0.0, 1.0],)))
+    print(max_abs_component(np.array([-1.0, 0.0, -1.0],)))
+    print(max_abs_component(np.array([0.0, 1.0, 1.0],)))
+    print(max_abs_component(np.array([0.0, -1.0, -1.0],)))
+    print(max_abs_component(np.array([1.0, 1.0, 0.0],)))
+    print(max_abs_component(np.array([-1.0, -1.0, 0.0],)))
+    print(max_abs_component(np.array([1.0, 1.0, 1.0],)))
+    print(max_abs_component(np.array([-1.0, -1.0, 1.0],)))

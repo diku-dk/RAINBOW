@@ -38,9 +38,9 @@ class Grid:
         self.max_coord = max_coord
         self.I = I  # Number of nodes along x axis
         self.J = J  # Number of nodes along y axis
-        self.K = K  # Number of nodes along z axis        
+        self.K = K  # Number of nodes along z axis
         res = np.array([I - 1, J - 1, K - 1], dtype=np.float64)
-        dims = (self.max_coord - self.min_coord)
+        dims = self.max_coord - self.min_coord
         self.spacing = np.divide(dims, res)
         self.values = None
 
@@ -100,7 +100,9 @@ class Grid:
         # y = self.min_coord[1] + self.spacing[1] * j
         # x = self.min_coord[0] + self.spacing[0] * i
         # return V3.make(x, y, z)
-        return self.min_coord + np.multiply(self.spacing, np.array([i, j, k], dtype=np.float64))
+        return self.min_coord + np.multiply(
+            self.spacing, np.array([i, j, k], dtype=np.float64)
+        )
 
     def get_enclosing_cell_idx(self, p):
         """
@@ -115,9 +117,9 @@ class Grid:
         """
         idx = np.floor((p - self.min_coord) / self.spacing)
         # if index is outside the cells then project onto closest cell
-        i = np.clip(int(idx[0]), 0, self.I-2)
-        j = np.clip(int(idx[1]), 0, self.J-2)
-        k = np.clip(int(idx[2]), 0, self.K-2)
+        i = np.clip(int(idx[0]), 0, self.I - 2)
+        j = np.clip(int(idx[1]), 0, self.J - 2)
+        k = np.clip(int(idx[2]), 0, self.K - 2)
         return i, j, k
 
 
@@ -226,18 +228,18 @@ def get_gradient(grid, p):
     x11 = (d111 - d011) * s + d011
     y0 = (x10 - x00) * t + x00
     y1 = (x11 - x01) * t + x01
-    dx00_ds = (d100 - d000)
-    dx01_ds = (d101 - d001)
-    dx10_ds = (d110 - d010)
-    dx11_ds = (d111 - d011)
+    dx00_ds = d100 - d000
+    dx01_ds = d101 - d001
+    dx10_ds = d110 - d010
+    dx11_ds = d111 - d011
     dy0_ds = (dx10_ds - dx00_ds) * t + dx00_ds
     dy1_ds = (dx11_ds - dx01_ds) * t + dx01_ds
-    dy0_dt = (x10 - x00)
-    dy1_dt = (x11 - x01)
+    dy0_dt = x10 - x00
+    dy1_dt = x11 - x01
 
-    dp_ds = ((dy1_ds - dy0_ds) * u + dy0_ds)
-    dp_dt = ((dy1_dt - dy0_dt) * u + dy0_dt)
-    dp_du = (y1 - y0)
+    dp_ds = (dy1_ds - dy0_ds) * u + dy0_ds
+    dp_dt = (dy1_dt - dy0_dt) * u + dy0_dt
+    dp_du = y1 - y0
 
     ds_dx = 1.0 / grid.spacing[0]
     dt_dy = 1.0 / grid.spacing[1]
@@ -306,9 +308,17 @@ def write_matlab_file(filename, grid):
     :param filename:  The path and filename of the file to make.
     :param grid: The grid instance that should be written to the given file
     """
-    data = {'I': grid.I, 'J': grid.J, 'K': grid.K, 'min_coord': grid.min_coord, 'max_coord': grid.max_coord,
-            'spacing': grid.spacing, 'values': grid.values}
+    data = {
+        "I": grid.I,
+        "J": grid.J,
+        "K": grid.K,
+        "min_coord": grid.min_coord,
+        "max_coord": grid.max_coord,
+        "spacing": grid.spacing,
+        "values": grid.values,
+    }
     from scipy.io import savemat
+
     savemat(file_name=filename, mdict=data, appendmat=False)
 
 
@@ -320,15 +330,16 @@ def read_matlab_file(filename):
     :return: A new Grid instance with the data that was read.
     """
     from scipy.io import loadmat
+
     data = {}
     loadmat(file_name=filename, mdict=data, appendmat=False)
-    I = int(data['I'])
-    J = int(data['J'])
-    K = int(data['K'])
-    min_coord = data['min_coord']
-    max_coord = data['max_coord']
+    I = int(data["I"])
+    J = int(data["J"])
+    K = int(data["K"])
+    min_coord = data["min_coord"]
+    max_coord = data["max_coord"]
     grid = Grid(min_coord=min_coord, max_coord=max_coord, I=I, J=J, K=K)
-    grid.values = data['values']
+    grid.values = data["values"]
     return grid
 
 
@@ -375,37 +386,36 @@ def show_layer(grid, k):
     import matplotlib.pyplot as plt
 
     layer = grid.I * grid.J
-    img = grid.values[k * layer: (k + 1) * layer].reshape((grid.I, grid.J))
+    img = grid.values[k * layer : (k + 1) * layer].reshape((grid.I, grid.J))
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.set_title('Values')
+    ax.set_title("Values")
     plt.imshow(img)
-    ax.set_aspect('equal')
-    #cax = fig.add_axes([0.12, 0.1, 0.78, 0.8])
-    #cax.get_xaxis().set_visible(False)
-    #cax.get_yaxis().set_visible(False)
-    #cax.patch.set_alpha(0)
-    #cax.set_frame_on(False)
-    plt.colorbar(orientation='vertical')
+    ax.set_aspect("equal")
+    # cax = fig.add_axes([0.12, 0.1, 0.78, 0.8])
+    # cax.get_xaxis().set_visible(False)
+    # cax.get_yaxis().set_visible(False)
+    # cax.patch.set_alpha(0)
+    # cax.set_frame_on(False)
+    plt.colorbar(orientation="vertical")
     plt.show()
 
 
 def save_layer(grid, k, filename):
     import matplotlib.pyplot as plt
-    
+
     layer = grid.I * grid.J
-    img = grid.values[k * layer: (k + 1) * layer].reshape((grid.I, grid.J))
+    img = grid.values[k * layer : (k + 1) * layer].reshape((grid.I, grid.J))
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.set_title('Values')
+    ax.set_title("Values")
     plt.imshow(img)
-    ax.set_aspect('equal')
-    plt.colorbar(orientation='vertical')
+    ax.set_aspect("equal")
+    plt.colorbar(orientation="vertical")
     plt.savefig(filename, format="png", bbox_inches="tight")
-    
+
 
 class TestGrid:
-
     def __init__(self):
         self.test_signed_distance_field()
         self.test_valid_node_idx()
@@ -417,7 +427,9 @@ class TestGrid:
     def test_get_enclosing_cell_idx(self):
         import isl.math.vector3 as V3
 
-        print('---- test_get_enclosing_cell_idx ---------------------------------------')
+        print(
+            "---- test_get_enclosing_cell_idx ---------------------------------------"
+        )
         min_coord = V3.make(-1, -1, -1)
         max_coord = V3.make(1, 1, 1)
         I = 4
@@ -453,13 +465,13 @@ class TestGrid:
         p = V3.make(2, 2, 2)
         idx = A.get_enclosing_cell_idx(p)
         print(p, idx)
-        print('')
-        print('-------------------------------------------')
+        print("")
+        print("-------------------------------------------")
 
     def test_valid_node_idx(self):
         import isl.math.vector3 as V3
 
-        print('--- test_valid_node_idx ----------------------------------------')
+        print("--- test_valid_node_idx ----------------------------------------")
         min_coord = V3.make(-1, -1, -1)
         max_coord = V3.make(1, 1, 1)
         I = 4
@@ -473,8 +485,8 @@ class TestGrid:
         print(A.is_valid_node_index(0, 0, 3), "= TRUE")
         A = Grid(min_coord, max_coord, I, J, K)
         print(A.is_valid_node_index(0, 4, 3), "= FALSE")
-        print('')
-        print('-------------------------------------------')
+        print("")
+        print("-------------------------------------------")
 
     def test_linear_func(self, p):
         return p[0]
@@ -485,7 +497,7 @@ class TestGrid:
     def test_get_value(self, func):
         import isl.math.vector3 as V3
 
-        print('----- test_get_value --------------------------------------')
+        print("----- test_get_value --------------------------------------")
         min_coord = V3.make(-1, -1, -1)
         max_coord = V3.make(1, 1, 1)
         I = 5
@@ -521,13 +533,13 @@ class TestGrid:
         p = V3.make(2, 2, 2)
         val = get_value(A, p)
         print(func(p), val)
-        print('')
-        print('-------------------------------------------')
+        print("")
+        print("-------------------------------------------")
 
     def test_get_gradient(self, func, grad):
         import isl.math.vector3 as V3
 
-        print('------ test_get_gradient -------------------------------------')
+        print("------ test_get_gradient -------------------------------------")
         min_coord = V3.make(-1, -1, -1)
         max_coord = V3.make(1, 1, 1)
         I = 5
@@ -563,13 +575,13 @@ class TestGrid:
         p = V3.make(2, 2, 2)
         g = get_gradient(A, p)
         print(grad(p), g)
-        print('')
-        print('-------------------------------------------')
+        print("")
+        print("-------------------------------------------")
 
     def test_is_inside(self):
         import isl.math.vector3 as V3
 
-        print('--- test_valid_node_idx ----------------------------------------')
+        print("--- test_valid_node_idx ----------------------------------------")
         min_coord = V3.make(-1, -1, -1)
         max_coord = V3.make(1, 1, 1)
         I = 4
@@ -617,13 +629,13 @@ class TestGrid:
         p = V3.make(1.1, 1.1, 1.1)
         print(is_inside(A, p, boundary), "= False")
 
-        print('')
-        print('-------------------------------------------')
+        print("")
+        print("-------------------------------------------")
 
     def test_signed_distance_field(self):
         import isl.math.vector3 as V3
 
-        print('--- test_signed_distance_field ----------------------------------------')
+        print("--- test_signed_distance_field ----------------------------------------")
         V, F = igl.read_triangle_mesh("../../data/armadillo.obj")
         A = create_signed_distance(V, F, 98, 98, 98, 0.5)
         write_matlab_file("../../data/test.mat", A)
@@ -637,9 +649,9 @@ class TestGrid:
         print(A.spacing, B.spacing)
         print(A.values, B.values)
         show_layer(A, 48)
-        print('')
-        print('-------------------------------------------')
+        print("")
+        print("-------------------------------------------")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test = TestGrid()

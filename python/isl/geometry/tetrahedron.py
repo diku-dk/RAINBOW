@@ -181,8 +181,15 @@ def compute_inscribed_sphere(pi, pj, pk, pm):
     M32 = nk[2]
     M33 = -1.0
 
-    A = np.array([[M00, M01, M02, M03], [M10, M11, M12, M13], [M20, M21, M22, M23], [M30, M31, M32, M33]],
-                 dtype=np.float64)
+    A = np.array(
+        [
+            [M00, M01, M02, M03],
+            [M10, M11, M12, M13],
+            [M20, M21, M22, M23],
+            [M30, M31, M32, M33],
+        ],
+        dtype=np.float64,
+    )
     b = np.array([wm, wi, wj, wk], dtype=np.float64)
 
     x = np.linalg.lstsq(A, b, rcond=None)[0]

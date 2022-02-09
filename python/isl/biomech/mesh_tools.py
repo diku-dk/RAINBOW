@@ -6,6 +6,7 @@ import igl
 
 ### Miscellaneous mesh procedures
 
+
 def _clean_mesh(V, S, d=500):
     """
     :param V: #V x 3 array of vertices
@@ -17,12 +18,13 @@ def _clean_mesh(V, S, d=500):
         Epsilon is 1/d'th of the smallest edge in (V, S).
         Any vertices closer than epsilon are merged.
     """
-    eps  = np.min(igl.edge_lengths(V, S)) / d
+    eps = np.min(igl.edge_lengths(V, S)) / d
     V, S = igl.remove_duplicate_vertices(V, S, eps)[0:4:3]
     if S.shape[1] == 3:
         S = igl.resolve_duplicated_faces(S)[0]
     V, S = igl.remove_unreferenced(V, S)[0:2]
     return V, S
+
 
 def _stack_meshes(Va, Sa, Vb, Sb, La=None, Lb=None):
     """
@@ -39,14 +41,15 @@ def _stack_meshes(Va, Sa, Vb, Sb, La=None, Lb=None):
         Stacks two meshes into one. Mesh a on top.
     """
     if La is None:
-        V = np.concatenate( (Va, Vb) )
-        S = np.concatenate( (Sa, Sb+len(Va)) )
+        V = np.concatenate((Va, Vb))
+        S = np.concatenate((Sa, Sb + len(Va)))
         return V, S
     else:
-        V = np.concatenate( (Va, Vb) )
-        S = np.concatenate( (Sa, Sb+len(Va)) )
-        L = np.concatenate( (La, Lb) )
+        V = np.concatenate((Va, Vb))
+        S = np.concatenate((Sa, Sb + len(Va)))
+        L = np.concatenate((La, Lb))
         return V, S, L
+
 
 def _flip_orientation(S):
     """
@@ -55,8 +58,9 @@ def _flip_orientation(S):
     """
     Sc = np.copy(S)
     # Flip orientation by interchanging two points
-    Sc[:,[0,1]] = Sc[:,[1,0]]
+    Sc[:, [0, 1]] = Sc[:, [1, 0]]
     return Sc
+
 
 def _remove_ears(V, S):
     """
@@ -66,7 +70,7 @@ def _remove_ears(V, S):
               a tet with three free faces.
     """
     if not (S.shape[1] == 3 or S.shape[1] == 4):
-        raise Exception(f'Expected simplices of dimension 3 or 4 but got {S.shape[1]}')
+        raise Exception(f"Expected simplices of dimension 3 or 4 but got {S.shape[1]}")
     if S.shape[1] == 3:
         I_ears = igl.ears(S)[0]
     if S.shape[1] == 4:
@@ -75,6 +79,7 @@ def _remove_ears(V, S):
     S_new = np.delete(S, I_ears, axis=0)
     V, S = igl.remove_unreferenced(V, S_new)[0:2]
     return V, S
+
 
 def _keep_removing_ears(V, S):
     """
@@ -85,7 +90,7 @@ def _keep_removing_ears(V, S):
               ears, these will be removed in the next iteration, until no
               ears are present. A tet ear isa tet with three free faces.
     """
-    cur_elms = S.shape[0] 
+    cur_elms = S.shape[0]
     while True:
         V, S = remove_ears(V, S)
         if S.shape[0] == cur_elms:
@@ -94,7 +99,9 @@ def _keep_removing_ears(V, S):
             cur_elms = S.shape[0]
     return V, S
 
+
 ### Mesh verification procedures
+
 
 def verify_mesh(V, S, verbose=True):
     """
@@ -104,51 +111,51 @@ def verify_mesh(V, S, verbose=True):
     """
     # Check for correct dimensionality
     if not (S.shape[1] == 3 or S.shape[1] == 4):
-        raise Exception(f'Expected simplices of dimension 3 or 4 but got {S.shape[1]}')
-    
+        raise Exception(f"Expected simplices of dimension 3 or 4 but got {S.shape[1]}")
+
     FLAG = True
-    
+
     # Perform verification sub-routines
 
     if verbose:
         print("Starting verification of element orientation")
-        
+
     if not _verify_orientation(V, S):
         if S.shape[1] == 3:
             print("    Inconsistent orientation found")
         if S.shape[1] == 4:
             print("    Negative orientation found")
         FLAG = False
-        
+
     if verbose:
         print("Starting verification of mesh features")
-    
+
     if not _verify_unique_simplices(V, S):
         print("    Found duplicated simplices")
         FLAG = False
-    
+
     if not _verify_no_duplicated_vertices(V, S):
         print("    Found duplicated vertices")
         FLAG = False
-    
+
     if not _verify_no_unreferenced_vertices(V, S):
         print("    Found unreferenced vertices")
         FLAG = False
-    
+
     if verbose:
         print("Starting verification of mesh manifoldness")
-    
+
     if not _verify_manifoldness(V, S):
         print("    Found non-manifold element")
         FLAG = False
-        
+
     if verbose:
         print("Starting verification of number of mesh components")
-    
+
     if not _verify_one_component(S):
         print("    Mesh contains more than one component")
         FLAG = False
-        
+
     if verbose:
         print("Starting verification of element connectivity")
 
@@ -170,7 +177,7 @@ def _verify_triangle_orientation(F):
     for e in edges:
         # Get indices of faces referencing edge e
         idx = np.where(np.sum(np.isin(F, e), axis=1) == 2)[0]
-        
+
         # Not closed surface but continue to next edge anyway
         if len(idx) != 2:
             continue
@@ -178,36 +185,37 @@ def _verify_triangle_orientation(F):
         # Append first element to each face for easy checking
         F1 = np.append(F[idx[0]], F[idx[0]][0])
         F2 = np.append(F[idx[1]], F[idx[1]][0])
-        
+
         # Check if orientation of e is consistent with e in F1
         in_F1 = False
         for i in range(3):
-            if F1[i] == e[0] and F1[i+1] == e[1]:
+            if F1[i] == e[0] and F1[i + 1] == e[1]:
                 in_F1 = True
 
         # If orientation of e is consistent with e in F1 then
         # e in F2 must be of opposite orientation
         if in_F1:
             for i in range(3):
-                if F2[i] == e[1] and F2[i+1] == e[0]:
+                if F2[i] == e[1] and F2[i + 1] == e[0]:
                     CONSISTENT_ORIENTATION = True
-                        
+
         # If orientation of e is inconsistent with e in F1 then
         # e must have same orientation as e in F2
         else:
             for i in range(3):
-                if F2[i] == e[0] and F2[i+1] == e[1]:
-                    CONSISTENT_ORIENTATION = True        
-        
-        # If orientation is not consistent return false 
+                if F2[i] == e[0] and F2[i + 1] == e[1]:
+                    CONSISTENT_ORIENTATION = True
+
+        # If orientation is not consistent return false
         if not CONSISTENT_ORIENTATION:
             return False
-        
+
         # Reset for next edge
         CONSISTENT_ORIENTATION = False
 
     # No inconsistent orientations found so return true
     return True
+
 
 def _verify_orientation(V, S):
     """
@@ -220,9 +228,9 @@ def _verify_orientation(V, S):
     """
     if S.shape[1] == 4:
         # Create matrix of cross products
-        C = np.cross(V[S][:,1] - V[S][:,0], V[S][:,2] - V[S][:,0])
+        C = np.cross(V[S][:, 1] - V[S][:, 0], V[S][:, 2] - V[S][:, 0])
         # Create matrix with rows to dot each cross product with
-        L = V[S][:,3] - V[S][:,0]
+        L = V[S][:, 3] - V[S][:, 0]
         # Compute dot product and thereby the orientations
         O = np.sum(C * L, axis=1)
         # All must be positive
@@ -230,7 +238,7 @@ def _verify_orientation(V, S):
     elif S.shape[1] == 3:
         return _verify_triangle_orientation(S)
     else:
-        raise Exception(f'Expected simplices of dimension 3 or 4 but got {S.shape[1]}')
+        raise Exception(f"Expected simplices of dimension 3 or 4 but got {S.shape[1]}")
 
 
 def _verify_unique_simplices(V, S):
@@ -239,9 +247,10 @@ def _verify_unique_simplices(V, S):
     :param S: N x 3/4 array of simplices (faces/tetrahedra)
     :return: True if the mesh (V, S) has only unique simplices.
     """
-    NS = len(S)                                   # Number of simplices in S
-    US = len(igl.unique_simplices(S)[0])          # Number of unique simplices in S
+    NS = len(S)  # Number of simplices in S
+    US = len(igl.unique_simplices(S)[0])  # Number of unique simplices in S
     return NS == US
+
 
 def _verify_no_unreferenced_vertices(V, S):
     """
@@ -249,9 +258,10 @@ def _verify_no_unreferenced_vertices(V, S):
     :param S: N x 3/4 array of simplices (faces/tetrahedra)
     :return: True if the mesh (V, S) has no unreferenced vertices.
     """
-    NV = len(V)                                   # Number of vertices in V
-    UR = len(igl.remove_unreferenced(V, S)[0])    # Number of referenced vertices
+    NV = len(V)  # Number of vertices in V
+    UR = len(igl.remove_unreferenced(V, S)[0])  # Number of referenced vertices
     return NV == UR
+
 
 def _verify_no_duplicated_vertices(V, S, eps=1e-16):
     """
@@ -259,9 +269,10 @@ def _verify_no_duplicated_vertices(V, S, eps=1e-16):
     :param S: N x 3/4 array of simplices (faces/tetrahedra)
     :return: True if the mesh (V, S) has no duplicated vertices.
     """
-    NV = len(V)                                   # Number of vertices in V
-    UV = len(igl.remove_duplicates(V, S, eps)[0]) # Number of unique vertices in V
+    NV = len(V)  # Number of vertices in V
+    UV = len(igl.remove_duplicates(V, S, eps)[0])  # Number of unique vertices in V
     return NV == UV
+
 
 def _verify_one_component(S):
     """
@@ -282,23 +293,29 @@ def _verify_interior(V, S):
     # If surface mesh
     if S.shape[1] == 3:
         # Assert number of faces adjacent to all edges is two (we want closed surface meshes)
-        unique_num_edge_references = np.unique(np.unique(igl.edge_topology(V, S)[1], return_counts=True)[1])
-        if unique_num_edge_references[0] == dim and len(unique_num_edge_references) == 1:
+        unique_num_edge_references = np.unique(
+            np.unique(igl.edge_topology(V, S)[1], return_counts=True)[1]
+        )
+        if (
+            unique_num_edge_references[0] == dim
+            and len(unique_num_edge_references) == 1
+        ):
             return True
         else:
             return False
 
     # If volume mesh
     # TODO: Come up with way to improve performance, i.e. parallelize using numpy
-    for [i,j,k,m] in S:
-        L = [[i,j,k],[i,j,m],[j,k,m],[k,i,m]]
-        
+    for [i, j, k, m] in S:
+        L = [[i, j, k], [i, j, m], [j, k, m], [k, i, m]]
+
         # Loop through each link (edge/face)
         for l in L:
             # Check that each interior link is being referenced by one or two simplices
-            if len(np.where(np.sum(np.isin(S, l),axis=1) == dim)[0]) > 2:
+            if len(np.where(np.sum(np.isin(S, l), axis=1) == dim)[0]) > 2:
                 return False
     return True
+
 
 def _compute_euler_characteristic(F):
     """
@@ -309,7 +326,8 @@ def _compute_euler_characteristic(F):
     N_e = len(igl.edges(F))
     N_f = len(F)
     return N_v - N_e + N_f
-    
+
+
 def _verify_manifoldness(V, S):
     """
     :param S: N x 3/4 array of simplices (faces/tetrahedra)
@@ -331,12 +349,12 @@ def _verify_manifoldness(V, S):
             # Try to compute a path along the boundary edges, i.e. the simplicial link
             boundary_path = igl.edges_to_path(e[boundary_indices])[0]
             # Check that simplicial link is a loop
-            if boundary_path[0] != boundary_path[-1]: 
+            if boundary_path[0] != boundary_path[-1]:
                 return False
-        
+
         # Volume mesh
         if S.shape[1] == 4:
-             # Check for manifoldness via the Euler characteristic of the simplicial link
+            # Check for manifoldness via the Euler characteristic of the simplicial link
             if _compute_euler_characteristic(igl.boundary_facets(S[indices])) != 2:
                 return False
 
@@ -344,6 +362,7 @@ def _verify_manifoldness(V, S):
 
 
 ### Naive mesh snapping procedure
+
 
 def snap_meshes(Va, Ta, Vb, Tb, La=None, Lb=None, eps=1e-16):
     """

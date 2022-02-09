@@ -28,7 +28,7 @@ def overlap(A, B):
     :return: True if there exists an overlap of the KDOPs
     """
     if A.K != B.K:
-        raise RuntimeError('overlap(): kdops A and B do not share a common K')
+        raise RuntimeError("overlap(): kdops A and B do not share a common K")
 
     for k in range(A.K):
         # Check for overlap of intervals
@@ -84,7 +84,7 @@ def union(A, B):
     :return:    A KDOP encompassing both the smaller KDOPs
     """
     if A.K != B.K:
-        raise RuntimeError('union(): kdops A and B do not share a common K')
+        raise RuntimeError("union(): kdops A and B do not share a common K")
     K = A.K
     kdop = KDOP(K)
     # TODO 2020-09-07 Kenny review: can this be vectorized?

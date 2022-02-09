@@ -14,15 +14,15 @@ def sinc(x):
     :param x:    The input argument
     :return:     The value of sin(x)/x
     """
-    '''
+    """
     if |x| < 1e-4 then use a taylor series expansion. this two term expansion
     is actually accurate to one LS bit within this range if double precision
     is being used - so don't worry!
-    '''
+    """
     tiny = 1.0e-4
     factor = 0.166666666666666666667
     if fabs(x) < tiny:
-        return 1.0 - x* x * factor
+        return 1.0 - x * x * factor
     return sin(x) / x
 
 

@@ -2,7 +2,6 @@ import time
 
 
 class Timer:
-
     def __init__(self, name=None, digits=8):
         self.name = name
         self.value = 0
@@ -17,7 +16,7 @@ class Timer:
 
     def end(self):
         if self.tic is None:
-            raise RuntimeError('timer start must be invocved before end')
+            raise RuntimeError("timer start must be invocved before end")
         self.toc = time.perf_counter()
         self.value = self.toc - self.tic
         self.accumulated += self.value
@@ -43,7 +42,7 @@ class Timer:
 
 
 def test_timer():
-    t = Timer('Test')
+    t = Timer("Test")
 
     t.start()
     time.sleep(0.01)
@@ -55,5 +54,5 @@ def test_timer():
     print(t)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_timer()

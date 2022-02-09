@@ -46,7 +46,9 @@ class ElementArrayUtil:
                     for j in range(4):
                         i_offset = T[e, i] * 3
                         j_offset = T[e, j] * 3
-                        y[i_offset:i_offset + 3] += np.dot(A_array[e, i, j], x[j_offset:j_offset + 3])
+                        y[i_offset : i_offset + 3] += np.dot(
+                            A_array[e, i, j], x[j_offset : j_offset + 3]
+                        )
         else:
             for e in range(len(T)):
                 for i in range(4):
@@ -171,9 +173,15 @@ class Native:
                 raise RuntimeError("compute_D(): Degenerate tetrahedron found", e)
             # Create edge-vector matrix
             D[e] = M3.make(
-                u_ji[0], u_ki[0], u_mi[0],
-                u_ji[1], u_ki[1], u_mi[1],
-                u_ji[2], u_ki[2], u_mi[2]
+                u_ji[0],
+                u_ki[0],
+                u_mi[0],
+                u_ji[1],
+                u_ki[1],
+                u_mi[1],
+                u_ji[2],
+                u_ki[2],
+                u_mi[2],
             )
         return D
 
@@ -331,9 +339,15 @@ class Native:
             #
             #   where load = (li,lj,lk) is the applied surface traction.
             load = traction.traction
-            Ft[traction.i] += (A / 24) * (2 * np.dot(Id, load) + np.dot(Id, load) + np.dot(Id, load))
-            Ft[traction.j] += (A / 24) * (np.dot(Id, load) + 2 * np.dot(Id, load) + np.dot(Id, load))
-            Ft[traction.k] += (A / 24) * (np.dot(Id, load) + np.dot(Id, load) + 2 * np.dot(Id, load))
+            Ft[traction.i] += (A / 24) * (
+                2 * np.dot(Id, load) + np.dot(Id, load) + np.dot(Id, load)
+            )
+            Ft[traction.j] += (A / 24) * (
+                np.dot(Id, load) + 2 * np.dot(Id, load) + np.dot(Id, load)
+            )
+            Ft[traction.k] += (A / 24) * (
+                np.dot(Id, load) + np.dot(Id, load) + 2 * np.dot(Id, load)
+            )
         return Ft
 
     @staticmethod
@@ -428,12 +442,12 @@ class Native:
         """
         for bc in dirichlet_conditions:
             idx = bc.idx * 3
-            b[idx:idx + 3] = bc.value
+            b[idx : idx + 3] = bc.value
             # TODO 2020-09-18 Kenny: CSR may not be efficient
             #  for setting values like this. We might have
             #  to use a different sparse matrix format for this?
-            A[idx:idx + 3, :] = 0
-            A[idx:idx + 3, idx:idx + 3] = np.identity(3)
+            A[idx : idx + 3, :] = 0
+            A[idx : idx + 3, idx : idx + 3] = np.identity(3)
 
 
 def get_friction_coefficient_vector(engine):
@@ -449,7 +463,9 @@ def get_friction_coefficient_vector(engine):
     mu = np.zeros(K, dtype=np.float64)
     for k in range(K):
         cp = engine.contact_points[k]
-        interaction = engine.materials_interactions.get_interaction(cp.bodyA.material.name, cp.bodyB.material.name)
+        interaction = engine.materials_interactions.get_interaction(
+            cp.bodyA.material.name, cp.bodyB.material.name
+        )
         mu[k] = interaction.mu[0]
     return mu
 
@@ -480,7 +496,7 @@ def compute_jacobian_matrix(engine, stats, debug_on):
     """
     timer = None
     if debug_on:
-        timer = Timer('compute_jacobian_matrix')
+        timer = Timer("compute_jacobian_matrix")
         timer.start()
     K = len(engine.contact_points)
     N = engine.number_of_nodes
@@ -565,7 +581,7 @@ def compute_jacobian_matrix(engine, stats, debug_on):
     J = sparse.csr_matrix((data, (row, col)), shape=(K * 4, N * 3))
     if debug_on:
         timer.end()
-        stats['compute_jacobian_matrix'] = timer.elapsed
+        stats["compute_jacobian_matrix"] = timer.elapsed
     return J
 
 
@@ -578,7 +594,7 @@ def set_velocity_vector(u, engine) -> None:
     :return:          Nothing.
     """
     for body in engine.bodies.values():
-        body.u = u[body.offset:body.offset + len(body.u)]
+        body.u = u[body.offset : body.offset + len(body.u)]
 
 
 def set_position_vector(x, engine) -> None:
@@ -590,7 +606,7 @@ def set_position_vector(x, engine) -> None:
     :return:          Nothing.
     """
     for body in engine.bodies.values():
-        body.x = x[body.offset:body.offset + len(body.x)]
+        body.x = x[body.offset : body.offset + len(body.x)]
 
 
 def get_position_vector(engine):
@@ -602,7 +618,7 @@ def get_position_vector(engine):
     """
     x = np.zeros((engine.number_of_nodes, 3), dtype=np.float64)
     for body in engine.bodies.values():
-        x[body.offset:body.offset+len(body.x)] = body.x
+        x[body.offset : body.offset + len(body.x)] = body.x
     return x
 
 
@@ -615,7 +631,7 @@ def get_velocity_vector(engine):
     """
     u = np.zeros((engine.number_of_nodes, 3), dtype=np.float64)
     for body in engine.bodies.values():
-        u[body.offset:body.offset + len(body.x)] = body.u
+        u[body.offset : body.offset + len(body.x)] = body.u
     return u
 
 
@@ -630,13 +646,15 @@ def compute_mass_matrix(engine, stats, debug_on):
     """
     timer = None
     if debug_on:
-        timer = Timer('compute_mass_matrix')
+        timer = Timer("compute_mass_matrix")
         timer.start()
     N = engine.number_of_nodes  # Total number of nodes in the world
     size = 0
     COO = {}
     for body in engine.bodies.values():
-        row_body, col_body, data_body = ElementArrayUtil.assembly_coo(body.T, body.M_array)
+        row_body, col_body, data_body = ElementArrayUtil.assembly_coo(
+            body.T, body.M_array
+        )
         COO[body] = (row_body, col_body, data_body)
         size += len(data_body)
     row = np.zeros(size, dtype=np.int32)
@@ -653,7 +671,7 @@ def compute_mass_matrix(engine, stats, debug_on):
     M = sparse.csr_matrix((data, (row, col)), shape=(N * 3, N * 3))
     if debug_on:
         timer.end()
-        stats['compute_mass_matrix'] = timer.elapsed
+        stats["compute_mass_matrix"] = timer.elapsed
     return M
 
 
@@ -669,32 +687,34 @@ def compute_elastic_forces(x, engine, stats, debug_on):
     """
     timer = None
     if debug_on:
-        timer = Timer('compute_elastic_forces')
+        timer = Timer("compute_elastic_forces")
         timer.start()
     forces = np.zeros((engine.number_of_nodes, 3), dtype=np.float64)
     for body in engine.bodies.values():
         # Precomputed deformation gradient
         F = Native.compute_deformation_gradient(
-            x[body.offset:body.offset + len(body.x)],
-            body.T,
-            body.invD0
+            x[body.offset : body.offset + len(body.x)], body.T, body.invD0
         )
         # Convert soft body elastic parameters into Lame parameters
-        lambda_in = MECH.first_lame(body.material_description.E, body.material_description.nu)
-        mu_in = MECH.second_lame(body.material_description.E, body.material_description.nu)
+        lambda_in = MECH.first_lame(
+            body.material_description.E, body.material_description.nu
+        )
+        mu_in = MECH.second_lame(
+            body.material_description.E, body.material_description.nu
+        )
         pk1_stress = body.material_description.constitutive_model.pk1_stress
-        forces[body.offset:body.offset + len(body.u)] = Native.compute_elastic_forces(
-            x[body.offset:body.offset + len(body.x)],
+        forces[body.offset : body.offset + len(body.u)] = Native.compute_elastic_forces(
+            x[body.offset : body.offset + len(body.x)],
             body.T,
             body.gradN0,
             F,
             lambda_in,
             mu_in,
-            pk1_stress
+            pk1_stress,
         )
     if debug_on:
         timer.end()
-        stats['compute_elastic_forces'] = timer.elapsed
+        stats["compute_elastic_forces"] = timer.elapsed
     return forces
 
 
@@ -710,17 +730,18 @@ def compute_traction_forces(x, engine, stats, debug_on):
     """
     timer = None
     if debug_on:
-        timer = Timer('compute_traction_forces')
+        timer = Timer("compute_traction_forces")
         timer.start()
     forces = np.zeros((engine.number_of_nodes, 3), dtype=np.float64)
     for body in engine.bodies.values():
-        forces[body.offset:body.offset+len(body.u)] = Native.compute_traction_forces(
-            x[body.offset:body.offset+len(body.x)],
-            body.traction_conditions
+        forces[
+            body.offset : body.offset + len(body.u)
+        ] = Native.compute_traction_forces(
+            x[body.offset : body.offset + len(body.x)], body.traction_conditions
         )
     if debug_on:
         timer.end()
-        stats['compute_traction_forces'] = timer.elapsed
+        stats["compute_traction_forces"] = timer.elapsed
     return forces
 
 
@@ -736,7 +757,7 @@ def compute_damping_forces(u, engine, stats, debug_on):
     """
     timer = None
     if debug_on:
-        timer = Timer('compute_damping_forces')
+        timer = Timer("compute_damping_forces")
         timer.start()
     forces = np.zeros((engine.number_of_nodes, 3), dtype=np.float64)
     for body in engine.bodies.values():
@@ -744,14 +765,12 @@ def compute_damping_forces(u, engine, stats, debug_on):
         #  stepper function works differently, it extracts and assembles global vectors and matrices. Hence, those
         #  global matrices/vectors should be used. One should only access information from bodies that are constant
         #  throughout the simulation. It is a design flaw.
-        forces[body.offset:body.offset+len(body.u)] = Native.compute_damping_forces(
-            body.T,
-            body.C_array,
-            u[body.offset:body.offset+len(body.u)]
+        forces[body.offset : body.offset + len(body.u)] = Native.compute_damping_forces(
+            body.T, body.C_array, u[body.offset : body.offset + len(body.u)]
         )
     if debug_on:
         timer.end()
-        stats['compute_damping_forces'] = timer.elapsed
+        stats["compute_damping_forces"] = timer.elapsed
     return forces
 
 
@@ -766,20 +785,16 @@ def compute_external_forces(engine, stats, debug_on):
     """
     timer = None
     if debug_on:
-        timer = Timer('compute_external_forces')
+        timer = Timer("compute_external_forces")
         timer.start()
     forces = np.zeros((engine.number_of_nodes, 3), dtype=np.float64)
     for body in engine.bodies.values():
-        forces[body.offset: body.offset + len(body.u)] = Native.compute_gravity_forces(
-            len(body.x),
-            body.T,
-            body.vol0,
-            body.material_description.rho,
-            body.gravity
+        forces[body.offset : body.offset + len(body.u)] = Native.compute_gravity_forces(
+            len(body.x), body.T, body.vol0, body.material_description.rho, body.gravity
         )
     if debug_on:
         timer.end()
-        stats['compute_external_forces'] = timer.elapsed
+        stats["compute_external_forces"] = timer.elapsed
     return forces
 
 
@@ -794,7 +809,7 @@ def compute_inverse_mass_matrix(engine, stats, debug_on):
     """
     timer = None
     if debug_on:
-        timer = Timer('compute_inverse_mass_matrix')
+        timer = Timer("compute_inverse_mass_matrix")
         timer.start()
     M = compute_mass_matrix(engine, stats, debug_on)
     # TODO 2021-12-06 Kenny: Naively inverting the mass matrix is not smart at all. If lumped matrices are used then
@@ -803,7 +818,7 @@ def compute_inverse_mass_matrix(engine, stats, debug_on):
     W = sparse.linalg.inv(M)
     if debug_on:
         timer.end()
-        stats['compute_inverse_mass_matrix'] = timer.elapsed
+        stats["compute_inverse_mass_matrix"] = timer.elapsed
     return W
 
 
@@ -818,7 +833,7 @@ def compute_kinetic_energy(engine, stats, debug_on):
     """
     timer = None
     if debug_on:
-        timer = Timer('compute_kinetic_energy')
+        timer = Timer("compute_kinetic_energy")
         timer.start()
     kinetic = 0
     for body in engine.bodies.values():
@@ -828,11 +843,13 @@ def compute_kinetic_energy(engine, stats, debug_on):
         for e in range(len(body.T)):
             v = body.u[body.T[e]]  # Nodal velocities
             v_mid = (v[0] + v[1] + v[2] + v[3]) / 4.0  # Center velocity
-            delta_kinetic = (body.material_description.rho * body.vol0[e]) * v_mid.dot(v_mid) / 2.0
+            delta_kinetic = (
+                (body.material_description.rho * body.vol0[e]) * v_mid.dot(v_mid) / 2.0
+            )
             kinetic += delta_kinetic
     if debug_on:
         timer.end()
-        stats['compute_kinetic_energy'] = timer.elapsed
+        stats["compute_kinetic_energy"] = timer.elapsed
     return kinetic
 
 
@@ -847,7 +864,7 @@ def compute_potential_energy(engine, stats, debug_on):
     """
     timer = None
     if debug_on:
-        timer = Timer('compute_potential_energy')
+        timer = Timer("compute_potential_energy")
         timer.start()
     potential = 0
     for body in engine.bodies.values():
@@ -857,11 +874,13 @@ def compute_potential_energy(engine, stats, debug_on):
         for e in range(len(body.T)):
             x = body.x[body.T[e]]  # Nodal positions
             x_mid = (x[0] + x[1] + x[2] + x[3]) / 4.0  # Center position
-            delta_potential = (body.material_description.rho * body.vol0[e]) * body.gravity.dot(x_mid)
+            delta_potential = (
+                body.material_description.rho * body.vol0[e]
+            ) * body.gravity.dot(x_mid)
             potential += delta_potential
     if debug_on:
         timer.end()
-        stats['compute_potential_energy'] = timer.elapsed
+        stats["compute_potential_energy"] = timer.elapsed
     return potential
 
 
@@ -876,7 +895,7 @@ def compute_elastic_energy(engine, stats, debug_on):
     """
     timer = None
     if debug_on:
-        timer = Timer('compute_elastic_energy')
+        timer = Timer("compute_elastic_energy")
         timer.start()
     elastic = 0
     for body in engine.bodies.values():
@@ -885,15 +904,19 @@ def compute_elastic_energy(engine, stats, debug_on):
         # Precomputed deformation gradient
         F = Native.compute_deformation_gradient(body.x, body.T, body.invD0)
         # Convert soft body elastic parameters into Lame parameters
-        lambda_in = MECH.first_lame(body.material_description.E, body.material_description.nu)
-        mu_in = MECH.second_lame(body.material_description.E, body.material_description.nu)
+        lambda_in = MECH.first_lame(
+            body.material_description.E, body.material_description.nu
+        )
+        mu_in = MECH.second_lame(
+            body.material_description.E, body.material_description.nu
+        )
         # Compute elastic energy of the body and accumulate it
         psi = body.material_description.constitutive_model.energy_density
         elastic += Native.compute_elastic_energy(body.vol0, F, lambda_in, mu_in, psi)
 
     if debug_on:
         timer.end()
-        stats['compute_elastic_energy'] = timer.elapsed
+        stats["compute_elastic_energy"] = timer.elapsed
     return elastic
 
 
@@ -911,7 +934,7 @@ def apply_post_stabilization(J, WJT, engine, stats, debug_on):
     """
     timer = None
     if debug_on:
-        timer = Timer('apply_post_stabilization')
+        timer = Timer("apply_post_stabilization")
         timer.start()
     K = len(engine.contact_points)
     g = np.zeros(3 * K, dtype=np.float64)
@@ -925,7 +948,9 @@ def apply_post_stabilization(J, WJT, engine, stats, debug_on):
         return stats
 
     mu = np.zeros(K, dtype=np.float64)
-    sol, stats = GS.solve(J, WJT, g, mu, GS.prox_origin, engine, stats, debug_on, "post_stabilization_")
+    sol, stats = GS.solve(
+        J, WJT, g, mu, GS.prox_origin, engine, stats, debug_on, "post_stabilization_"
+    )
     delta_x = WJT.dot(sol)
 
     # --- Convert from 3N-by-1 into N-by-3 vector format -----------------
@@ -941,7 +966,7 @@ def apply_post_stabilization(J, WJT, engine, stats, debug_on):
 
     if debug_on:
         timer.end()
-        stats['apply_post_stabilization'] = timer.elapsed
+        stats["apply_post_stabilization"] = timer.elapsed
     return stats
 
 
@@ -956,7 +981,7 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
     """
     timer = None
     if debug_on:
-        timer = Timer('Stepper')
+        timer = Timer("Stepper")
         timer.start()
     stats = {}
 
@@ -1005,7 +1030,9 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
 
         mu = get_friction_coefficient_vector(engine)
         b = J.dot(u_prime)
-        sol, stats = GS.solve(J, WJT, b, mu, GS.prox_sphere, engine, stats, debug_on, "gauss_seidel_")
+        sol, stats = GS.solve(
+            J, WJT, b, mu, GS.prox_sphere, engine, stats, debug_on, "gauss_seidel_"
+        )
         WPc = WJT.dot(sol)
 
     # --- Convert from 3N-by-1 into N-by-3 vector format -----------------
@@ -1033,12 +1060,12 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
 
     if debug_on:
         timer.end()
-        stats['stepper_time'] = timer.elapsed
-        stats['dt'] = dt
-        stats['contact_points'] = len(engine.contact_points)
-        stats['kinetic_energy'] = compute_kinetic_energy(engine, stats, debug_on)
-        stats['potential_energy'] = compute_potential_energy(engine, stats, debug_on)
-        stats['elastic_energy'] = compute_elastic_energy(engine, stats, debug_on)
-        stats['max_penetration'] = get_largest_penetration_error(engine)
+        stats["stepper_time"] = timer.elapsed
+        stats["dt"] = dt
+        stats["contact_points"] = len(engine.contact_points)
+        stats["kinetic_energy"] = compute_kinetic_energy(engine, stats, debug_on)
+        stats["potential_energy"] = compute_potential_energy(engine, stats, debug_on)
+        stats["elastic_energy"] = compute_elastic_energy(engine, stats, debug_on)
+        stats["max_penetration"] = get_largest_penetration_error(engine)
 
     return stats

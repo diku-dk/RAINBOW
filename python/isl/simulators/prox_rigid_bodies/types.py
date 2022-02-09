@@ -20,9 +20,10 @@ class SurfacesInteractionLibrary:
     This class keeps track of all the different combinations of
     types of surface material interactions we have created/specified.
     """
+
     def __init__(self):
         self.storage = dict()
-        self.storage[('default', 'default')] = SurfacesInteraction()
+        self.storage[("default", "default")] = SurfacesInteraction()
 
     def get_interaction(self, A, B):
         """
@@ -35,7 +36,7 @@ class SurfacesInteractionLibrary:
         key = (A, B) if A < B else (B, A)
         if key in self.storage:
             return self.storage[key]
-        return self.storage[('default', 'default')]
+        return self.storage[("default", "default")]
 
     def exist_interaction(self, A, B):
         """
@@ -91,7 +92,7 @@ class Gravity(ForceCalculator):
 
         :param name:   A unique force name among all types of forces.
         """
-        super().__init__('Gravity', name)
+        super().__init__("Gravity", name)
         self.g = 9.81  # Acceleration of gravity
         self.up = V3.j()  # Up direction
 
@@ -108,7 +109,7 @@ class Gravity(ForceCalculator):
         :return:        A pair of 3D vectors representing the force and torque acting on the rigid
                         body wrt the center of mass.
         """
-        F = - body.mass * self.g * self.up
+        F = -body.mass * self.g * self.up
         T = V3.zero()
         return F, T
 
@@ -124,7 +125,7 @@ class Damping(ForceCalculator):
 
         :param name:   A unique force name among all types of forces.
         """
-        super().__init__('Damping', name)
+        super().__init__("Damping", name)
         self.alpha = 0.001  # Linear damping
         self.beta = 0.001  # Angular damping
 
@@ -141,8 +142,8 @@ class Damping(ForceCalculator):
         :return:        A pair of 3D vectors representing the force and torque acting on the rigid
                         body wrt the center of mass.
         """
-        F = - v * self.alpha
-        T = - w * self.beta
+        F = -v * self.alpha
+        T = -w * self.beta
         return F, T
 
 
@@ -164,7 +165,9 @@ class Shape:
         self.mesh = None  # Polygonal mesh assumed to be in body frame coordinates.
         self.grid = None  # A signed distance field (SDF) in the body frame.
         self.mass = 0.0  # Total mass of shape assuming unit-mass-density.
-        self.inertia = V3.zero()  # Body frame inertia tensor assuming unit-mass-density.
+        self.inertia = (
+            V3.zero()
+        )  # Body frame inertia tensor assuming unit-mass-density.
         self.r = V3.zero()  # Translation from body frame to model frame.
         self.q = Q.identity()  # Rotation from body frame to model frame.
 
@@ -199,9 +202,13 @@ class RigidBody:
         self.mass = 0.0  # Total mass.
         self.inertia = V3.zero()  # Body frame inertia tensor.
         self.shape = None  # Geometry/Shape of rigid body.
-        self.is_fixed = False  # Boolean flag to control if body should be fixed or freely moving.
-        self.forces = []  # External forces (like gravity and damping) acting on this body.
-        self.material = 'default'  # The material this rigid body is made up of.
+        self.is_fixed = (
+            False  # Boolean flag to control if body should be fixed or freely moving.
+        )
+        self.forces = (
+            []
+        )  # External forces (like gravity and damping) acting on this body.
+        self.material = "default"  # The material this rigid body is made up of.
         self.bvh = None  # k-DOP_bvh encapsulating the entire body.
 
 
@@ -235,7 +242,9 @@ class ContactPoint:
         :param gap:      A measure of the penetration/separation between the two bodies.
         """
         if abs(1.0 - V3.norm(normal)) > 0.1:
-            raise RuntimeError('ContactPoint.init() was called with non-unit size normal')
+            raise RuntimeError(
+                "ContactPoint.init() was called with non-unit size normal"
+            )
         self.bodyA = bodyA
         self.bodyB = bodyB
         self.p = position
@@ -254,28 +263,58 @@ class Parameters:
         """
         self.total_time = 10.0  # The total allowed simulation time.
         self.current_time = 0.0  # The current simulation time.
-        self.time_step = 0.001  # The time step size to use when taking one simulation solver step.
+        self.time_step = (
+            0.001  # The time step size to use when taking one simulation solver step.
+        )
         self.max_iterations = 200  # Maximum number of Gauss Seidel iterations
         self.use_bounce = False  # Turning bounce on and off
-        self.use_pre_stabilization = False  # Turning pre-stabilization on and off for correcting drift errors
-        self.use_post_stabilization = False  # Turning post-stabilization on and off for correcting drift errors
-        self.gap_reduction = 0.5  # The amount of gap (=penetration) to reduce during stabilization
-        self.min_gap_value = 0.001  # The minimum allowable gap (=penetration) that will not cause
-        self.max_gap_value = 0.01  # The maximum possible gap (=penetration) to correct for during
+        self.use_pre_stabilization = (
+            False  # Turning pre-stabilization on and off for correcting drift errors
+        )
+        self.use_post_stabilization = (
+            False  # Turning post-stabilization on and off for correcting drift errors
+        )
+        self.gap_reduction = (
+            0.5  # The amount of gap (=penetration) to reduce during stabilization
+        )
+        self.min_gap_value = (
+            0.001  # The minimum allowable gap (=penetration) that will not cause
+        )
+        self.max_gap_value = (
+            0.01  # The maximum possible gap (=penetration) to correct for during
+        )
         self.absolute_tolerance = 0.001  # The absolute tolerance value.
         self.relative_tolerance = 0.0001  # The relative tolerance value.
-        self.ellipsoid_max_iterations = 100  # The maximum number of iterations in the prox ellipsoid binary search
+        self.ellipsoid_max_iterations = (
+            100  # The maximum number of iterations in the prox ellipsoid binary search
+        )
         self.ellipsoid_expansion = 1.5  # The scalar expansion coefficient of the prox ellipsoid binary search interval
-        self.ellipsoid_tolerance = 10e-10  # The tolerance for the prox ellipsoid binary search
-        self.nu_reduce = 0.7  # How big a factor to reduce r by if divergence is detected
-        self.nu_increase = 1.3  # How big a factor to increase r by if convergence is detected
-        self.too_small_merit_change = 0.01  # The smallest merit change allowed before we increase the r factor
-        self.contact_optimization_max_iterations = 8  # The maximum number of iterations for optimizing for contacts.
-        self.contact_optimization_tolerance = 0  # The tolerance for optimizing for contacts.
+        self.ellipsoid_tolerance = (
+            10e-10  # The tolerance for the prox ellipsoid binary search
+        )
+        self.nu_reduce = (
+            0.7  # How big a factor to reduce r by if divergence is detected
+        )
+        self.nu_increase = (
+            1.3  # How big a factor to increase r by if convergence is detected
+        )
+        self.too_small_merit_change = (
+            0.01  # The smallest merit change allowed before we increase the r factor
+        )
+        self.contact_optimization_max_iterations = (
+            8  # The maximum number of iterations for optimizing for contacts.
+        )
+        self.contact_optimization_tolerance = (
+            0  # The tolerance for optimizing for contacts.
+        )
         self.bvh_chunk_size = 255  # Number of nodes for a k-DOP bvh subtree, a chunk.
         self.K = 3  # The number of directions to use in the k-DOP bounding volumes.
-        self.envelope = 0.1  # Any geometry within this distance generates a contact point.
-        self.resolution = 64  # The number of grid cells along each axis in the signed distance fields
+        self.envelope = (
+            0.1  # Any geometry within this distance generates a contact point.
+        )
+        self.resolution = (
+            64  # The number of grid cells along each axis in the signed distance fields
+        )
 
 
 class Engine:

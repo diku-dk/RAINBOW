@@ -20,20 +20,20 @@ def compute_barycentric_edge(x1, x2, p):
     """
     u = x2 - x1
     uu = np.dot(u, u)
-    assert (np.isfinite(uu))
-    assert (uu > 0.0)
+    assert np.isfinite(uu)
+    assert uu > 0.0
     # Project p onto edge running from x1 to x2
     q = (np.dot(u, p - x1) / uu) * u + x1
     a = q - x2
     b = q - x1
     aa = np.dot(a, a)
     bb = np.dot(b, b)
-    assert (np.isfinite(aa))
-    assert (np.isfinite(bb))
-    w1 = np.sqrt(aa / uu) if np.dot(u, a) <= 0.0 else - np.sqrt(aa / uu)
-    w2 = np.sqrt(bb / uu) if np.dot(u, b) >= 0.0 else - np.sqrt(bb / uu)
-    assert (np.isfinite(w1))
-    assert (np.isfinite(w2))
+    assert np.isfinite(aa)
+    assert np.isfinite(bb)
+    w1 = np.sqrt(aa / uu) if np.dot(u, a) <= 0.0 else -np.sqrt(aa / uu)
+    w2 = np.sqrt(bb / uu) if np.dot(u, b) >= 0.0 else -np.sqrt(bb / uu)
+    assert np.isfinite(w1)
+    assert np.isfinite(w2)
     return w1, w2
 
 
@@ -65,9 +65,9 @@ def compute_barycentric_triangle(x1, x2, x3, p):
     w1 = 1.0 - q[0] - q[1]
     w2 = q[0]
     w3 = q[1]
-    assert (np.isfinite(w1))
-    assert (np.isfinite(w2))
-    assert (np.isfinite(w3))
+    assert np.isfinite(w1)
+    assert np.isfinite(w2)
+    assert np.isfinite(w3)
     return w1, w2, w3
 
 
@@ -102,12 +102,14 @@ def compute_barycentric_tetrahedron(x1, x2, x3, x4, p):
         q = np.linalg.solve(basis, p - x1)
         w1 = 1.0 - q[0] - q[1] - q[2]
         w2 = q[0]
-        w3 = q[2]  # We alter the sequence of barycentric coordinates to match altered basis
+        w3 = q[
+            2
+        ]  # We alter the sequence of barycentric coordinates to match altered basis
         w4 = q[1]
-    assert (np.isfinite(w1))
-    assert (np.isfinite(w2))
-    assert (np.isfinite(w3))
-    assert (np.isfinite(w4))
+    assert np.isfinite(w1)
+    assert np.isfinite(w2)
+    assert np.isfinite(w3)
+    assert np.isfinite(w4)
     return w1, w2, w3, w4
 
 
@@ -121,7 +123,7 @@ def compute_barycentric_derivatives_tetrahedron(x1, x2, x3, x4):
     :param x4: The fourth point of the tetrahedron.
     """
     vol6 = np.dot(x4 - x1, np.cross(x2 - x1, x3 - x1))
-    assert (vol6 > 0.0)
+    assert vol6 > 0.0
     grad_w1 = np.cross(x4 - x2, x3 - x2) / vol6
     grad_w2 = np.cross(x3 - x1, x4 - x1) / vol6
     grad_w3 = np.cross(x4 - x1, x2 - x1) / vol6
@@ -137,8 +139,8 @@ def is_inside_edge(w1, w2) -> bool:
     :param w2: Second barycentric coordinate.
     :return: True if inside otherwise false.
     """
-    assert (np.isfinite(w1))
-    assert (np.isfinite(w2))
+    assert np.isfinite(w1)
+    assert np.isfinite(w2)
     if w1 < 0.0:
         return False
     if w2 < 0.0:
@@ -163,9 +165,9 @@ def is_inside_triangle(w1, w2, w3) -> bool:
     :param w3: Third barycentric coordinate.
     :return: True if inside otherwise false.
     """
-    assert (np.isfinite(w1))
-    assert (np.isfinite(w2))
-    assert (np.isfinite(w3))
+    assert np.isfinite(w1)
+    assert np.isfinite(w2)
+    assert np.isfinite(w3)
     if w1 < 0.0:
         return False
     if w2 < 0.0:
@@ -195,10 +197,10 @@ def is_inside_tetrahedron(w1, w2, w3, w4) -> bool:
     :param w4: Fourth barycentric coordinate.
     :return: True if inside otherwise false.
     """
-    assert (np.isfinite(w1))
-    assert (np.isfinite(w2))
-    assert (np.isfinite(w3))
-    assert (np.isfinite(w4))
+    assert np.isfinite(w1)
+    assert np.isfinite(w2)
+    assert np.isfinite(w3)
+    assert np.isfinite(w4)
     if w1 < 0.0:
         return False
     if w2 < 0.0:
@@ -223,7 +225,6 @@ def is_inside_tetrahedron(w1, w2, w3, w4) -> bool:
 
 
 class Tester:
-
     def __init__(self):
         import isl.math.vector3 as V3
 
@@ -234,13 +235,13 @@ class Tester:
         p = u1 * x1 + u2 * x2
         w1, w2 = compute_barycentric_edge(x1, x2, p)
         if np.isclose(u1, w1):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u2, w2):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
 
         x1 = V3.make(-1, 0, 0)
         x2 = V3.make(1, 0, 0)
@@ -249,13 +250,13 @@ class Tester:
         p = u1 * x1 + u2 * x2
         w1, w2 = compute_barycentric_edge(x1, x2, p)
         if np.isclose(u1, w1):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u2, w2):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
 
         x1 = V3.make(-1, 0, 0)
         x2 = V3.make(1, 0, 0)
@@ -264,13 +265,13 @@ class Tester:
         p = u1 * x1 + u2 * x2
         w1, w2 = compute_barycentric_edge(x1, x2, p)
         if np.isclose(u1, w1):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u2, w2):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
 
         x1 = V3.make(1, 0, 0)
         x2 = V3.make(0, 1, 0)
@@ -281,17 +282,17 @@ class Tester:
         p = u1 * x1 + u2 * x2 + u3 * x3
         w1, w2, w3 = compute_barycentric_triangle(x1, x2, x3, p)
         if np.isclose(u1, w1):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u2, w2):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u3, w3):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
 
         x1 = V3.make(1, 0, 0)
         x2 = V3.make(0, 1, 0)
@@ -302,17 +303,17 @@ class Tester:
         p = u1 * x1 + u2 * x2 + u3 * x3
         w1, w2, w3 = compute_barycentric_triangle(x1, x2, x3, p)
         if np.isclose(u1, w1):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u2, w2):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u3, w3):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
 
         x1 = V3.make(1, 0, 0)
         x2 = V3.make(0, 1, 0)
@@ -323,44 +324,44 @@ class Tester:
         p = u1 * x1 + u2 * x2 + u3 * x3
         w1, w2, w3 = compute_barycentric_triangle(x1, x2, x3, p)
         if np.isclose(u1, w1):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u2, w2):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u3, w3):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
 
         x1 = V3.make(1, 0, 0)
         x2 = V3.make(0, 1, 0)
         x3 = V3.make(0, 0, 1)
         x4 = V3.make(0, 0, 0)
-        u1 =  0.1
-        u2 =  0.1
-        u3 =  0.1
+        u1 = 0.1
+        u2 = 0.1
+        u3 = 0.1
         u4 = 1.0 - u1 - u2 - u3
         p = u1 * x1 + u2 * x2 + u3 * x3 + u4 * x4
         w1, w2, w3, w4 = compute_barycentric_tetrahedron(x1, x2, x3, x4, p)
         if np.isclose(u1, w1):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u2, w2):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u3, w3):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u4, w4):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
 
         x1 = V3.make(1, 0, 0)
         x2 = V3.make(0, 1, 0)
@@ -373,44 +374,49 @@ class Tester:
         p = u1 * x1 + u2 * x2 + u3 * x3 + u4 * x4
         w1, w2, w3, w4 = compute_barycentric_tetrahedron(x1, x2, x3, x4, p)
         if np.isclose(u1, w1):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u2, w2):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u3, w3):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
         if np.isclose(u4, w4):
-            print('Success')
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
 
         x1 = V3.make(0, 0, 0)
         x2 = V3.make(1, 0, 0)
         x3 = V3.make(0, 1, 0)
         x4 = V3.make(0, 0, 1)
-        grad_w1, grad_w2, grad_w3, grad_w4 = compute_barycentric_derivatives_tetrahedron(x1, x2, x3, x4)
-        if np.allclose(grad_w1, V3.make(-1., -1., -1.)):
-            print('Success')
+        (
+            grad_w1,
+            grad_w2,
+            grad_w3,
+            grad_w4,
+        ) = compute_barycentric_derivatives_tetrahedron(x1, x2, x3, x4)
+        if np.allclose(grad_w1, V3.make(-1.0, -1.0, -1.0)):
+            print("Success")
         else:
-            print('Failure')
-        if np.allclose(grad_w2, V3.make(1., 0., 0.)):
-            print('Success')
+            print("Failure")
+        if np.allclose(grad_w2, V3.make(1.0, 0.0, 0.0)):
+            print("Success")
         else:
-            print('Failure')
-        if np.allclose(grad_w3, V3.make(0., 1., 0.)):
-            print('Success')
+            print("Failure")
+        if np.allclose(grad_w3, V3.make(0.0, 1.0, 0.0)):
+            print("Success")
         else:
-            print('Failure')
-        if np.allclose(grad_w4, V3.make(0., 0., 1.)):
-            print('Success')
+            print("Failure")
+        if np.allclose(grad_w4, V3.make(0.0, 0.0, 1.0)):
+            print("Success")
         else:
-            print('Failure')
+            print("Failure")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     tester = Tester()
