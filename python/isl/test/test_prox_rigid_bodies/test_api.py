@@ -1,9 +1,9 @@
-import isl.simulators.prox_rigid_bodies.api as api
 import unittest
 import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
+import isl.simulators.prox_rigid_bodies.api as api
 
 
 class TestRigidBodiesAPI(unittest.TestCase):
