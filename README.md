@@ -1,4 +1,4 @@
-# Interactive Simulation Library (ISL)
+# RAINBOW Software Foundation (libRAINBOW)
 This is python code library for rigging, setting up and running simulations in Jupyter notebooks. The aim is to have simple interactive python tools that can be used with very little backgorund knowledge, while providing a back-end functionality in C++ or CUDA for developing new simulator technology and providing high performance code.
 
 ## Jupyter notebook setup
