@@ -21,28 +21,21 @@
 title: libRAINBOW
 email: rane@di.ku.dk
 description: >- # this means to ignore newlines until "baseurl:"
-  Write an awesome description for your new site here. You can edit this
-  line in _config.yml. It will appear in your document head meta (for
-  Google search results) and in your feed.xml site description.
+  This is python code library for rigging, setting up and running simulations in Jupyter notebooks. 
+  The aim is to have simple interactive python tools that can be used with very little backgorund knowledge, 
+  while providing a back-end functionality in C++ or CUDA for developing new simulator technology and providing 
+  high performance code.
 baseurl: "" # the subpath of your site, e.g. /blog
 url: "" # the base hostname & protocol for your site, e.g. http://example.com
-<<<<<<< HEAD
 twitter_username: H2020Rainbow  
-github_username:  diku-dk/libRAINBOW 
+github_username: diku-dk
 
 # Build settings
-theme: minima
+remote_theme: pages-themes/cayman@v0.2.0
+plugins:
+- jekyll-remote-theme # add this line to the plugins list if you already have one
 # plugins:
 #   - jekyll-feed
-=======
-twitter_username: H2020Rainbow
-github_username: diku-dk/libRAINBOW 
-
-# Build settings
-theme: minima
-plugins:
-  - jekyll-feed
->>>>>>> aba61c42c825b78f1b1d7f08da93d4a00c1c0530
 
 # Exclude from processing.
 # The following items will not be processed, by default.
