@@ -1,6 +1,6 @@
 # Inspired by:
 # https://autobencoder.com/2020-08-24-conda-actions/
-name: Testing your commit on libIsl
+name: Testing your commit on libRAINBOW
 
 on:
   push:
