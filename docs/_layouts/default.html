@@ -27,18 +27,18 @@
       {% endif %}
     </header>
     
-    <a href="/{{ site.github.repository_name }}/" class="tablink" onclick="openPage('Home', this, 'red')">Home</a>
-    
-    <a href="/{{ site.github.repository_name }}/installation_guide/" class="tablink" onclick="openPage('Installation', this, 'green')">Installation</a>
-    <a href="/{{ site.github.repository_name }}/documentation/" class="tablink" onclick="openPage('Documentation', this, 'purple')">Documentation</a>
-    <a href="/{{ site.github.repository_name }}/contact/" class="tablink" onclick="openPage('Contact', this, 'blue')">Contact</a>
-    <a href="/{{ site.github.repository_name }}/help/" class="tablink" onclick="openPage('Help', this, 'orange')">help</a>
+    <a href="/{{ site.baseurl }}/" class="tablink" onclick="openPage('Home', this, 'red')">Home</a>
+    <a href="/{{ site.baseurl }}/installation_guide/" class="tablink" onclick="openPage('Installation', this, 'green')">Installation</a>
+    <a href="/{{ site.baseurl }}/documentation/" class="tablink" onclick="openPage('Documentation', this, 'purple')">Documentation</a>
+    <a href="/{{ site.baseurl }}/contact/" class="tablink" onclick="openPage('Contact', this, 'blue')">Contact</a>
+    <a href="/{{ site.baseurl }}/help/" class="tablink" onclick="openPage('Help', this, 'orange')">help</a>
     
    
     <!-- <a id="skip-to-content" href="#content">Skip to the content.</a> -->
     <main id="content" class="main-content" role="main">
       {{ content }} 
-      Updated 15:45
+      base url: {{ site.baseurl }}
+      Updated 16:02
       <footer class="site-footer">
         {% if site.github.is_project_page %}
           <span class="site-footer-owner"><a href="{{ site.github.repository_url }}">{{ site.github.repository_name }}</a> is maintained by <a href="{{ site.github.owner_url }}">{{ site.github.owner_name }}</a>.</span>
