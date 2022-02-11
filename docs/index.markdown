@@ -1,1 +1,4 @@
-# Hello world
+---
+layout: default
+---
+# Hello world 1
