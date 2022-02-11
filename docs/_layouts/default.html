@@ -27,7 +27,7 @@
       {% endif %}
     </header>
     
-    <a href="/libRAINBOW/" class="tablink" onclick="openPage('Home', this, 'red')">Home</a>
+    <a href="/{{ site.github.repository_name  }}/" class="tablink" onclick="openPage('Home', this, 'red')">Home</a>
     <a href="/libRAINBOW/installation_guide/" class="tablink" onclick="openPage('Installation', this, 'green')">Installation</a>
     <a href="/libRAINBOW/documentation/" class="tablink" onclick="openPage('Documentation', this, 'purple')">Documentation</a>
     <a href="/libRAINBOW/contact/" class="tablink" onclick="openPage('Contact', this, 'blue')">Contact</a>
@@ -37,7 +37,7 @@
     <!-- <a id="skip-to-content" href="#content">Skip to the content.</a> -->
     <main id="content" class="main-content" role="main">
       {{ content }}
-       
+      {{ site.github.repository_name }}
 
       <footer class="site-footer">
         {% if site.github.is_project_page %}
