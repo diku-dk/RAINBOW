@@ -1,5 +1,5 @@
 # RAINBOW Software Foundation (libRAINBOW)
-## Jupyter notebook setup
+<!-- ## Jupyter notebook setup
 You need to setup your conda environment for the Jupyter notebooks
 This is how to install and setup your conda environment
 
@@ -47,4 +47,4 @@ The name may vary depending on your OS and python version. Next copy the file fr
 cp wildmeshing.cpython-39-darwin.so libisl/python
 ```
 
-Do not worry about wildmeshing installed with conda. This "local" version will shadow the conda version when you import the package. The effect of the local package may not take effect before you have restartet your Jupyter kernel.
+Do not worry about wildmeshing installed with conda. This "local" version will shadow the conda version when you import the package. The effect of the local package may not take effect before you have restartet your Jupyter kernel. -->
