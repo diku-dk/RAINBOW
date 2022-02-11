@@ -17,22 +17,13 @@
 
     <header class="page-header" role="banner">
       <h1 class="project-name">{{ page.title | default: site.title | default: site.github.repository_name }}</h1>
-      <h2 class="project-tagline">{{ page.description | default: site.description | default: site.github.project_tagline }}</h2>
-      {% if site.github.is_project_page %}
-        <a href="{{ site.github.repository_url }}" class="btn">View on GitHub</a>
-      {% endif %}
-      {% if site.show_downloads %}
-        <a href="{{ site.github.zip_url }}" class="btn">Download .zip</a>
-        <a href="{{ site.github.tar_url }}" class="btn">Download .tar.gz</a>
-      {% endif %}
     </header>
     
     <a href="/" class="tablink" onclick="openPage('Home', this, 'red')">Home</a>
     <a href="/installation_guide/" class="tablink" onclick="openPage('Installation', this, 'green')">Installation</a>
-    <a href="/documentation/" class="tablink" onclick="openPage('Documentation', this, 'green')">Documentation</a>
+    <a href="/" class="tablink" onclick="openPage('Documentation', this, 'green')">Documentation</a>
     <a href="/contact/" class="tablink" onclick="openPage('Contact', this, 'blue')">Contact</a>
     <a href="/help/" class="tablink" onclick="openPage('Help', this, 'orange')">help</a>
-    
    
     <!-- <a id="skip-to-content" href="#content">Skip to the content.</a> -->
     <main id="content" class="main-content" role="main">
