@@ -26,12 +26,14 @@
         <a href="{{ site.github.tar_url }}" class="btn">Download .tar.gz</a>
       {% endif %}
     </header>
-    <!-- <a href="https://google.com" class="button">Go to Google</a> -->
-    <button class="tablink" onclick="openPage('Home', this, 'red')">Home</button>
-    <button class="tablink" onclick="openPage('News', this, 'green')" id="defaultOpen">Installation</button>
+    
+    <a href="/" class="tablink" onclick="openPage('Home', this, 'red')">Home</a>
+    <a href="/installation_guide/" class="tablink" onclick="openPage('Installation', this, 'green')">Installation</a>
+    
     <button class="tablink" onclick="openPage('Contact', this, 'blue')">Contact</button>
     <button class="tablink" onclick="openPage('Help', this, 'orange')">Help</button>
-    <a id="skip-to-content" href="#content">Skip to the content.</a>
+   
+    <!-- <a id="skip-to-content" href="#content">Skip to the content.</a> -->
     <main id="content" class="main-content" role="main">
       {{ content }}
        
