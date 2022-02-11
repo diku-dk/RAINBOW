@@ -1,7 +1,7 @@
 ---
 layout: page
 title: "Contact"
-permalink: /libRAINBOW/contact/
+permalink: /contact/
 ---
 # Contact us
 

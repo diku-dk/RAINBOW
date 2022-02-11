@@ -1,7 +1,7 @@
 ---
 layout: page_documentation
 title: "Documentation"
-permalink: /libRAINBOW/documentation/
+permalink: /documentation/
 ---
 # Documentation
 TBA

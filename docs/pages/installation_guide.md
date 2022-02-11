@@ -1,7 +1,7 @@
 ---
 layout: page_install
 title: "Installation Guide"
-permalink: /libRAINBOW/installation_guide/
+permalink: /installation_guide/
 ---
 # Installation Guide
 ## Jupyter notebook setup
