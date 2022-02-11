@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: page_documentation
 title: "Documentation"
 permalink: /documentation/
 ---
