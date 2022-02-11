@@ -1,6 +1,6 @@
 ---
 layout: page_help
 title: "Help"
-permalink: /help/
+permalink: /libRAINBOW/help/
 ---
 # Help
