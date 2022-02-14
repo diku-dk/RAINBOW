@@ -32,7 +32,10 @@ description: >- # this means to ignore newlines until "baseurl:"
 
 show_downloads: true
 
-baseurl: libRAINBOW
+#  if local
+# baseurl: /libRAINBOW
+#  endif
+
 
 # Build settings
 remote_theme: pages-themes/cayman@v0.2.0
