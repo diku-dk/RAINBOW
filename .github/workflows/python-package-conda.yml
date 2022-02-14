@@ -27,8 +27,6 @@ jobs:
         shell: bash -l {0}
         run: |
             conda install numpy
-            conda install certifi
-            conda install pyzmq
             conda install scipy
             conda install -c conda-forge igl
             conda install coverage
