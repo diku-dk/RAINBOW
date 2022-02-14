@@ -13,6 +13,28 @@
     {% include head-custom.html %}
   </head>
   <body>
+    <script>
+      function openOS(evt, osName) {
+        // Declare all variables
+        var i, tabcontent, tablinks;
+
+        // Get all elements with class="tabcontent" and hide them
+        tabcontent = document.getElementsByClassName("tabcontent");
+        for (i = 0; i < tabcontent.length; i++) {
+          tabcontent[i].style.display = "none";
+        }
+
+        // Get all elements with class="tablinks" and remove the class "active"
+        tablinks = document.getElementsByClassName("tablinks");
+        for (i = 0; i < tablinks.length; i++) {
+          tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+
+        // Show the current tab, and add an "active" class to the link that opened the tab
+        document.getElementById(osName).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
+    </script>
     
 
     <header class="page-header" role="banner">
@@ -28,7 +50,21 @@
     <!-- <a id="skip-to-content" href="#content">Skip to the content.</a> -->
     <main id="content" class="main-content" role="main">
       {{ content }}
-       
+      <div class="tab">
+        {% for docu_pages in site.installation_pages %}
+          <button class="tablinks" onclick="openOS(event, '{{ docu_pages.os }}')">{{ docu_pages.os }}</button>
+        {% endfor %}
+      </div>
+
+      {% for docu_pages in site.installation_pages %}
+        <div id="{{ docu_pages.os }}" class="tabcontent">
+          <p> {{ docu_pages.content }} </p>
+        </div>
+      {% endfor %}
+
+     <script>
+        document.getElementById("Anaconda").style.display = "block";
+     </script> 
 
       <footer class="site-footer">
         {% if site.github.is_project_page %}

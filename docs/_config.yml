@@ -32,11 +32,12 @@ description: >- # this means to ignore newlines until "baseurl:"
 
 show_downloads: true
 
-#  if local
 baseurl: /libRAINBOW
-#  else
-# baseurl: libRAINBOW
-#  endif
+
+collections:
+  - installation_pages
+
+collections_dir: my_collections
 
 
 # Build settings
