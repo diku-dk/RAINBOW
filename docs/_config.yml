@@ -32,7 +32,6 @@ description: >- # this means to ignore newlines until "baseurl:"
 
 show_downloads: true
 
-url: https://diku-dk.github.io
 baseurl:  /libRAINBOW
 
 # Build settings
