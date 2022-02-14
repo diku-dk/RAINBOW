@@ -33,9 +33,9 @@ description: >- # this means to ignore newlines until "baseurl:"
 show_downloads: true
 
 #  if local
-#  baseurl: /libRAINBOW
+baseurl: /libRAINBOW
 #  else
-baseurl: libRAINBOW
+# baseurl: libRAINBOW
 #  endif
 
 
