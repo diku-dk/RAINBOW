@@ -31,7 +31,7 @@
     <main id="content" class="main-content" role="main">
        {{ content }}
       <script>
-      function myFunction() {
+      function searchFunc() {
         // Declare variables
         var input, filter, ul, li, a, i;
         input = document.getElementById("mySearch");
@@ -51,11 +51,12 @@
       }
 
       </script>
-      <input type="text" id="mySearch" onkeyup="myFunction()" placeholder="Search.." title="Type in a category">
+      <input type="text" id="mySearch" onkeyup="searchFunc()" placeholder="Search in documentation">
 
       <ul id="myMenu">
-        <li><a href="{{ site.url }}/{{ site.baseurl }}/documentation/prox_rigid_bodies">Prox Rigid Bodies</a></li>
-        <li><a href="{{ site.url }}/{{ site.baseurl }}/documentation/prox_soft_bodies">Prox Soft Bodies</a></li>
+        {% for docu_pages in site.documentation_pages %}
+          <li><a href="{{ site.url }}{{ site.baseurl }}/{{ docu_pages.url }}">{{ docu_pages.title }}</a></li>
+        {% endfor %}
       </ul>
        
       <footer class="site-footer">

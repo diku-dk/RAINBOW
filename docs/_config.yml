@@ -34,8 +34,15 @@ show_downloads: true
 
 baseurl: /libRAINBOW
 
+# collections:
+#   - installation_pages
+#   - documentation_pages
+
 collections:
-  - installation_pages
+  installation_pages:
+    output: true
+  documentation_pages:
+    output: true
 
 collections_dir: my_collections
 
