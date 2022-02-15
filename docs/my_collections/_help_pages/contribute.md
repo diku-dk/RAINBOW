@@ -43,3 +43,6 @@ Where the issue number would be **, see GUI.
 ### Example GUI
 First download [git cola](https://git-cola.github.io/):
 1. Clone using git cola ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_clone.png)
+2. Go to the github issue [webpage](https://github.com/diku-dk/libRAINBOW/issues)
+--- ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_new_issue.png)
+--- ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_create_new_issue.png)
