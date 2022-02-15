@@ -51,14 +51,14 @@
     <main id="content" class="main-content" role="main">
       {{ content }}
       <div class="tab">
-        {% for docu_pages in site.installation_pages %}
-          <button class="tablinks" onclick="openOS(event, '{{ docu_pages.os }}')">{{ docu_pages.os }}</button>
+        {% for install_page in site.installation_pages %}
+          <button class="tablinks" onclick="openOS(event, '{{ install_page.os }}')">{{ install_page.os }}</button>
         {% endfor %}
       </div>
 
-      {% for docu_pages in site.installation_pages %}
-        <div id="{{ docu_pages.os }}" class="tabcontent">
-          <p> {{ docu_pages.content }} </p>
+      {% for install_page in site.installation_pages %}
+        <div id="{{ install_page.os }}" class="tabcontent">
+          <p> {{ install_page.content }} </p>
         </div>
       {% endfor %}
 
