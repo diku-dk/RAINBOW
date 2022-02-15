@@ -52,7 +52,7 @@
 
       </script>
       <input type="text" id="mySearch" onkeyup="searchFunc()" placeholder="Search in documentation">
-
+      <p> Printing </p>
       <ul id="myMenu">
         {% for docu_pages in site.documentation_pages %}
           <li><a href="{{ site.url }}{{ site.baseurl }}{{ docu_pages.url }}">{{ docu_pages.title }}</a></li>
