@@ -41,4 +41,5 @@ Where the issue number would be **, see GUI.
 7. Use the GUI guide
 
 ### Example GUI
-
+First download [git cola](https://git-cola.github.io/):
+1. Clone using git cola ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_clone.png)
