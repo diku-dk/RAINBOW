@@ -43,6 +43,8 @@ collections:
     output: true
   documentation_pages:
     output: true
+  help_pages:
+    output: true
 
 collections_dir: my_collections
 
