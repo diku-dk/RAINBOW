@@ -55,7 +55,7 @@
 
       <ul id="myMenu">
         {% for docu_pages in site.documentation_pages %}
-          <li><a href="{{ site.url }}{{ site.baseurl }}/{{ docu_pages.url }}">{{ docu_pages.title }}</a></li>
+          <li><a href="{{ site.url }}{{ site.baseurl }}{{ docu_pages.url }}">{{ docu_pages.title }}</a></li>
         {% endfor %}
       </ul>
        
