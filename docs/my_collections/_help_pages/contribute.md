@@ -10,7 +10,7 @@ collaborations with the IMAGE section. Otherwise please contact
 [us](https://di.ku.dk/Ansatte/forskere/?pure=da/persons/566411). 
 
 ## The Procedure
-1. Clone the repository from git
+1. Clone the repository from [git](https://github.com/diku-dk/libRAINBOW/tree/main)
 2. Create a [issue](https://docs.github.com/en/issues) on the [github webpage](https://github.com/diku-dk/libRAINBOW/issues)
 3. Create a local branch. You will make all the changes within the local branch. 
 You are **not** allowed to change the [main](https://github.com/diku-dk/libRAINBOW/tree/main) branch.
@@ -22,12 +22,23 @@ add unittest.
 
 ## Example
 Let's say you want to add another simulator, ```example_simulator.py ```, ```test_example_simulator.py``` 
-and ```documentation_example_simulator.md``` 
+and ```documentation_example_simulator.md```. ```example_simulator.py ``` is 
+your simulator src code, ```test_example_simulator.py``` is the unittest file using the [unittest framework](https://docs.python.org/3/library/unittest.html), 
+and ```documentation_example_simulator.md``` is the documentation page.  
 
-
-
-### Example TUI
-
+### Example TUI using a [BASH terminal](https://en.wikipedia.org/wiki/Bash_(Unix_shell))
+1. Clone the repository from git:\
+`git clone git@github.com:diku-dk/libRAINBOW.git`
+2. Use the GUI guide
+3. Create a local branch:\
+`git branch <issue_number>b`\
+`git checkout <issue_number>b` \
+Where the issue number would be **, see GUI.
+4. Make pull request: \
+`git push --set-upstream origin <issue_number>b` 
+5. Use the GUI guide
+6. Use the GUI guide
+7. Use the GUI guide
 
 ### Example GUI
 
