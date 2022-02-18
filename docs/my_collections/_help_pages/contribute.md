@@ -54,3 +54,21 @@ First download [git cola](https://git-cola.github.io/):
     ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_create_new_issue.png)
     ![]({{ site.url }}{{ site.baseurl }}/assets/images/finish_issue.png)
 3. Create a local branch using git cola
+    1. Click on 'Branch'
+    ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_cola_make_branch_1.png)
+    2. Click on 'Create'
+    ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_cola_make_branch_2.png)
+    3. Initialize branch 
+        1. Naming your branch is up to you. However, we recommend including the issue number in the name eg.
+           '15b'  
+        2. Make sure you branch from the main branch. If not 'checkout' the main branch first. 
+        3. Create branch 
+        ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_cola_make_branch_3.png)
+    4. Make sure you are on your newly created branchMake sure you are on your. Otherwise 'checkout' your
+       new branch. 
+    ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_cola_make_branch_4.png)
+4. (Only if you are done coding) Make a pull request.
+    1. Add your code
+    2. Commit you code
+    3. Push upstream
+ 
