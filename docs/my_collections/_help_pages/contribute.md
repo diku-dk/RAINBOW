@@ -71,4 +71,12 @@ First download [git cola](https://git-cola.github.io/):
     1. Add your code
     2. Commit you code
     3. Push upstream
+    ![]({{ site.url }}{{ site.baseurl }}/assets/images/add_untracked_files.png)
+    ![]({{ site.url }}{{ site.baseurl }}/assets/images/add_untracked_files.png)
+    ![]({{ site.url }}{{ site.baseurl }}/assets/images/add_files.png)
+    ![]({{ site.url }}{{ site.baseurl }}/assets/images/push_files.png)
+    ![]({{ site.url }}{{ site.baseurl }}/assets/images/push_menu.png)
+    ![]({{ site.url }}{{ site.baseurl }}/assets/images/push_menu_2.png)
+    ![]({{ site.url }}{{ site.baseurl }}/assets/images/make_pull_request.png)
+    ![]({{ site.url }}{{ site.baseurl }}/assets/images/make_pull_request_2.png)
  
