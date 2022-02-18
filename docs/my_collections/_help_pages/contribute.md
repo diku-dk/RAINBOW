@@ -44,5 +44,13 @@ Where the issue number would be **, see GUI.
 First download [git cola](https://git-cola.github.io/):
 1. Clone using git cola ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_clone.png)
 2. Go to the github issue [webpage](https://github.com/diku-dk/libRAINBOW/issues)
---- ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_new_issue.png)
---- ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_create_new_issue.png)
+    ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_new_issue.png) 
+    1. Add the issue name
+    2. Write a short description of what you are training to solveWrite a short 
+    3. Add assignee(s)
+    4. Add label
+    5. Submit issue
+    6. Finished issue
+    ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_create_new_issue.png)
+    ![]({{ site.url }}{{ site.baseurl }}/assets/images/finish_issue.png)
+3. Create a local branch using git cola
