@@ -6,8 +6,9 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    branches: [ 17b ]
-
+    branches: 
+      - 17b 
+      - main
 jobs:
   miniconda:
     name: os ${{ matrix.os }} python ${{ matrix.python-version }}
