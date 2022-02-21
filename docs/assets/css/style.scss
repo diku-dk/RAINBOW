@@ -2,6 +2,32 @@
 ---
 
 @import "{{ site.theme }}";
+
+
+#myMenu {
+  background-color: inherit;
+}
+#myMenu td {
+  background-color: inherit;
+  width: 33%;
+  text-align: center;
+  padding: 12px;
+  display: "";
+}
+#myMenu tr:hover {
+  background-color: rgb(48, 137, 153);
+  color: white;
+}
+
+#myMenu a {
+  color: inherit;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+#myMenu a:hover {
+  color: inherit;
+}
 // * {box-sizing: border-box}
 
 /* Style the tab */
