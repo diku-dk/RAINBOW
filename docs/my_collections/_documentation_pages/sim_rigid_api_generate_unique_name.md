@@ -5,7 +5,7 @@ filename: "api.py"
 folder_dir: "isl/simulators/prox_rigid_bodies/"
 author: Kenny Erleben
 maintainer: DIKU
-permalink: my_collections/documentation_pages/prox_rigid_bodies/simulations/api/generate_unique_name
+permalink: my_collections/documentation_pages/simulations/prox_rigid_bodies/api/generate_unique_name
 ---
 ## Purpose & Params
 This function helps to generate unique names, such that one can always locate objects based on name only.
