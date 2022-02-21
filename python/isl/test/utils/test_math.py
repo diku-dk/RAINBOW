@@ -47,3 +47,11 @@ class TestRigidBodiesAPI(unittest.TestCase):
         test_vec_2 = vec3.make(0,2,3)
         self.assertTrue(vec3.less(test_vec_2, test_vec_1))
         self.assertFalse(vec3.less(test_vec_1, test_vec_2))
+    '''
+        Just a copy
+    '''
+    def test_less_5(self):
+        test_vec_1 = vec3.make(1,2,3)
+        test_vec_2 = vec3.make(0,2,3)
+        self.assertTrue(vec3.less(test_vec_2, test_vec_1))
+        self.assertFalse(vec3.less(test_vec_1, test_vec_2))
