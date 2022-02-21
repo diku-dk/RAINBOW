@@ -6,9 +6,7 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    branches: 
-      - 'refs/heads/17b' 
-      - main
+    branches: [ main ]
 jobs:
   miniconda:
     name: os ${{ matrix.os }} python ${{ matrix.python-version }}
