@@ -68,15 +68,32 @@ First download [git cola](https://git-cola.github.io/):
        new branch. 
     ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_cola_make_branch_4.png)
 4. (Only if you are done coding) Make a pull request.
-    1. Add your code
-    2. Commit you code
-    3. Push upstream
+    1. Stage all modified and new files
     ![]({{ site.url }}{{ site.baseurl }}/assets/images/add_untracked_files.png)
     ![]({{ site.url }}{{ site.baseurl }}/assets/images/add_untracked_files.png)
+    2. Commit your code
+        1. See that all your code is modified
+        2. Type a commit message; remember to include the issue number: ```<issue_number>: Commit message```
+        3. Type a description of what you have implemented
+        4. Press ```Commit```  
     ![]({{ site.url }}{{ site.baseurl }}/assets/images/add_files.png)
+    3. Push upstream. Find `Action>Push` 
     ![]({{ site.url }}{{ site.baseurl }}/assets/images/push_files.png)
+    4. Ensure that the remote branch is ```origin``` and the ```local branch``` is your branch.
+    ```Press push```
     ![]({{ site.url }}{{ site.baseurl }}/assets/images/push_menu.png)
+    5. Press ```Create Remote Branch```
     ![]({{ site.url }}{{ site.baseurl }}/assets/images/push_menu_2.png)
+    6. Login on [```github/libRAINBOW```](https://github.com/diku-dk/libRAINBOW/pulls) > ```Pull request```. 
+    Press ```Compare & pull request```
     ![]({{ site.url }}{{ site.baseurl }}/assets/images/make_pull_request.png)
+    7. Define the ```pull request```
+        1. Set the reviewers, minimum: 1
+        2. Set the assignees
+        3. Set label
+        4. Tag the related issue
+        5. Before merge -> See that all reviewers have agreed on the merge
+        6. Before merge -> See that all test passes
+        7. If both reviewers and test are all good, then you can safely ```Squash and merge```
     ![]({{ site.url }}{{ site.baseurl }}/assets/images/make_pull_request_2.png)
  
