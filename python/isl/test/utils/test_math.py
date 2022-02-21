@@ -17,7 +17,9 @@ class TestRigidBodiesAPI(unittest.TestCase):
         # self.assertEqual(np.linalg.norm(vn), 1)
         # self.assertEqual(np.linalg.norm(vt), 1)
         # self.assertEqual(np.linalg.norm(vs), 1)
-    
+    '''
+        Adding test on less
+    ''' 
     def test_less_1(self):
         test_vec_1 = vec3.make(1,2,3)
         test_vec_2 = vec3.make(0,0,0)
