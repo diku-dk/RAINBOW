@@ -113,7 +113,10 @@ def less(a, b):
     # We know now that a0==b0 and a1==b1 and a2==b2
     return False
 
-
+'''
+    Spelling error? 
+    greather or greater
+'''
 def greather(a, b):
     if a[0] > b[0]:
         return True
