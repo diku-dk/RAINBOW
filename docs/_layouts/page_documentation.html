@@ -38,16 +38,36 @@
         filter = input.value.toUpperCase();
         ul = document.getElementById("myMenu");
         tr = ul.getElementsByTagName("tr");
-      
+        search_in_file   = false;
+        search_in_folder = false;
+        if (filter.substring(0, 6) == ":FILE:")
+        {
+          console.log("Searching in file");
+          filter = filter.substring(6);
+          search_in_file = true; 
+        } else if (filter.substring(0, 8) == ":FOLDER:") 
+        { 
+          console.log("Searching in folder");
+          filter = filter.substring(8);
+          search_in_folder = true;
+
+        }
         // Loop through all list items, and hide those who don't match the search query
         for (i = 1; i < tr.length; i++) {
           td = tr[i].getElementsByTagName("td");
           for (j = 0; j < td.length; j++) {
-            a = td[j].getElementsByTagName("a")[0];
+            var a = td[j].getElementsByTagName("a")[0];
+            if (search_in_file && td[j].id == "file") {
+              a = td[j]
+            } else if (search_in_folder && td[j].id == "folder") {
+              a = td[j]
+            }
             if (typeof(a) !== 'undefined')
             {
               if (a.innerHTML.toUpperCase().indexOf(filter) > -1) {
+                console.log(a.innerHTML.toUpperCase(), filter)
                 tr[i].style.display = "";
+                break
               } else {
                 tr[i].style.display = "none";
               }
@@ -67,8 +87,8 @@
           </tr>
           {% for docu_pages in site.documentation_pages %}
             <tr>
-              <td>{{ docu_pages.folder_dir }} </td>
-              <td>{{ docu_pages.filename }}</td>
+              <td id="folder">{{ docu_pages.folder_dir }} </td>
+              <td id="file">{{ docu_pages.filename }}</td>
               <td><a href="{{ site.url }}{{ site.baseurl }}{{ docu_pages.url }}">{{ docu_pages.title }}</a></td>
             </tr>
           {% endfor %}
