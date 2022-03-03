@@ -75,6 +75,12 @@ class TestRigidBodiesAPI(unittest.TestCase):
         self.assertTrue(vec3.greather(test_vec_2, test_vec_1))
         self.assertFalse(vec3.greather(test_vec_1, test_vec_2))
     
+    def test_greater_5(self):
+        test_vec_1 = vec3.make(1,2,3)
+        test_vec_2 = vec3.make(1,2,3)
+        self.assertFalse(vec3.greather(test_vec_1, test_vec_2))
+        self.assertFalse(vec3.greather(test_vec_2, test_vec_1))
+
     def test_greater_than_equal(self):
         test_vec_1 = vec3.make(0,0,0)
         test_vec_2 = vec3.make(1,2,3)
@@ -346,6 +352,16 @@ class TestRigidBodiesAPI(unittest.TestCase):
 
     def test_make_orthonomal_vectors_9(self):
         vector      = np.array([2,3,1], dtype=np.float64)
+        norm_vector = vec3.unit(vector)
+        tangent, binormal, n = vec3.make_orthonormal_vectors(norm_vector)
+        expected = n
+        actual   = np.cross(binormal, tangent)
+        self.assertTrue(
+            utils.array_not_equal(actual, expected)
+            )
+    
+    def test_make_orthonomal_vectors_10(self):
+        vector      = np.array([4,2,1], dtype=np.float64)
         norm_vector = vec3.unit(vector)
         tangent, binormal, n = vec3.make_orthonormal_vectors(norm_vector)
         expected = n
