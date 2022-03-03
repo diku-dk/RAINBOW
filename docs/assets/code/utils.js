@@ -1,11 +1,11 @@
-function hideAndShow(cell, filter, idx) {
+function hideAndShow(row, cell, filter, idx) {
     if (typeof(cell) !== 'undefined')
     {
       if (cell.innerHTML.toUpperCase().indexOf(filter) > -1) {
         console.log(cell.innerHTML.toUpperCase(), filter);
-        cell[idx].style.display = "";
+        row[idx].style.display = "";
       } else {
-        cell[idx].style.display = "none";
+        row[idx].style.display = "none";
       }
     }
 }
@@ -46,7 +46,7 @@ function searchFunc() {
             } else if (search_in_func && td[j].id == "func_name") {
               a = td[j];
             }
-            hideAndShow(a, filter, i)
+            hideAndShow(tr, a, filter, i)
         }
       }
 }
