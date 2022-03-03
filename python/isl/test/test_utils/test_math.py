@@ -8,18 +8,12 @@ import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
 import isl.math.vector3 as vec3
 import isl.math.angle as angle
-import isl.test.test_utils as utils
+import isl.test.test_common as utils
 
 class TestRigidBodiesAPI(unittest.TestCase):
     '''
         Need to ask about function make_orthonomal_vectors
     '''
-    # def test_make_orthonormal_vectors(self):
-        # test_vec = vec3.make(1,2,3)
-        # vs, vt, vn = vec3.make_orthonormal_vectors(test_vec)
-        # self.assertEqual(np.linalg.norm(vn), 1)
-        # self.assertEqual(np.linalg.norm(vt), 1)
-        # self.assertEqual(np.linalg.norm(vs), 1)
     '''
         Adding test on less
     ''' 
