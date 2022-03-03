@@ -1,3 +1,5 @@
+from cmath import tan
+from ctypes import util
 import unittest
 import os
 import sys
@@ -6,7 +8,7 @@ import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
 import isl.math.vector3 as vec3
 import isl.math.angle as angle
-
+import isl.test.test_utils as utils
 
 class TestRigidBodiesAPI(unittest.TestCase):
     '''
@@ -268,6 +270,96 @@ class TestRigidBodiesAPI(unittest.TestCase):
         expected = 2
         self.assertEqual(actual, expected)
     
+    def test_make_orthonomal_vectors_1(self):
+        vector      = np.array([1,2,3], dtype=np.float64)
+        norm_vector = vec3.unit(vector)
+        tangent, binormal, n = vec3.make_orthonormal_vectors(norm_vector)
+        expected = n
+        actual   = np.cross(tangent, binormal)
+        self.assertTrue(
+            utils.array_equal(actual, expected)
+        )
+    
+    def test_make_orthonomal_vectors_2(self):
+        vector      = np.array([1.3,0.1,-3], dtype=np.float64)
+        norm_vector = vec3.unit(vector)
+        tangent, binormal, n = vec3.make_orthonormal_vectors(norm_vector)
+        expected = n
+        actual   = np.cross(tangent, binormal)
+        self.assertTrue(
+            utils.array_equal(actual, expected)
+        )
+    
+    def test_make_orthonomal_vectors_3(self):
+        vector      = np.array([1.3,0.1,-3], dtype=np.float64)
+        norm_vector = vec3.unit(vector)
+        tangent, binormal, n = vec3.make_orthonormal_vectors(norm_vector)
+        expected = tangent
+        actual   = np.cross(binormal, n)
+        self.assertTrue(
+            utils.array_equal(actual, expected)
+        )
+
+    def test_make_orthonomal_vectors_4(self):
+        vector      = np.array([1.3,0.1,-3], dtype=np.float64)
+        norm_vector = vec3.unit(vector)
+        tangent, binormal, n = vec3.make_orthonormal_vectors(norm_vector)
+        expected = tangent
+        actual   = np.cross(binormal, n)
+        self.assertTrue(
+            utils.array_equal(actual, expected)
+        )
+    
+    def test_make_orthonomal_vectors_5(self):
+        vector      = np.array([1.3,0.1,-3], dtype=np.float64)
+        norm_vector = vec3.unit(vector)
+        tangent, binormal, n = vec3.make_orthonormal_vectors(norm_vector)
+        expected = binormal
+        actual   = np.cross(n, tangent)
+        self.assertTrue(
+            utils.array_equal(actual, expected)
+        )
+    
+    def test_make_orthonomal_vectors_6(self):
+        vector      = np.array([2,1,3], dtype=np.float64)
+        norm_vector = vec3.unit(vector)
+        tangent, binormal, n = vec3.make_orthonormal_vectors(norm_vector)
+        expected = n
+        actual   = np.cross(tangent, binormal)
+        self.assertTrue(
+            utils.array_equal(actual, expected)
+        )
+    
+    def test_make_orthonomal_vectors_7(self):
+        vector      = np.array([2,3,1], dtype=np.float64)
+        norm_vector = vec3.unit(vector)
+        tangent, binormal, n = vec3.make_orthonormal_vectors(norm_vector)
+        expected = n
+        actual   = np.cross(tangent, binormal)
+        self.assertTrue(
+            utils.array_equal(actual, expected)
+        )
+    
+    def test_make_orthonomal_vectors_8(self):
+        vector      = np.array([2,3,1], dtype=np.float64)
+        norm_vector = vec3.unit(vector)
+        tangent, binormal, n = vec3.make_orthonormal_vectors(norm_vector)
+        expected = n
+        actual   = np.cross(tangent, binormal)
+        self.assertTrue(
+            utils.array_equal(actual, expected)
+        )
+
+    def test_make_orthonomal_vectors_9(self):
+        vector      = np.array([2,3,1], dtype=np.float64)
+        norm_vector = vec3.unit(vector)
+        tangent, binormal, n = vec3.make_orthonormal_vectors(norm_vector)
+        expected = n
+        actual   = np.cross(binormal, tangent)
+        self.assertTrue(
+            utils.array_not_equal(actual, expected)
+            )
+
     def test_radians_to_degrees_1(self):
         radian = 2
         expected = 114.591
