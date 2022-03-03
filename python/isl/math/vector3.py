@@ -51,7 +51,14 @@ def j():
 def k():
     return np.array([0.0, 0.0, 1.0], dtype=np.float64)
 
-
+'''
+ tx = tangent  -> t 
+ ty = binormal -> b
+  n = normal   -> n
+  property of cross product
+  tx * ty = n
+  should with normalize?
+'''
 def make_orthonormal_vectors(n):
     tmp = np.fabs(n)
     if tmp[0] > tmp[1]:
