@@ -51,7 +51,14 @@ def j():
 def k():
     return np.array([0.0, 0.0, 1.0], dtype=np.float64)
 
-
+'''
+ tx = tangent  -> t 
+ ty = binormal -> b
+  n = normal   -> n
+  property of cross product
+  tx * ty = n
+  should with normalize?
+'''
 def make_orthonormal_vectors(n):
     tmp = np.fabs(n)
     if tmp[0] > tmp[1]:
@@ -77,9 +84,8 @@ def cross(a, b):
 def unit(a):
     return a / np.linalg.norm(a)
 
-
-def norm(a):
-    return np.linalg.norm(a)
+def norm(a):                 #pragma: no cover
+    return np.linalg.norm(a) #pragma: no cover 
 
 
 def max_abs_component(a):
@@ -113,7 +119,10 @@ def less(a, b):
     # We know now that a0==b0 and a1==b1 and a2==b2
     return False
 
-
+'''
+    Spelling error? 
+    greather or greater
+'''
 def greather(a, b):
     if a[0] > b[0]:
         return True
@@ -141,26 +150,26 @@ def greather_than_equal(a, b):
     return not less(a, b)
 
 
-if __name__ == "__main__":
-    print(max_abs_component(np.array([1.0, 0.0, 0.0],)))
-    print(max_abs_component(np.array([-1.0, 0.0, 0.0],)))
-    print(max_abs_component(np.array([0.0, 1.0, 0.0],)))
-    print(max_abs_component(np.array([0.0, -1.0, 0.0],)))
-    print(max_abs_component(np.array([0.0, 0.0, 1.0],)))
-    print(max_abs_component(np.array([0.0, 0.0, -1.0],)))
+if __name__ == "__main__":                                 # pragma: no cover         
+    print(max_abs_component(np.array([1.0, 0.0, 0.0],)))   # pragma: no cover
+    print(max_abs_component(np.array([-1.0, 0.0, 0.0],)))  # pragma: no cover
+    print(max_abs_component(np.array([0.0, 1.0, 0.0],)))   # pragma: no cover
+    print(max_abs_component(np.array([0.0, -1.0, 0.0],)))  # pragma: no cover
+    print(max_abs_component(np.array([0.0, 0.0, 1.0],)))   # pragma: no cover
+    print(max_abs_component(np.array([0.0, 0.0, -1.0],)))  # pragma: no cover
 
-    print(max_abs_component(np.array([1.0, 0.5, 0.1],)))
-    print(max_abs_component(np.array([-1.0, 0.5, 0.1],)))
-    print(max_abs_component(np.array([0.5, 1.0, 0.1],)))
-    print(max_abs_component(np.array([0.5, -1.0, 0.1],)))
-    print(max_abs_component(np.array([0.1, 0.5, 1.0],)))
-    print(max_abs_component(np.array([-0.1, 0.5, -1.0],)))
+    print(max_abs_component(np.array([1.0, 0.5, 0.1],)))   # pragma: no cover
+    print(max_abs_component(np.array([-1.0, 0.5, 0.1],)))  # pragma: no cover
+    print(max_abs_component(np.array([0.5, 1.0, 0.1],)))   # pragma: no cover
+    print(max_abs_component(np.array([0.5, -1.0, 0.1],)))  # pragma: no cover
+    print(max_abs_component(np.array([0.1, 0.5, 1.0],)))   # pragma: no cover
+    print(max_abs_component(np.array([-0.1, 0.5, -1.0],))) # pragma: no cover
 
-    print(max_abs_component(np.array([1.0, 0.0, 1.0],)))
-    print(max_abs_component(np.array([-1.0, 0.0, -1.0],)))
-    print(max_abs_component(np.array([0.0, 1.0, 1.0],)))
-    print(max_abs_component(np.array([0.0, -1.0, -1.0],)))
-    print(max_abs_component(np.array([1.0, 1.0, 0.0],)))
-    print(max_abs_component(np.array([-1.0, -1.0, 0.0],)))
-    print(max_abs_component(np.array([1.0, 1.0, 1.0],)))
-    print(max_abs_component(np.array([-1.0, -1.0, 1.0],)))
+    print(max_abs_component(np.array([1.0, 0.0, 1.0],)))   # pragma: no cover
+    print(max_abs_component(np.array([-1.0, 0.0, -1.0],))) # pragma: no cover
+    print(max_abs_component(np.array([0.0, 1.0, 1.0],)))   # pragma: no cover
+    print(max_abs_component(np.array([0.0, -1.0, -1.0],))) # pragma: no cover
+    print(max_abs_component(np.array([1.0, 1.0, 0.0],)))   # pragma: no cover
+    print(max_abs_component(np.array([-1.0, -1.0, 0.0],))) # pragma: no cover
+    print(max_abs_component(np.array([1.0, 1.0, 1.0],)))   # pragma: no cover
+    print(max_abs_component(np.array([-1.0, -1.0, 1.0],))) # pragma: no cover
