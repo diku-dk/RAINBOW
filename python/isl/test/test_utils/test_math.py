@@ -1,4 +1,4 @@
-from cmath import tan
+from cmath import sin, tan
 from ctypes import util
 import unittest
 import os
@@ -9,6 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/
 import isl.math.vector3 as vec3
 import isl.math.angle as angle
 import isl.test.test_common as utils
+import isl.math.quaternion as quat
 
 class TestRigidBodiesAPI(unittest.TestCase):
     '''
@@ -405,4 +406,155 @@ class TestRigidBodiesAPI(unittest.TestCase):
         expected = radian
         actual   = angle.degrees_to_radians(angle.radians_to_degrees(radian))
         self.assertAlmostEqual(actual, expected, 0)
+
+    def test_quaterion_make_1(self):
+        # First define a quaterion q:
+        # [s, (x,y,z)]
+        # p. 600, Physics-Based Animation, K. Erleben et al
+        
+        expected = np.array([1,2,3,4], dtype=np.float64)
+        actual   = quat.make(1,2,3,4)
+        self.assertTrue(utils.array_equal(actual,expected))
+
+    def test_quaterion_make_2(self):
+        # First define a quaterion q:
+        # [s, (x,y,z)]
+        # p. 600, Physics-Based Animation, K. Erleben et al
+        
+        expected = np.array([1,2,3,4], dtype=np.float64)
+        actual   = quat.make(1,-2,3,4)
+        self.assertTrue(utils.array_not_equal(actual,expected))
+    
+    def test_quaterion_prod_1(self):
+        # First define a quaterion q:
+        # [s, (x,y,z)]
+        # p. 600, Physics-Based Animation, K. Erleben et al
+        
+        q = np.array([1,2,3,4])
+
+        # Using definition 18.41
+        to_c_v   = np.array([1,-1,-1,-1], dtype=np.float64)
+        q_c      = to_c_v * q
+        qq_c     = np.ones(4)
+        qq_c[0]  =  q[0]*q_c[0] - np.dot(q[1:],q_c[1:])
+        qq_c[1:] = q[0] * q_c[1:] + q_c[0] * q[1:] + np.cross(q[1:], q_c[1:], axis=0)
+        #
+
+        expected = qq_c
+        actual   = quat.prod(q,q_c)
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_quaterion_prod_2(self):
+        # First define a quaterion q:
+        # [s, (x,y,z)]
+        # p. 600, Physics-Based Animation, K. Erleben et al
+        
+        q = np.array([3,1,6,-4])
+
+        # Using definition 18.41
+        to_c_v   = np.array([1,-1,-1,-1], dtype=np.float64)
+        q_c      = to_c_v * q
+        qq_c     = np.ones(4)
+        qq_c[0]  =  q[0]*q_c[0] - np.dot(q[1:],q_c[1:])
+        qq_c[1:] = q[0] * q_c[1:] + q_c[0] * q[1:] + np.cross(q[1:], q_c[1:], axis=0)
+        #
+        
+        expected = qq_c
+        actual   = quat.prod(q,q_c)
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_quaterion_prod_3(self):
+        # First define a quaterion q:
+        # [s, (x,y,z)]
+        # p. 600, Physics-Based Animation, K. Erleben et al
+        
+        q = np.array([0.3,0.10000,0.00006,-8])
+
+        to_c_v   = np.array([1,-1,-1,-1], dtype=np.float64)
+        q_c      = to_c_v * q
+        qq_c     = np.ones(4)
+        qq_c[0]  =  q[0]*q_c[0] - np.dot(q[1:],q_c[1:])
+        qq_c[1:] = q[0] * q_c[1:] + q_c[0] * q[1:] + np.cross(q[1:], q_c[1:], axis=0)
+        #
+        
+        expected = qq_c
+        actual   = quat.prod(q,q_c)
+        self.assertTrue(utils.array_equal(actual,expected))
+
+    def test_quaterion_unit_1(self):
+        # Using def 18.44
+        q        = np.array([2,2,3,4], dtype=np.float64)
+        q_c      = quat.conjugate(q)
+        # Remember: ai * (-ai) = -aaii = a^2 
+        power_two = (  q[0]*(   q_c[0]) 
+                     + q[1]*(-1*q_c[1])
+                     + q[2]*(-1*q_c[2])
+                     + q[3]*(-1*q_c[3]))
+        norm      = np.sqrt(power_two)
+        expected = q/norm
+        actual   = quat.unit(q) 
+
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_quaterion_unit_2(self):
+        # Using def 18.44
+        q        = np.array([0.1,2.3,-1000,0.004], dtype=np.float64)
+        q_c      = quat.conjugate(q)
+        # Remember: ai * (-ai) = -aaii = a^2 
+        power_two = (  q[0]*(   q_c[0]) 
+                     + q[1]*(-1*q_c[1])
+                     + q[2]*(-1*q_c[2])
+                     + q[3]*(-1*q_c[3]))
+        norm      = np.sqrt(power_two)
+        expected = q/norm
+        actual   = quat.unit(q) 
+
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_quaterion_unit_3(self):
+        # Using def 18.44
+        q        = np.array([0,0,0,0], dtype=np.float64)
+        expected = np.array([1,0,0,0], dtype=np.float64)
+        actual   = quat.unit(q) 
+
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    # def test_rotate_1(self):
+    #     # def 18.41
+    #     theta = 1
+    #     n     = np.array([1,0,0], dtype=np.float64) #n
+    #     rotate_vec     = np.ones(4) 
+    #     rotate_vec[0]  = np.cos(theta)
+    #     rotate_vec[1:] = np.sin(theta) * n
+    #     rotate_vec_c   = quat.conjugate(rotate_vec)
+
+    #     # def 18.42
+    #     point      = quat.make(0,2,2,4)
+
+    #     #point           = quat.make(0,point_init[0], point_init[1], point_init[2])
+
+    #     point_rot = np.array([
+    #         rotate_vec[0] * point[0] - np.dot(rotate_vec[1:], point[1:]),
+    #         0,
+    #         0,
+    #         0 
+    #     ])
+    #     point_rot[1:] = (
+    #         rotate_vec[0] * point[1:] +
+    #         point[0] * rotate_vec[1:] +
+    #         np.cross(point[1:], rotate_vec[1:])
+    #     )
+        
+    #     point_rot[0]  *= rotate_vec_c[0]
+    #     point_rot[1:] = (
+    #         point_rot[0]    * rotate_vec_c[1:] + 
+    #         rotate_vec_c[0] * point_rot[1:] +
+    #         np.cross(point_rot[1:], rotate_vec_c[1:])
+    #     )
+
+    #     expected = point_rot[1:]
+    #     actual   = quat.rotate(rotate_vec, quat.make(2,2,4,0))
+    #     print("Expected: ", expected)
+    #     print("Actual:", actual)
+    #     self.assertTrue(utils.array_equal(actual,expected))
 
