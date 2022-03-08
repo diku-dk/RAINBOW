@@ -30,7 +30,7 @@ class TestNewSimulator(unittest.TestCase):
             ])
         
         self.assertTrue(
-            utils.array_not_equal(actual, expected)
+            utils.array_equal(actual, expected)
             )
         
     def test_func_error(self):
