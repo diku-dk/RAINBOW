@@ -10,8 +10,7 @@ permalink: my_collections/documentation_pages/math/vector3/make_orthonomal_vecto
 ## Purpose & Params
 The purpose of this function is the create the tanget and binormal of the
 unit vector n
-
-    :param: unit vector, numpy float64 array
+[0.,0.,0.]
     :return: 
         tangent  vector, numpy float64 array
         binomal  vector, numpy float64 array    
