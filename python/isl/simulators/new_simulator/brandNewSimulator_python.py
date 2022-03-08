@@ -9,5 +9,5 @@ def simulator_func(value: float) -> float:
     return value
     
 def simulator_func_error(value: float) -> float:
-    bias = 0.1
+    bias = 0.0
     return value + bias
