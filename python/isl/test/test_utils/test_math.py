@@ -4,12 +4,31 @@ import unittest
 import os
 import sys
 import numpy as np
+import math as m
+from scipy.spatial.transform import Rotation as R
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
 import isl.math.vector3 as vec3
 import isl.math.angle as angle
 import isl.test.test_common as utils
 import isl.math.quaternion as quat
+
+def Rx(theta):
+    return np.matrix([[ 1, 0           , 0           ],
+                   [ 0, m.cos(theta),-m.sin(theta)],
+                   [ 0, m.sin(theta), m.cos(theta)]])
+  
+def Ry(theta):
+  return np.matrix([[ m.cos(theta), 0, m.sin(theta)],
+                   [ 0           , 1, 0           ],
+                   [-m.sin(theta), 0, m.cos(theta)]])
+  
+def Rz(theta):
+  return np.matrix([[ m.cos(theta), -m.sin(theta), 0 ],
+                   [ m.sin(theta), m.cos(theta) , 0 ],
+                   [ 0           , 0            , 1 ]])
+
+
 
 class TestRigidBodiesAPI(unittest.TestCase):
     '''
@@ -518,7 +537,63 @@ class TestRigidBodiesAPI(unittest.TestCase):
         actual   = quat.unit(q) 
 
         self.assertTrue(utils.array_equal(actual,expected))
+        
+    def test_quaterion_unit_4(self):
+        # Using def 18.44
+        q        = np.array([2,2,3,4], dtype=np.float64)
+        q_c      = quat.conjugate(q)
+        # Remember: ai * (-ai) = -aaii = a^2 
+        
+        norm      = np.sqrt(quat.prod(q,q_c)[0])
+        expected = q/norm
+        actual   = quat.unit(q) 
+
+        self.assertTrue(utils.array_equal(actual,expected))
     
+    def test_rotate_1(self):
+        n     = np.array([1,0,0], dtype=np.float64)
+        theta = 2*np.pi 
+        q     = quat.make(np.cos(theta), np.sin(n[0]), np.sin(n[1]), np.sin(n[2]))
+        p     = np.array([0,2,2,2], dtype=np.float64)
+
+        qr    = np.array([0, p[0], p[1], p[2]], dtype=np.float64) 
+
+        expected = quat.prod(quat.prod(q, qr), quat.conjugate(q))
+        actual   = quat.rotate(q, p)
+        self.assertTrue(utils.array_equal(actual,expected[1:]))
+    
+    def test_rotate_2(self):
+        q     = quat.unit(quat.make(1,2,3,4))
+        #n     = np.array([1,0,0], dtype=np.float64)
+        #theta = 2*np.pi 
+        #q     = quat.make(np.cos(theta), np.sin(n[0]), np.sin(n[1]), np.sin(n[2]))
+        p     = np.array([0,2,2,2], dtype=np.float64)
+
+        qr    = np.array([0, p[0], p[1], p[2]], dtype=np.float64) 
+
+        expected = quat.prod(quat.prod(q, qr), quat.conjugate(q))
+        actual   = quat.rotate(q, p)
+        self.assertTrue(utils.array_equal(actual,expected[1:]))
+    
+    def test_rotate_3(self):
+        n     = np.array([1,0,0], dtype=np.float64)
+        theta = 1*np.pi 
+        q     = quat.make(np.cos(theta), np.sin(n[0]), np.sin(n[1]), np.sin(n[2]))
+        
+        p     = np.array([1,1,1,1], dtype=np.float64)
+
+        euler_point = np.array([1,1,1], dtype=np.float64)
+
+
+        # expected = Rx(theta) * euler_point
+        expected =  Rx(theta).dot(euler_point) #Rx(theta) * euler_point
+
+        actual   = quat.rotate(q, p)
+        #actual   = Rx(theta)
+        print("Expected: ", np.shape(expected))
+        print("Actual: ", np.shape(actual))
+        self.assertTrue(utils.array_equal(actual,expected))
+
     # def test_rotate_1(self):
     #     # def 18.41
     #     theta = 1
