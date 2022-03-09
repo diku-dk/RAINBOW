@@ -17,6 +17,6 @@ class TestNewSim(unittest.TestCase):
         self.assertEqual(actual, expected)
 
     def test_func_error(self):
-        expected = 1
+        expected = 2
         actual = bns.simulator_func(1)
         self.assertEqual(actual, expected)
