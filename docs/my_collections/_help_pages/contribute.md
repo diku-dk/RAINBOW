@@ -32,7 +32,7 @@ and ```documentation_example_simulator.md``` is the documentation page.
 2. Use the GUI guide
 3. Create a local branch:\
 `git branch <issue_number>b`\
-`git checkout <issue_number>b` \
+`git checkout <issue_number>b`\
 Where the issue number would be **, see GUI.
 4. Make pull request: \
 `git push --set-upstream origin <issue_number>b` 
@@ -46,7 +46,7 @@ Where the issue number would be **, see GUI.
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/installation/1.png)
 2. Find the "Open with GitHub Desktop" in the "code" dropdown.
  ![]({{ site.url }}{{ site.baseurl }}/assets/images/installation/2.png)
-3. Press open in the following popup
+3. Press "Open URL:x-github-client" in the following popup
  ![]({{ site.url }}{{ site.baseurl }}/assets/images/installation/3.png)
 4. Wait for the download to finish. Thereafter execute the installation 
    program
@@ -66,11 +66,11 @@ Where the issue number would be **, see GUI.
 10. Press "Open GitHubDesktop.exe"
  ![]({{ site.url }}{{ site.baseurl }}/assets/images/installation/10.png)
 11. Congratulation, you are done with the installation. If it does not work, don't 
-hesitate to contact the maintainer.
+hesitate to contact the maintainer
  ![]({{ site.url }}{{ site.baseurl }}/assets/images/installation/11.png)
 
 12. Next: Before uploading your code, you need to create an issue and 
-working from a branch. 
+create a branch. The main branch is not for development. 
 
 #### Create Issue and Branch
 1. First open "GitHub Desktop". Then, 
@@ -102,14 +102,15 @@ branch name.
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/issue/7.png)
 
 #### Upload code
-1. Therefore we start by navigating to the simulator folder. Then, if you have made another implementation, such as a mathematical module, you place it in the math folder.
+1. We have coded a new simulator that we want to submit to the libRAINBOW repository for this example.  
+Therefore we start by navigating to the simulator folder. Then, if you have made another implementation, such as a mathematical module, you place it in the math folder.
 In the simulation folder, create a new folder with your implementation name. In this case, "new_simulator".  
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/pull_request/libRAINBOW_tutorial.png)
 2. Then, in your newly created folder, insert your implementation. 
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/pull_request/libRAINBOW_tutorial_2.png)
 3. Open "GitHub Desktop". Ensure that all your implementation is visible in "changed file". 
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/pull_request/libRAINBOW_tutorial_3.png)
-4. Write title branch use the format: < issue number >b. Thereafter, write a short 
+4. Write title use the format: < issue number >: your commit messages. Thereafter, write a short 
 description. Then press "commit".
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/pull_request/libRAINBOW_tutorial_4.png)
 5. Press "Push origin"
@@ -152,7 +153,9 @@ In this case:
 ```
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/unittest/adding_test_tutorial_7.png)
 
-8. First, inherit from the "unittest" module. Then every member function must start with the prefix "test_". Third, give the self variable as parameter
+8. We use the unittest [framework](https://docs.python.org/3/library/unittest.html), therefore
+you need to define a test class. 
+First, inherit from the "unittest" module. Then every member function must start with the prefix "test_". Third, give the self variable as parameter
 to all member functions. For adding the test. 
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/unittest/adding_test_tutorial_9.png)
 9. For testing a Numpy array, start by importing the Numpy library. Then import "utils". Finally, to test if two arrays are equal, use the "array_equal".
@@ -165,7 +168,7 @@ to all member functions. For adding the test.
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/unittest/adding_test_tutorial_13.png)
 13. In case of a test fail, click details. 
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/unittest/adding_test_tutorial_14.png)
-14. If all test passed and all reviewers approves
+14. If all test passed and all reviewers approves, you are allowed to merge
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/unittest/adding_test_tutorial_15.png)
 
 #### Documentation
@@ -178,7 +181,7 @@ to all member functions. For adding the test.
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/documentation/3.png)
 1. The template should look like this
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/documentation/4.png)
-1. Type the needed information 
+1. Type the needed information eg. 
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/documentation/5.png)
 
 ### Example GUI Git Cola
