@@ -4,7 +4,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))+  '/../../')
 
-import isl.tutorial_test.test_code_peidi as bns
+import isl.tutorial_test.test_code_peidi as peidi
 
 class TestNewSimulator(unittest.TestCase):
 	def test_func_correct(self):
@@ -18,3 +18,7 @@ class TestNewSimulator(unittest.TestCase):
 		actual = 1
 		self.assertEqual(actual, expected)
 
+	def test_fabo(self):
+		expected = 5
+		actual = peidi.fabo(4)
+		self.assertEqual(actual, expected)
