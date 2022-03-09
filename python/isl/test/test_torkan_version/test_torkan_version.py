@@ -3,7 +3,7 @@ import os
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
-import isl.tutorial_test.pdl_function as pdl
+import isl.tutorial_test.pdl_function2 as pdl
 
 class TestPDL(unittest.TestCase):
     """
