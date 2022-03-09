@@ -131,3 +131,4 @@ dmypy.json
 # More catches
 */*.stl
 .DS_Store
+.idea/
