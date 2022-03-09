@@ -11,7 +11,7 @@ You need to setup your conda environment for the Jupyter notebooks
 This is how to install and setup your conda environment
 
 ```bash
-conda create -n libisl
+conda create -n libisl python=3.9
 conda activate libisl
 conda config --add channels conda-forge
 conda install igl
