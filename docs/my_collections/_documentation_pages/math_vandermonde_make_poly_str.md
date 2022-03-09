@@ -12,8 +12,8 @@ math: http://latex.codecogs.com/svg.latex?
 This function creates a polynomial string containing all monomials upto the specified order.
 
 ```
-    :param: degree The desired degree of the polynomial being generated. 
-    :return: str   Latex string representation of the polynomial.  
+:param: degree The desired degree of the polynomial being generated. 
+:return: str   Latex string representation of the polynomial.  
 ```
 
 ## Example
