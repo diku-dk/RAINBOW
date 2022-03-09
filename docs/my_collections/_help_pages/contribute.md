@@ -174,70 +174,12 @@ to all member functions. For adding the test.
 #### Documentation
 1. Change to the "gh-pages" branch 
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/documentation/1.png)
-1. Navigate to "_documentation_pages" folder
+2. Navigate to "_documentation_pages" folder
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/documentation/2.png)
-1. Copy paste the .template folder. Rename the copy using the format:
+3. Copy paste the .template folder. Rename the copy using the format:
 ```< folder name >_< file name >_< function name >.md```
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/documentation/3.png)
-1. The template should look like this
+4. The template should look like this
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/documentation/4.png)
-1. Type the needed information eg. 
-![]({{ site.url }}{{ site.baseurl }}/assets/images/documentation/5.png)
-
-### Example GUI Git Cola
-First download [git cola](https://git-cola.github.io/):
-1. Clone using git cola ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_clone.png)
-2. Go to the github issue [webpage](https://github.com/diku-dk/libRAINBOW/issues)
-    ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_new_issue.png) 
-    1. Add the issue name
-    2. Write a short description of what you are training to solveWrite a short 
-    3. Add assignee(s)
-    4. Add label
-    5. Submit issue
-    6. Finished issue
-    ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_create_new_issue.png)
-    ![]({{ site.url }}{{ site.baseurl }}/assets/images/finish_issue.png)
-3. Create a local branch using git cola
-    1. Click on 'Branch'
-    ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_cola_make_branch_1.png)
-    2. Click on 'Create'
-    ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_cola_make_branch_2.png)
-    3. Initialize branch 
-        1. Naming your branch is up to you. However, we recommend including the issue number in the name eg.
-           '15b'  
-        2. Make sure you branch from the main branch. If not 'checkout' the main branch first. 
-        3. Create branch 
-        ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_cola_make_branch_3.png)
-    4. Make sure you are on your newly created branchMake sure you are on your. Otherwise 'checkout' your
-       new branch. 
-    ![]({{ site.url }}{{ site.baseurl }}/assets/images/git_cola_make_branch_4.png)
-4. (Only if you are done coding) Make a pull request.
-    1. Stage all modified and new files
-    ![]({{ site.url }}{{ site.baseurl }}/assets/images/add_untracked_files.png)
-    ![]({{ site.url }}{{ site.baseurl }}/assets/images/add_untracked_files.png)
-    2. Commit your code
-        1. See that all your code is modified
-        2. Type a commit message; remember to include the issue number: ```<issue_number>: Commit message```
-        3. Type a description of what you have implemented
-        4. Press ```Commit```  
-    ![]({{ site.url }}{{ site.baseurl }}/assets/images/add_files.png)
-    3. Push upstream. Find `Action>Push` 
-    ![]({{ site.url }}{{ site.baseurl }}/assets/images/push_files.png)
-    4. Ensure that the remote branch is ```origin``` and the ```local branch``` is your branch.
-    ```Press push```
-    ![]({{ site.url }}{{ site.baseurl }}/assets/images/push_menu.png)
-    5. Press ```Create Remote Branch```
-    ![]({{ site.url }}{{ site.baseurl }}/assets/images/push_menu_2.png)
-    6. Login on [```github/libRAINBOW```](https://github.com/diku-dk/libRAINBOW/pulls) > ```Pull request```. 
-    Press ```Compare & pull request```
-    ![]({{ site.url }}{{ site.baseurl }}/assets/images/make_pull_request.png)
-    7. Define the ```pull request```
-        1. Set the reviewers, minimum: 1
-        2. Set the assignees
-        3. Set label
-        4. Tag the related issue
-        5. Before merge -> See that all reviewers have agreed on the merge
-        6. Before merge -> See that all test passes
-        7. If both reviewers and test are all good, then you can safely ```Squash and merge```
-    ![]({{ site.url }}{{ site.baseurl }}/assets/images/make_pull_request_2.png)
- 
+5. Type the needed information eg. 
+![]({{ site.url }}{{ site.baseurl }}/assets/images/documentation/5.png) 
