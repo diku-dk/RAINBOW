@@ -45,6 +45,8 @@ collections:
     output: true
   help_pages:
     output: true
+  sub_help_pages:
+    output: true
 
 collections_dir: my_collections
 

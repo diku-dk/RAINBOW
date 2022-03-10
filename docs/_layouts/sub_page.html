@@ -13,8 +13,6 @@
     {% include head-custom.html %}
   </head>
   <body>
-    
-
     <header class="page-header" role="banner">
       <h1 class="project-name">{{ page.title | default: site.title | default: site.github.repository_name }}</h1>
     </header>
@@ -27,36 +25,23 @@
    
     <!-- <a id="skip-to-content" href="#content">Skip to the content.</a> -->
     <main id="content" class="main-content" role="main">
-      {{ content }}
-      <script>
-      function searchFunc() {
-        // Declare variables
-        var input, filter, ul, li, a, i;
-        input = document.getElementById("mySearch");
-        filter = input.value.toUpperCase();
-        ul = document.getElementById("myMenu");
-        li = ul.getElementsByTagName("li");
-      
-        // Loop through all list items, and hide those who don't match the search query
-        for (i = 0; i < li.length; i++) {
-          a = li[i].getElementsByTagName("a")[0];
-          if (a.innerHTML.toUpperCase().indexOf(filter) > -1) {
-            li[i].style.display = "";
-          } else {
-            li[i].style.display = "none";
-          }
-        }
-      }
-
-      </script>
-      <input type="text" id="mySearch" onkeyup="searchFunc()" placeholder="Search in documentation">
-      <ul id="myMenu">
-        {% for help_page in site.help_pages %}
-          <li><a href="{{ site.url }}{{ site.baseurl }}/my_collections/sub_help_pages/{{ help_page.prefix }}/introduction">{{ help_page.title }}</a></li>
-        {% endfor %}
-      </ul>
-      <!-- my_collections/sub_help_pages/contribute/intro -->
-
+      <!-- {{ content }}        -->
+      <div class="tab-sub-help">
+        <div class="left">
+          {% for sub_help_page in site.sub_help_pages %}
+            {% if page.title == sub_help_page.title %}
+              <a href="{{ site.url }}{{ site.baseurl }}/my_collections/sub_help_pages/{{ sub_help_page.prefix }}/{{ sub_help_page.postfix }}" 
+               class="tablinks-active" onclick="openOS(event, '{{ sub_help_page.title }}')">{{ sub_help_page.title }}</a>
+            {% else %}
+              <a href="{{ site.url }}{{ site.baseurl }}/my_collections/sub_help_pages/{{ sub_help_page.prefix }}/{{ sub_help_page.postfix }}" 
+               class="tablinks" onclick="openOS(event, '{{ sub_help_page.title }}')">{{ sub_help_page.title }}</a>
+            {% endif %}
+          {% endfor %}
+        </div>
+        <div class="right"> 
+            {{ content }}
+        </div>
+      </div>
       <footer class="site-footer">
         {% if site.github.is_project_page %}
           <span class="site-footer-owner"><a href="{{ site.github.repository_url }}">{{ site.github.repository_name }}</a> is maintained by <a href="{{ site.github.owner_url }}">{{ site.github.owner_name }}</a>.</span>
