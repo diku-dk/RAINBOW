@@ -5,45 +5,7 @@ prefix: "contribute"
 postfix: "gui_guide"
 permalink: my_collections/sub_help_pages/contribute/gui_guide
 ---
-# How to contribute?
-This help page is intended for people who want to contribute to the libRAINBOW repository. 
-Before you can contribute, you need to be a member of the RAINBOW team or have other 
-collaborations with the IMAGE section. Otherwise please contact 
-[us](https://di.ku.dk/Ansatte/forskere/?pure=da/persons/566411). 
-
-## The Procedure
-1. Clone the repository from [git](https://github.com/diku-dk/libRAINBOW/tree/main)
-2. Create a [issue](https://docs.github.com/en/issues) on the [github webpage](https://github.com/diku-dk/libRAINBOW/issues)
-3. Create a local branch. You will make all the changes within the local branch. 
-You are **not** allowed to change the [main](https://github.com/diku-dk/libRAINBOW/tree/main) branch.
-4. When all changes are done, make a [pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests) by first pushing the branch upstream to the server. 
-5. Assign the pull request to the related issue. 
-6. Assign one or more reviewers.
-7. Then if the reviewers ship it and all test passes, you are allowed to merge with the main branch. You must
-add unittest.
-
-## Example
-Let's say you want to add another simulator, ```example_simulator.py ```, ```test_example_simulator.py``` 
-and ```documentation_example_simulator.md```. ```example_simulator.py ``` is 
-your simulator src code, ```test_example_simulator.py``` is the unittest file using the [unittest framework](https://docs.python.org/3/library/unittest.html), 
-and ```documentation_example_simulator.md``` is the documentation page.  
-
-## Example TUI using a [BASH terminal](https://en.wikipedia.org/wiki/Bash_(Unix_shell))
-1. Clone the repository from git:\
-`git clone git@github.com:diku-dk/libRAINBOW.git`
-2. Use the GUI guide
-3. Create a local branch:\
-`git branch <issue_number>b`\
-`git checkout <issue_number>b`\
-Where the issue number would be **, see GUI.
-4. Make pull request: \
-`git push --set-upstream origin <issue_number>b` 
-5. Use the GUI guide
-6. Use the GUI guide
-7. Use the GUI guide
-
-## Example GUI Git Desktop
-### Download & install
+# Download & install
 1. Go to the libRainbow github webpage: [Click here!](https://github.com/diku-dk/libRAINBOW)  
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/installation/1.png)
 2. Find the "Open with GitHub Desktop" in the "code" dropdown.
@@ -74,7 +36,7 @@ hesitate to contact the maintainer
 12. Next: Before uploading your code, you need to create an issue and 
 create a branch. The main branch is not for development. 
 
-### Create Issue and Branch
+# Create Issue and Branch
 1. First open "GitHub Desktop". Then, 
 Find the "Create issue on GitHub" button from the the "Repository"
 dropdown
@@ -103,7 +65,7 @@ branch name.
 7. Select your branch
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/issue/7.png)
 
-### Upload code
+# Upload code
 1. We have coded a new simulator that we want to submit to the libRAINBOW repository for this example.  
 Therefore we start by navigating to the simulator folder. Then, if you have made another implementation, such as a mathematical module, you place it in the math folder.
 In the simulation folder, create a new folder with your implementation name. In this case, "new_simulator".  
@@ -130,7 +92,7 @@ description. Then press "commit".
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/pull_request/libRAINBOW_tutorial_8.png)
 9. Next, adding unittest to your code.
 
-### Make Unittest
+# Make Unittest
 1. Consider the following module. We have created two functions for testing—a function that works and a function that fails. The "Correct" function "simulator_func" and the "Incorrect"
 function "simulator_func_error".
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/unittest/adding_test_tutorial_1.png)
@@ -173,7 +135,7 @@ to all member functions. For adding the test.
 14. If all test passed and all reviewers approves, you are allowed to merge
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/unittest/adding_test_tutorial_15.png)
 
-### Documentation
+# Documentation
 1. Change to the "gh-pages" branch 
 ![]({{ site.url }}{{ site.baseurl }}/assets/images/documentation/1.png)
 2. Navigate to "_documentation_pages" folder
