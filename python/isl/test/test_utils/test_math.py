@@ -574,62 +574,84 @@ class TestRigidBodiesAPI(unittest.TestCase):
         expected = quat.prod(quat.prod(q, qr), quat.conjugate(q))
         actual   = quat.rotate(q, p)
         self.assertTrue(utils.array_equal(actual,expected[1:]))
-    
+
     def test_rotate_3(self):
-        n     = np.array([1,0,0], dtype=np.float64)
-        theta = 1*np.pi 
-        q     = quat.make(np.cos(theta), np.sin(n[0]), np.sin(n[1]), np.sin(n[2]))
-        
-        p     = np.array([1,1,1,1], dtype=np.float64)
-
-        euler_point = np.array([1,1,1], dtype=np.float64)
-
-
-        # expected = Rx(theta) * euler_point
-        expected =  Rx(theta).dot(euler_point) #Rx(theta) * euler_point
-
-        actual   = quat.rotate(q, p)
-        #actual   = Rx(theta)
-        print("Expected: ", np.shape(expected))
-        print("Actual: ", np.shape(actual))
+        r      = np.array([1,0,0])
+        n      = np.array([0,1,0])
+        radian = (0.5 * np.pi) / 2
+        q      = np.array([np.cos(radian),n[0]*np.sin(radian),n[1]*np.sin(radian),n[2]*np.sin(radian)], dtype=np.float64)
+        expected = np.array([0,0,-1])
+        actual   = quat.rotate(q, r)
         self.assertTrue(utils.array_equal(actual,expected))
 
-    # def test_rotate_1(self):
-    #     # def 18.41
-    #     theta = 1
-    #     n     = np.array([1,0,0], dtype=np.float64) #n
-    #     rotate_vec     = np.ones(4) 
-    #     rotate_vec[0]  = np.cos(theta)
-    #     rotate_vec[1:] = np.sin(theta) * n
-    #     rotate_vec_c   = quat.conjugate(rotate_vec)
+    def test_rotate_4(self):
+        r      = np.array([1,0,0])
+        n      = np.array([0,0,1])
+        radian = (0.5 * np.pi) / 2
+        q      = np.array([np.cos(radian),n[0]*np.sin(radian),n[1]*np.sin(radian),n[2]*np.sin(radian)], dtype=np.float64)
+        expected = np.array([0,1,0])
+        actual   = quat.rotate(q, r)
+        self.assertTrue(utils.array_equal(actual,expected))
 
-    #     # def 18.42
-    #     point      = quat.make(0,2,2,4)
+    def test_rotate_5(self):
+        r      = np.array([1,0,0])
+        n      = np.array([1,0,0])
+        radian = (0.5 * np.pi) / 2
+        q      = np.array([np.cos(radian),n[0]*np.sin(radian),n[1]*np.sin(radian),n[2]*np.sin(radian)], dtype=np.float64)
+        expected = np.array([1,0,0])
+        actual   = quat.rotate(q, r)
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_rotate_6(self):
+        r      = np.array([0,1,0])
+        n      = np.array([0,0,1])
+        radian = (0.5 * np.pi) / 2
+        q      = np.array([np.cos(radian),n[0]*np.sin(radian),n[1]*np.sin(radian),n[2]*np.sin(radian)], dtype=np.float64)
+        expected = np.array([-1,0,0])
+        actual   = quat.rotate(q, r)
+        self.assertTrue(utils.array_equal(actual,expected))
 
-    #     #point           = quat.make(0,point_init[0], point_init[1], point_init[2])
+    def test_rotate_7(self):
+        r      = np.array([0,1,0])
+        n      = np.array([1,0,0])
+        radian = (0.5 * np.pi) / 2
+        q      = np.array([np.cos(radian),n[0]*np.sin(radian),n[1]*np.sin(radian),n[2]*np.sin(radian)], dtype=np.float64)
+        expected = np.array([0,0,1])
+        actual   = quat.rotate(q, r)
+        self.assertTrue(utils.array_equal(actual,expected))
 
-    #     point_rot = np.array([
-    #         rotate_vec[0] * point[0] - np.dot(rotate_vec[1:], point[1:]),
-    #         0,
-    #         0,
-    #         0 
-    #     ])
-    #     point_rot[1:] = (
-    #         rotate_vec[0] * point[1:] +
-    #         point[0] * rotate_vec[1:] +
-    #         np.cross(point[1:], rotate_vec[1:])
-    #     )
-        
-    #     point_rot[0]  *= rotate_vec_c[0]
-    #     point_rot[1:] = (
-    #         point_rot[0]    * rotate_vec_c[1:] + 
-    #         rotate_vec_c[0] * point_rot[1:] +
-    #         np.cross(point_rot[1:], rotate_vec_c[1:])
-    #     )
+    def test_rotate_8(self):
+        r      = np.array([0,1,0])
+        n      = np.array([0,1,0])
+        radian = (0.5 * np.pi) / 2
+        q      = np.array([np.cos(radian),n[0]*np.sin(radian),n[1]*np.sin(radian),n[2]*np.sin(radian)], dtype=np.float64)
+        expected = np.array([0,1,0])
+        actual   = quat.rotate(q, r)
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_rotate_9(self):
+        r      = np.array([0,0,1])
+        n      = np.array([1,0,0])
+        radian = (0.5 * np.pi) / 2
+        q      = np.array([np.cos(radian),n[0]*np.sin(radian),n[1]*np.sin(radian),n[2]*np.sin(radian)], dtype=np.float64)
+        expected = np.array([0,-1,0])
+        actual   = quat.rotate(q, r)
+        self.assertTrue(utils.array_equal(actual,expected))
 
-    #     expected = point_rot[1:]
-    #     actual   = quat.rotate(rotate_vec, quat.make(2,2,4,0))
-    #     print("Expected: ", expected)
-    #     print("Actual:", actual)
-    #     self.assertTrue(utils.array_equal(actual,expected))
+    def test_rotate_10(self):
+        r      = np.array([0,0,1])
+        n      = np.array([0,1,0])
+        radian = (0.5 * np.pi) / 2
+        q      = np.array([np.cos(radian),n[0]*np.sin(radian),n[1]*np.sin(radian),n[2]*np.sin(radian)], dtype=np.float64)
+        expected = np.array([1,0,0])
+        actual   = quat.rotate(q, r)
+        self.assertTrue(utils.array_equal(actual,expected))
 
+    def test_rotate_11(self):
+        r      = np.array([0,0,1])
+        n      = np.array([0,0,1])
+        radian = (0.5 * np.pi) / 2
+        q      = np.array([np.cos(radian),n[0]*np.sin(radian),n[1]*np.sin(radian),n[2]*np.sin(radian)], dtype=np.float64)
+        expected = np.array([0,0,1])
+        actual   = quat.rotate(q, r)
+        self.assertTrue(utils.array_equal(actual,expected))
