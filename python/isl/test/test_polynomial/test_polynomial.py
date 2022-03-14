@@ -50,6 +50,8 @@ class TestPolynomial(unittest.TestCase):
         self.assertEqual(POLY.evaluate(P4, x), 15)
 
     def test_derivative(self):
+        # 2022-03-14 Kenny TODO: The current test does not test for correct order of derivative polynomial
+        #                   nor for correct power-pattern.
         P = POLY.Poly(2, 4)
         dPdx, dPdy = POLY.derivative(P)
         dx_expected = "1 + 2 x + y + 3 x^2 + 2 x y + y^2 + 4 x^3 + 3 x^2 y + 2 x y^2 + y^3"
@@ -58,6 +60,7 @@ class TestPolynomial(unittest.TestCase):
         self.assertEqual(expected, POLY.to_str(dPdy), 'y-derivative was wrong')
 
     def test_vandermonde_matrix(self):
+        # 2022-03-14 Kenny TODO: Current tests do not test for wrong input parameters.
         x = np.array([[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6]])
         order = 1
         V1_expected = np.array(
@@ -94,6 +97,7 @@ class TestPolynomial(unittest.TestCase):
         np.testing.assert_allclose(W2, W2_expected)
 
     def test_interpolate(self):
+        # 2022-03-14 Kenny TODO: Current tests do not test for wrong input parameters.
         x = np.array([[1., 0.], [0., 1.], [0., 0.]])
         v = np.array(
             [[1., 1.],
@@ -119,20 +123,51 @@ class TestPolynomial(unittest.TestCase):
              [1., 6.],
              ])
         order = 2
-        P0, P1 = POLY.interpolate(order, x, v)
-        self.assertAlmostEqual(P0(x[0, :]), v[0, 0])
-        self.assertAlmostEqual(P0(x[1, :]), v[1, 0])
-        self.assertAlmostEqual(P0(x[2, :]), v[2, 0])
-        self.assertAlmostEqual(P0(x[3, :]), v[3, 0])
-        self.assertAlmostEqual(P0(x[4, :]), v[4, 0])
-        self.assertAlmostEqual(P0(x[5, :]), v[5, 0])
-        self.assertAlmostEqual(P1(x[0, :]), v[0, 1])
-        self.assertAlmostEqual(P1(x[1, :]), v[1, 1])
-        self.assertAlmostEqual(P1(x[2, :]), v[2, 1])
-        self.assertAlmostEqual(P1(x[3, :]), v[3, 1])
-        self.assertAlmostEqual(P1(x[4, :]), v[4, 1])
-        self.assertAlmostEqual(P1(x[5, :]), v[5, 1])
+        P2, P3 = POLY.interpolate(order, x, v)
+        self.assertAlmostEqual(P2(x[0, :]), v[0, 0])
+        self.assertAlmostEqual(P2(x[1, :]), v[1, 0])
+        self.assertAlmostEqual(P2(x[2, :]), v[2, 0])
+        self.assertAlmostEqual(P2(x[3, :]), v[3, 0])
+        self.assertAlmostEqual(P2(x[4, :]), v[4, 0])
+        self.assertAlmostEqual(P2(x[5, :]), v[5, 0])
+        self.assertAlmostEqual(P3(x[0, :]), v[0, 1])
+        self.assertAlmostEqual(P3(x[1, :]), v[1, 1])
+        self.assertAlmostEqual(P3(x[2, :]), v[2, 1])
+        self.assertAlmostEqual(P3(x[3, :]), v[3, 1])
+        self.assertAlmostEqual(P3(x[4, :]), v[4, 1])
+        self.assertAlmostEqual(P3(x[5, :]), v[5, 1])
 
+        x = np.random.rand(10, 2)*5
+        v = np.random.rand(10, 1).ravel()
+        order = 3
+        [P4] = POLY.interpolate(order, x, v)
+        self.assertAlmostEqual(P4(x[0, :]), v[0])
+        self.assertAlmostEqual(P4(x[1, :]), v[1])
+        self.assertAlmostEqual(P4(x[2, :]), v[2])
+        self.assertAlmostEqual(P4(x[3, :]), v[3])
+        self.assertAlmostEqual(P4(x[4, :]), v[4])
+        self.assertAlmostEqual(P4(x[5, :]), v[5])
+        self.assertAlmostEqual(P4(x[6, :]), v[6])
+        self.assertAlmostEqual(P4(x[7, :]), v[7])
+        self.assertAlmostEqual(P4(x[8, :]), v[8])
+        self.assertAlmostEqual(P4(x[9, :]), v[9])
 
-
-
+        x = np.random.rand(15, 2)*5
+        v = np.random.rand(15, 1).ravel()
+        order = 4
+        [P5] = POLY.interpolate(order, x, v)
+        self.assertAlmostEqual(P5(x[0, :]), v[0])
+        self.assertAlmostEqual(P5(x[1, :]), v[1])
+        self.assertAlmostEqual(P5(x[2, :]), v[2])
+        self.assertAlmostEqual(P5(x[3, :]), v[3])
+        self.assertAlmostEqual(P5(x[4, :]), v[4])
+        self.assertAlmostEqual(P5(x[5, :]), v[5])
+        self.assertAlmostEqual(P5(x[6, :]), v[6])
+        self.assertAlmostEqual(P5(x[7, :]), v[7])
+        self.assertAlmostEqual(P5(x[8, :]), v[8])
+        self.assertAlmostEqual(P5(x[9, :]), v[9])
+        self.assertAlmostEqual(P5(x[10, :]), v[10])
+        self.assertAlmostEqual(P5(x[11, :]), v[11])
+        self.assertAlmostEqual(P5(x[12, :]), v[12])
+        self.assertAlmostEqual(P5(x[13, :]), v[13])
+        self.assertAlmostEqual(P5(x[14, :]), v[14])

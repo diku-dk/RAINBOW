@@ -3,7 +3,7 @@ import numpy as np
 import scipy.linalg as linalg
 
 
-# 2022-03-13 Kenny: TODO Add one and three dimensions
+# 2022-03-13 Kenny: TODO Add one and three dimensional polynomial support.
 
 
 class Helpers:
@@ -149,8 +149,8 @@ class Poly:
         """
         Evaluates the polynomial at the given p-point.
 
-        :param x:  The point where toevaluaet the polynomial at.
-        :return:   The value P_n(x) of the polynomial at position p.
+        :param x:  The point where to evaluate the polynomial at x.
+        :return:   The value P(x) of the polynomial at position x.
         """
         return evaluate(self, x)
 
@@ -213,10 +213,16 @@ def interpolate(order: int, x: np.ndarray, v: np.ndarray) -> list[Poly]:
         raise ValueError("Need " + str(K) + " values to interpolate")
     V = Helpers.make_vandermonde_matrix(order, x[:K])
     B = np.array(v[:K])
+    # 2022-03-14 Kenny: TODO: The condition number of the Vandermonde matrix can be quite large. Hence, this
+    #                    approach for solving for an interpolating multivariate polynomial might not always work.
     A = linalg.solve(V, B)
-    Ps = [Poly(dimension, order) for _ in range(A.shape[1])]
-    for k in range(A.shape[1]):
-        Ps[k].coefficients = A[:, k]
+    if v.ndim == 1:
+        Ps = [Poly(dimension, order)]
+        Ps[0].coefficients = A
+    else:
+        Ps = [Poly(dimension, order) for _ in range(A.shape[1])]
+        for k in range(A.shape[1]):
+            Ps[k].coefficients = A[:, k]
     return Ps
 
 
@@ -225,15 +231,17 @@ def evaluate(P: Poly, x: np.ndarray) -> float:
     Evaluate the given polynomial at the given input point.
 
     :param P:  The polynomial to be evaluated.
-    :param x:  The point x where to evaluet the polynomial.
+    :param x:  The point x where to evaluate the polynomial.
     :return:   The value of P(x).
     """
-    # 14-03-2022 Kenny: TODO this code uses straightforward evaluation of the canonical form. A multivariate
-    #                    Horner's method might be more appropriate.
+    # 2022-03-14 Kenny: TODO this code uses straightforward evaluation of the canonical form. A multivariate
+    #                    Horner method might be more appropriate.
+    # 2022-03-14 Kenny: TODO this code only works for a single input point. It would be nice to rewrite
+    #                     code so x-input could be a whole array of input-points.
     if x.shape[0] != P.dimension:
         raise ValueError("Input point must have same dimension as the polynomial")
     if P.dimension == 1:
-        return np.sum(np.multiply(Pn.coefficients, x[0] ** Pn.powers[:, 0]))
+        return np.sum(np.multiply(P.coefficients, x[0] ** P.powers[:, 0]))
     elif P.dimension == 2:
         return np.sum(
             np.multiply(
@@ -281,9 +289,9 @@ def to_str(P: Poly) -> str:
         if c > 0:
             # Third we decode how the coefficient should be converted to a string.
             if c.is_integer():
-                coef = str(int(c))
+                c_str = str(int(c))
             else:
-                coef = str(c)
+                c_str = str(c)
             # Fourth we decode how the powers of the variables should be converted to a string.
             powers = ""
             for d in range(P.dimension):
@@ -298,11 +306,11 @@ def to_str(P: Poly) -> str:
             # Fifth, we have special rules if coefficient is one and powers are non-zero then we omit writing 1
             #
             if c != 1 and len(powers) > 0:
-                term = coef + " " + powers
+                term = c_str + " " + powers
             if c == 1 and len(powers) > 0:
                 term = powers
             if len(powers) == 0:
-                term = coef
+                term = c_str
         if len(polynomial) > 0:
             if len(term) > 0:
                 polynomial += " " + sign + " " + term
@@ -311,14 +319,18 @@ def to_str(P: Poly) -> str:
     return polynomial
 
 
-def derivative(P: Poly) -> Poly:
+def derivative(P: Poly) -> list[Poly]:
     """
     This function generates a polynomial that corresponds to the
     derivative of the given polynomial.
 
     :param P:     The input polynomial.
-    :return:       The outout polynomial.
+    :return:       The output polynomials.
     """
+    # 2022-03-14 Kenny: TODO: Technically the derivative decreases the order of the polynomial. The current
+    #                    implementation correctly computes monomials and their corresponding coefficients, but
+    #                    the "powers" pattern will not have the correct "order". We should convert the derivatives
+    #                    to a correct one-degree lower polynomial.
     dPs = [Poly(P.dimension, P.order) for _ in range(P.dimension)]
     for d, dP in enumerate(dPs):
         for k, term in enumerate(P.powers):
