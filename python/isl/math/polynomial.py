@@ -3,7 +3,7 @@ import numpy as np
 import scipy.linalg as linalg
 
 
-# 2022-03-13 Kenny: TODO Add a Poly1 and Poly3 class
+# 2022-03-13 Kenny: TODO Add one and three dimensions
 
 
 class Helpers:
@@ -14,16 +14,21 @@ class Helpers:
     """
 
     @staticmethod
-    def poly2_number_of_monomial_terms(order: int) -> int:
+    def number_of_monomial_terms(dimension: int, order: int) -> int:
         """
-        Computes the number of terms (monomials) in a two-dimensional polynomial of the given order.
+        Computes the number of terms (monomials) for a polynomial of given dimensional and order.
 
-        :param order:   The order/degree of the polynomial.
-        :return:        The number of terms.
+        :param dimension: The dimension of the polynomial.
+        :param order:     The order/degree of the polynomial.
+        :return:          The number of terms.
         """
         if order < 0:
             raise ValueError("Polynomial order must be non-negative")
-        return math.comb(order + 2, 2)
+        if dimension < 1:
+            raise ValueError("Polynomial dimension must be at least one")
+        if dimension > 3:
+            raise ValueError("Polynomial dimension must be at most three")
+        return math.comb(order + dimension, dimension)
 
     @staticmethod
     def poly2_make_monomial_powers(order: int) -> np.ndarray:
@@ -36,7 +41,7 @@ class Helpers:
         """
         patterns = []
         if order < 0:
-            raise ValueError("Polynomial degree must be non-negative")
+            raise ValueError("Polynomial order must be non-negative")
         for p in range(order + 1):
             for j in range(p + 1):
                 i = p - j
@@ -45,81 +50,112 @@ class Helpers:
         return powers
 
     @staticmethod
-    def poly2_make_vandermonde_matrix(x: np.ndarray, y: np.ndarray, order: int) -> np.ndarray:
+    def make_vandermonde_matrix(order: int, x: np.ndarray) -> np.ndarray:
         """
         Generates the pseudo Vandermonde matrix corresponding to the given
         coordinate input vectors and given order the two-dimensional polynomial
         of the given order.
 
-        :param x:       An array of x-coordinates. Must have the same number of elements as number of monomials.
-        :param y:       An array of y-coordinates. Must have the same number of elements as number of monomials.
         :param order:   The order/degree of the polynomial.
-        :return:        A square matrix with power-terms of the vectors x and y.
+        :param x:       An array of point-coordinates. Must have the same number of elements as number of monomials.
+        :return:        A square matrix with power-terms of the coordinates of the x-points.
         """
-        K = Helpers.poly2_number_of_monomial_terms(order)
+        if order <= 0:
+            raise ValueError("Order of polynomial interpolation should be positive")
+        dimension = x.shape[1]
+        if dimension not in [1, 2, 3]:
+            raise ValueError("Unsupported dimension of point data")
+        K = Helpers.number_of_monomial_terms(dimension, order)
         if len(x) < K:
             raise ValueError("Need " + str(K) + " x values to interpolate")
-        if len(y) < K:
-            raise ValueError("Need " + str(K) + " y values to interpolate")
         V = np.zeros((K, K), dtype=np.float64)
-        powers = Helpers.poly2_make_monomial_powers(order)
-        for k in range(K):
-            for idx, power in enumerate(powers):
-                V[k, idx] = x[k]**power[0] * y[k]**power[1]
+        if dimension == 1:
+            raise ValueError("Dimension one is not yet implemented.")
+        elif dimension == 2:
+            powers = Helpers.poly2_make_monomial_powers(order)
+            # 2022-03-14 Kenny: TODO can probably optimize k-loop away, and rewrite inner part to a
+            #                    loop over dimensions. This way the code will be more generic.
+            for k in range(K):
+                for idx, power in enumerate(powers):
+                    V[k, idx] = x[k, 0] ** power[0] * x[k, 1] ** power[1]
+        elif dimension == 3:
+            raise ValueError("Dimension three is not yet implemented.")
+        else:
+            raise ValueError("Unsupported number of dimensions.")
         return V
 
 
-class Poly2:
+class Poly:
+    """
+    Base class for all polynomials.
+    """
 
-    def __init__(self, order: int) -> None:
+    def __init__(self, dimension: int, order: int) -> None:
         """
         Initialize an instance of Poly2.
         This includes allocating internal arrays for encoding all terms of a two-dimensional polynomial.
+        Initializes the shared member variables between all polynomials regardless of their dimension.
 
+        A one dimensional polynomial is given by :math:`P_n(x)`, and a two-dimensional is
+        :math:`P_n(x,y)`, and a third dimensional is :math:`P_n(x,y,z)`.
+
+        Here :math:`n` is the order or degree of the polynomial. Polynomials are stored in their canonical form.
+        As an example for a two-dimensional polynomial we have
+
+        .. math ::
+            P_n(x,y) = a_0 + a_1 x + a_2 y + a_3 x^2 + \cdots + a_K y^n
+
+        The coefficients :math:`a_0, a_1, \cdots, a_K` are stored internally in a coefficients vector. The
+        powers of each monomial are stored in a K-by-2 matrix. Such that the :math:`k` canonical term stores the
+        powers of :math:`x` and :math:`y` as first and second colum in the   :math:`k`'row.
+
+        .. math ::
+            coefficient[k] = a_k,\, powers[k,:] = [i,j]  \quad \Rightarrow \quad a_k x^i y^j
+
+        For a third-dimensional polynomial we simply add a third column to the powers' matrix.
+
+        The data structure layout hence allow us to store polynomial in the same fashion regardless
+        of their dimensionality.
+
+        :param dimension:  The dimension of the polynomial. Can be 1, 2 or 3.
         :param order:  The order/degree of the polynomial.
+
         """
+        if dimension not in [1, 2, 3]:
+            raise ValueError("Unsupported polynomial dimension")
+        self.dimension = dimension
         self.order = order
-        self.powers = Helpers.poly2_make_monomial_powers(order)
-        self.coefficients = np.ones((self.powers.shape[0],), dtype=np.float64)
+        self.powers = None
+        if dimension == 1:
+            raise ValueError("Currently one dimensional polynomial not supported")
+        elif dimension == 2:
+            self.powers = Helpers.poly2_make_monomial_powers(order)
+        elif dimension == 3:
+            raise ValueError("Currently third dimensional polynomial not supported")
+        else:
+            raise ValueError("The dimension of the polynomial must be 1, 2 or 3.")
+        self.terms = self.powers.shape[0]
+        self.coefficients = np.ones((self.terms,), dtype=np.float64)
 
     def __str__(self) -> str:
         """
-        Convert the Poly2 instance to a string value.
+        Convert the Poly instance to a string value.
 
         :return:  The string value for the polynomial.
         """
-        return poly2_to_str(self)
+        return to_str(self)
 
-    def __call__(self, x: float, y: float) -> float:
+    def __call__(self, x: np.ndarray) -> float:
         """
-        Evaluates the polynomial at the given (x,y) point.
+        Evaluates the polynomial at the given p-point.
 
-        :param x:  The x-value.
-        :param y:  The y-value.
-        :return:   The value of the polynomial at position (x,y).
+        :param x:  The point where toevaluaet the polynomial at.
+        :return:   The value P_n(x) of the polynomial at position p.
         """
-        return poly2_eval(self, x, y)
+        return evaluate(self, x)
 
 
-def poly2_make(order: int, coefficients: np.ndarray) -> Poly2:
-    """
-    Create 2 variable polynomial of given order.
-    One may specify the coefficients of each term in the polynomial.
-
-    :param order:          The desired order (degree) of the polynomial.
-    :param coefficients:   The coefficients of the polynomial.
-    :return:               The resulting Poly2 instance.
-    """
-    P = Poly2(order)
-    if coefficients is None:
-        return P
-    if coefficients.shape[0] != P.powers.shape[0]:
-        raise ValueError("Number of coefficients must equal number of monomials in polynomial")
-    P.coefficients = coefficients.ravel()
-    return P
-
-
-def poly2_interpolate(x: np.ndarray, y: np.ndarray, v: np.ndarray, order:int) -> list[Poly2]:
+def interpolate(order: int, x: np.ndarray, v: np.ndarray) -> list[Poly]:
     """
     Compute a Poly2 instance that interpolates the given input data.
     We want to find coefficients of an interpolating polynomial
@@ -159,96 +195,134 @@ def poly2_interpolate(x: np.ndarray, y: np.ndarray, v: np.ndarray, order:int) ->
 
     and now we can solve the system :math:`V a = b` for the coefficient vector :math:`a`.
 
-    :param x:        An array of x-coordinates.
-    :param y:        An array of y-coordinates.
+    :param order:    The order of the resulting polynomials.
+    :param x:        An array of point-coordinates.
     :param v:        An matrix of values to be interpolated at the given (x,y) points. Each column's gives one
                      unique polynomial.
-    :param order:    The order of the resulting polynomials.
     :return:         A list of polynomials that interpolate the given data.
     """
     if order <= 0:
         raise ValueError("Order of polynomial interpolation should be positive")
-    K = Helpers.poly2_number_of_monomial_terms(order)
+    dimension = x.shape[1]
+    if dimension not in [1, 2, 3]:
+        raise ValueError("Unsupported dimension of point data")
+    K = Helpers.number_of_monomial_terms(dimension, order)
     if len(x) < K:
-        raise ValueError("Need " + str(K) + " x values to interpolate")
-    if len(y) < K:
-        raise ValueError("Need " + str(K) + " y values to interpolate")
+        raise ValueError("Need " + str(K) + " points to interpolate")
     if v.shape[0] < K:
         raise ValueError("Need " + str(K) + " values to interpolate")
-    V = Helpers.poly2_make_vandermonde_matrix(x[:K], y[:K], order)
+    V = Helpers.make_vandermonde_matrix(order, x[:K])
     B = np.array(v[:K])
     A = linalg.solve(V, B)
-    Ps = [poly2_make(order, A[:, k]) for k in range(A.shape[1])]
+    Ps = [Poly(dimension, order) for _ in range(A.shape[1])]
+    for k in range(A.shape[1]):
+        Ps[k].coefficients = A[:, k]
     return Ps
 
 
-def poly2_eval(Pn: Poly2, x: float, y: float) -> float:
+def evaluate(P: Poly, x: np.ndarray) -> float:
     """
     Evaluate the given polynomial at the given input point.
 
-    :param Pn:  The polynomial to be evaluated.
-    :param x:   The x-coordinate.
-    :param y:   The y-coordinate.
-    :return:    The value of P_n(x,y).
+    :param P:  The polynomial to be evaluated.
+    :param x:  The point x where to evaluet the polynomial.
+    :return:   The value of P(x).
     """
-    # 13-03-2022 kenny: TODO extend code such that x and y could be arrays of multiple values.
-    return np.sum(np.multiply(Pn.coefficients,  np.multiply(x**Pn.powers[:, 0], y**Pn.powers[:, 1])))
+    # 14-03-2022 Kenny: TODO this code uses straightforward evaluation of the canonical form. A multivariate
+    #                    Horner's method might be more appropriate.
+    if x.shape[0] != P.dimension:
+        raise ValueError("Input point must have same dimension as the polynomial")
+    if P.dimension == 1:
+        return np.sum(np.multiply(Pn.coefficients, x[0] ** Pn.powers[:, 0]))
+    elif P.dimension == 2:
+        return np.sum(
+            np.multiply(
+                P.coefficients,
+                np.multiply(
+                    x[0] ** P.powers[:, 0],
+                    x[1] ** P.powers[:, 1]
+                )
+            )
+        )
+    elif P.dimension == 3:
+        return np.sum(
+            np.multiply(
+                P.coefficients,
+                np.multiply(
+                    x[0] ** P.powers[:, 0],
+                    np.multiply(
+                        x[1] ** P.powers[:, 1],
+                        x[2] ** P.powers[:, 2]
+                    )
+                )
+            )
+        )
+    else:
+        raise ValueError("Unsupported dimensional polynomial encountered")
 
 
-def poly2_to_str(Pn: Poly2) -> str:
+def to_str(P: Poly) -> str:
     """
     Converts the given polynomial into a string value.
 
-    :param Pn:   The polynomial.
+    :param P:    The polynomial.
     :return:     A string value that display the polynomial in its canonical form.
     """
+    var = ["x", "y", "z"]  # Fixed labels for 1D, 2D and 3D polynomials.
     polynomial = ""
-    for idx, power in enumerate(Pn.powers):
+    for idx, power in enumerate(P.powers):
         term = ""
+        # First we determine the possible sign to use for next term
         sign = "+"
-        if Pn.coefficients[idx] < 0:
+        if P.coefficients[idx] < 0:
             sign = "-"
-        c = math.fabs(Pn.coefficients[idx])
+        # Second we test if we have a non-zero coefficient. If not we skip this term
+        c = math.fabs(P.coefficients[idx])
         if c > 0:
+            # Third we decode how the coefficient should be converted to a string.
             if c.is_integer():
                 coef = str(int(c))
             else:
                 coef = str(c)
-            if power[0] == 0 and power[1] == 0:
+            # Fourth we decode how the powers of the variables should be converted to a string.
+            powers = ""
+            for d in range(P.dimension):
+                k = power[d]
+                if k != 0:
+                    if d > 0 and len(powers) > 0:
+                        powers += " "
+                    if k == 1:
+                        powers += var[d]
+                    else:
+                        powers += var[d] + "^" + str(k)
+            # Fifth, we have special rules if coefficient is one and powers are non-zero then we omit writing 1
+            #
+            if c != 1 and len(powers) > 0:
+                term = coef + " " + powers
+            if c == 1 and len(powers) > 0:
+                term = powers
+            if len(powers) == 0:
                 term = coef
-            if power[0] != 0 and power[1] == 0:
-                term = coef + " x^" + str(power[0])
-            if power[0] == 0 and power[1] != 0:
-                term = coef + " y^" + str(power[1])
-            if power[0] != 0 and power[1] != 0:
-                term = coef + " x^" + str(power[0]) + " y^" + str(power[1])
         if len(polynomial) > 0:
-            polynomial += " " + sign + " " + term
+            if len(term) > 0:
+                polynomial += " " + sign + " " + term
         else:
             polynomial = term
     return polynomial
 
 
-def poly2_derivative(Pn: Poly2) -> Poly2:
+def derivative(P: Poly) -> Poly:
     """
     This function generates a polynomial that corresponds to the
     derivative of the given polynomial.
 
-    :param Pn:     The input polynomial.
+    :param P:     The input polynomial.
     :return:       The outout polynomial.
     """
-    pass
-
-
-if __name__ == "__main__":
-    for order in range(5):
-        Pn = Poly2(order)
-        print("Polynomial of order ", Pn.order, " can be written as: ", Pn)
-        print("It has value Pn(1,1) = ", Pn(1, 1))
-    x = np.random.rand(100, 1)*100
-    y = np.random.rand(100, 1)*100
-    v = np.random.rand(100, 10)
-    P1s = poly2_interpolate(x, y, v, 1)
-    for i in range(10):
-        print("Interpolating polynomial is = ", P1s[i])
-        print("Its value at point (1,1) is = ", P1s[i](1, 1))
+    dPs = [Poly(P.dimension, P.order) for _ in range(P.dimension)]
+    for d, dP in enumerate(dPs):
+        for k, term in enumerate(P.powers):
+            dP.powers[k, :] = term
+            dP.powers[k, d] = term[d]-1 if term[d] != 0 else 0
+            dP.coefficients[k] = term[d]*P.coefficients[k]
+    return dPs
