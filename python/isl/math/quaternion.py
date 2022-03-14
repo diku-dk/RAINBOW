@@ -288,7 +288,6 @@ def slerp(a, b, t):
     t = clamp(t, 0.0, 1.0)
 
     dot = clamp(np.dot(a, b), -1.0, 1.0)
-    print(f"Dot: {dot}, a: {a}, b: {b}")
 
     flip = False
     if dot < 0.0:
