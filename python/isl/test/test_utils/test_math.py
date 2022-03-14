@@ -5,7 +5,6 @@ import os
 import sys
 import numpy as np
 import math as m
-from scipy.spatial.transform import Rotation as R
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
 import isl.math.vector3 as vec3
@@ -655,3 +654,371 @@ class TestRigidBodiesAPI(unittest.TestCase):
         expected = np.array([0,0,1])
         actual   = quat.rotate(q, r)
         self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_from_string_1(self):
+        expected = np.array([1, 0, 0, 0], dtype=np.float64)
+        actual   = quat.from_string("identity")
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_from_string_2(self):
+        degree          = 90
+        expected_radian = (0.5*np.pi) / 2 
+        expected        = np.array([np.cos(expected_radian), np.sin(expected_radian), 0 , 0], dtype=np.float64)
+        actual          = quat.from_string(f"rx: {degree}")
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_from_string_3(self):
+        degree          = 90
+        expected_radian = (0.5*np.pi) / 2 
+        expected        = np.array([np.cos(expected_radian), np.sin(expected_radian), 0 , 0], dtype=np.float64)
+        actual          = quat.from_string(f"Rx: {degree}")
+        self.assertTrue(utils.array_equal(actual,expected))
+
+    def test_from_string_3b(self):
+        degree          = 90
+        expected_radian = (0.5*np.pi) / 2 
+        expected        = np.array([np.cos(expected_radian), np.sin(expected_radian), 0 , 0], dtype=np.float64)
+        actual          = quat.from_string(f"RX: {degree}")
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_from_string_3c(self):
+        degree          = 90
+        expected_radian = (0.5*np.pi) / 2 
+        expected        = np.array([np.cos(expected_radian), np.sin(expected_radian), 0 , 0], dtype=np.float64)
+        actual          = quat.from_string(f"rX: {degree}")
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_from_string_4(self):
+        degree          = 90
+        expected_radian = (0.5*np.pi) / 2 
+        expected        = np.array([np.cos(expected_radian),0, np.sin(expected_radian) , 0], dtype=np.float64)
+        actual          = quat.from_string(f"ry: {degree}")
+        self.assertTrue(utils.array_equal(actual,expected))
+
+    def test_from_string_5(self):
+        degree          = 90
+        expected_radian = (0.5*np.pi) / 2 
+        expected        = np.array([np.cos(expected_radian),0, 0, np.sin(expected_radian)], dtype=np.float64)
+        actual          = quat.from_string(f"rz: {degree}")
+        self.assertTrue(utils.array_equal(actual,expected))
+
+    def test_from_string_6(self):
+        degree          = 90
+        expected_radian = (0.5*np.pi) / 2 
+        axis            = "[1,0,0]"
+        expected        = np.array([np.cos(expected_radian), np.sin(expected_radian), 0, 0,], dtype=np.float64)
+        actual          = quat.from_string(f"ru: {degree}:{axis}")
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_from_string_7(self):
+        degree          = 90
+        expected_radian = (0.5*np.pi) / 2 
+        axis            = "[0,1,0]"
+        expected        = np.array([np.cos(expected_radian),0, np.sin(expected_radian), 0,], dtype=np.float64)
+        actual          = quat.from_string(f"ru: {degree}:{axis}")
+        self.assertTrue(utils.array_equal(actual,expected))
+
+    def test_from_string_8(self):
+        degree          = 90
+        expected_radian = (0.5*np.pi) / 2 
+        axis            = "[0,0,1]"
+        expected        = np.array([np.cos(expected_radian),0, 0, np.sin(expected_radian)], dtype=np.float64)
+        actual          = quat.from_string(f"ru: {degree}:{axis}")
+        self.assertTrue(utils.array_equal(actual,expected))
+
+    def test_from_string_9(self):
+        expected        = np.array([1,2,3,4], dtype=np.float64)
+        actual          = quat.from_string(f"[1,2,3,4,5,6,7]")
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_from_string_10(self):
+        with self.assertRaises(ValueError):
+            quat.from_string(f"[1,2,3]")
+
+    def test_from_string_11(self):
+        with self.assertRaises(ValueError):
+            quat.from_string(f"rx: [1,2,3]")
+
+    def test_from_vector3_1(self):
+        expected = np.array([0, 1,2,3], dtype=np.float64)
+        actual   = quat.from_vector3(np.array([1,2,3]))
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_from_vector3_2(self):
+        expected = np.array([0, 1, 2, 3], dtype=np.float64)
+        actual   = quat.from_vector3(np.array([1,2,3,4]))
+        self.assertTrue(utils.array_equal(actual,expected))
+
+    def test_from_vector3_3(self):
+        with self.assertRaises(IndexError):
+            quat.from_vector3(np.array([1,2]))
+
+    def test_to_matrix_1(self):
+        radian   = (0.5 * np.pi)/2
+        expected = quat.make(np.cos(radian),np.sin(radian),0,0)
+        actual   = quat.from_matrix(quat.to_matrix(expected))
+        self.assertTrue(utils.array_equal(actual,expected))
+
+    def test_to_matrix_2(self):
+        radian    = (0.5 * np.pi)/2
+        axis      = np.array([1,1,0])
+        axis_unit = axis / np.linalg.norm(axis)
+        expected  = quat.make(np.cos(radian),axis_unit[0] * np.sin(radian),axis_unit[1] * np.sin(radian),axis_unit[2] * np.sin(radian))
+        actual    = quat.from_matrix(quat.to_matrix(expected))
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_to_matrix_3(self):
+        '''
+            p. 602, theorem 18.44
+        '''
+        radian    = (0.5 * np.pi)/2
+        q         = np.array([np.cos(radian), np.sin(radian), 0, 0]) 
+        expected  = np.array([
+            [1,                               0,                                 0],
+            [0,       (1-2*(np.sin(radian)**2)),  -2*np.cos(radian)*np.sin(radian)],
+            [0, 2*np.cos(radian)*np.sin(radian), 1-2*(np.sin(radian)**2)          ]
+        ])
+
+        actual    = quat.to_matrix(q)
+        self.assertTrue(utils.array_equal(actual,expected))
+
+    def test_from_matrix_1(self):
+        '''
+         Use Theorem 18.44, however use reverted indexing to support
+         numpy arrays
+        '''
+        radian    = (0.5*np.pi)/2
+        M  = np.array([
+            [1,                               0,                                 0],
+            [0,       (1-2*(np.sin(radian)**2)),  -2*np.cos(radian)*np.sin(radian)],
+            [0, 2*np.cos(radian)*np.sin(radian), 1-2*(np.sin(radian)**2)          ]
+        ])
+        s = 0.5 * np.sqrt(M[0,0] + M[1,1] + M[2,2] + 1)
+        x = (M[2,1]-M[1,2])/(4*s)
+        y = (M[2,0]-M[0,2])/(4*s)
+        z = (M[0,1]-M[1,0])/(4*s)
+        expected = np.array([s,x,y,z], dtype=np.float64)
+        actual   = quat.from_matrix(M)
+        self.assertTrue(utils.array_equal(actual,expected))
+
+    def test_from_matrix_1(self):
+        '''
+         Use Theorem 18.44, however use reverted indexing to support
+         numpy arrays
+        '''
+        radian    = (0.5*np.pi)/2
+        M  = np.array([
+            [1,                               0,                                 0],
+            [0,       (1-2*(np.sin(radian)**2)),  -2*np.cos(radian)*np.sin(radian)],
+            [0, 2*np.cos(radian)*np.sin(radian), 1-2*(np.sin(radian)**2)          ]
+        ])
+        s = 0.5 * np.sqrt(M[0,0] + M[1,1] + M[2,2] + 1)
+        x = (M[2,1]-M[1,2])/(4*s)
+        y = (M[2,0]-M[0,2])/(4*s)
+        z = (M[0,1]-M[1,0])/(4*s)
+        expected = np.array([s,x,y,z], dtype=np.float64)
+        actual   = quat.from_matrix(M)
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_from_matrix_2(self):
+        radian = np.pi / 2
+        q      = np.array([np.cos(radian), np.sin(radian), 0,0], dtype=np.float64)
+        M      = quat.to_matrix(q)
+        x      = (np.sqrt(M[0,0] - M[1,1] - M[2,2] + 1.0))/(2)
+        y      = (M[0,1]+M[1,0])/(4*x)
+        z      = (M[2,0]+M[0,2])/(4*x)
+        s      = (M[1,2]-M[2,1])/(4*x)
+        expected = np.array([s,x,y,z], dtype=np.float64)
+        actual   = quat.from_matrix(M)
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_from_matrix_3(self):
+        radian = np.pi / 2
+        axis   = [0,1,0]
+        q      = np.array([np.cos(radian), axis[0]*np.sin(radian), axis[1]*np.sin(radian),axis[2]*np.sin(radian)], dtype=np.float64)
+        M      = quat.to_matrix(q)
+        expected = q
+        actual   = quat.from_matrix(M)
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+    def test_from_matrix_4(self):
+        radian = np.pi / 2
+        axis   = [0,0,1]
+        q      = np.array([np.cos(radian), axis[0]*np.sin(radian), axis[1]*np.sin(radian),axis[2]*np.sin(radian)], dtype=np.float64)
+        M      = quat.to_matrix(q)
+        expected = q
+        actual   = quat.from_matrix(M)
+        self.assertTrue(utils.array_equal(actual,expected))
+
+    def test_rotate_array_1(self):
+        radian    = (0.5 * np.pi)/2
+        axis      = np.array([0,1,0])
+        axis_unit = axis / np.linalg.norm(axis)
+        q  = quat.make(np.cos(radian),axis_unit[0] * np.sin(radian),axis_unit[1] * np.sin(radian),axis_unit[2] * np.sin(radian))
+        rs = np.array([
+            [1,0,0],
+            [0,1,0],
+            [0,0,1]
+        ], dtype=np.float64)
+        expected = np.array([
+            [0,0,-1],
+            [0,1, 0],
+            [1,0, 0]
+        ], dtype=np.float64)
+        actual = quat.rotate_array(q, rs)
+        self.assertTrue(utils.array_equal(actual,expected))
+
+    def test_prod_array_1(self):
+        radian    = (0.5 * np.pi)/2
+        axis      = np.array([0,1,0])
+        axis_unit = axis / np.linalg.norm(axis)
+        rs = np.array([
+            [1,0,0],
+            [0,1,0],
+            [0,0,1]
+        ], dtype=np.float64)
+        
+        with self.assertRaises(NotImplementedError):
+            quat.prod_array(rs, rs)
+
+    def test_prod_array_3(self):
+        wrong_input = np.array([])
+        with self.assertRaises(ValueError):
+            quat.prod_array(wrong_input, wrong_input)
+
+    def test_angle_axis_1(self):
+        radian    = (0.5 * np.pi)/2
+        axis      = np.array([0,1,0])
+        axis_unit = axis / np.linalg.norm(axis)
+        q  = quat.make(np.cos(radian),axis_unit[0] * np.sin(radian),axis_unit[1] * np.sin(radian),axis_unit[2] * np.sin(radian))
+        expected_theta = radian  * 2
+        expected_axis  = axis_unit 
+        actual_theta, actual_axis   = quat.to_angle_axis(q)
+        self.assertTrue(utils.array_equal(actual_theta,expected_theta))
+        self.assertTrue(utils.array_equal(actual_axis,expected_axis))
+
+    def test_angle_axis_2(self):
+        radian    = (0.75 * np.pi)/2
+        axis      = np.array([1,1,0])
+        axis_unit = axis / np.linalg.norm(axis)
+        q  = quat.make(np.cos(radian),axis_unit[0] * np.sin(radian),axis_unit[1] * np.sin(radian),axis_unit[2] * np.sin(radian))
+        expected_theta = radian  * 2
+        expected_axis  = axis_unit 
+        actual_theta, actual_axis   = quat.to_angle_axis(q)
+        self.assertTrue(utils.array_equal(actual_theta,expected_theta))
+        self.assertTrue(utils.array_equal(actual_axis,expected_axis))
+
+    def test_angle_axis_3(self):
+        radian    = (0.00001 * np.pi)/2
+        axis      = np.array([0.001,0,0])
+        axis_unit = axis / np.linalg.norm(axis)
+        q  = quat.make(np.cos(radian),axis_unit[0] * np.sin(radian),axis_unit[1] * np.sin(radian),axis_unit[2] * np.sin(radian))
+        expected_theta = radian  * 2
+        expected_axis  = axis_unit 
+        actual_theta, actual_axis   = quat.to_angle_axis(q)
+        self.assertTrue(utils.array_equal(actual_theta,expected_theta))
+        self.assertTrue(utils.array_equal(actual_axis,expected_axis))
+    
+    def test_angle_axis_1(self):
+        radian    = (0.5 * np.pi)/2
+        axis      = np.array([0,1,0])
+        axis_unit = axis / np.linalg.norm(axis)
+        q  = quat.make(np.cos(radian),axis_unit[0] * np.sin(radian),axis_unit[1] * np.sin(radian),axis_unit[2] * np.sin(radian))
+        expected = radian  * 2
+        actual   = quat.to_angle(q, axis_unit)
+        self.assertTrue(utils.array_equal(actual, expected))
+    
+    # def test_angle_axis_2(self):
+        # radian    = (1.5 * np.pi)/2
+        # axis      = np.array([0,1,0])
+        # axis_unit = axis / np.linalg.norm(axis)
+        # q  = quat.make(np.cos(radian),axis_unit[0] * np.sin(radian),axis_unit[1] * np.sin(radian),axis_unit[2] * np.sin(radian))
+        # expected = radian  * 2
+        # actual   = quat.to_angle(q, axis_unit)
+        # self.assertTrue(utils.array_equal(actual, expected))
+
+    def test_hat_1(self):
+        radian    = (0.5 * np.pi)/2
+        axis      = np.array([0,1,0])
+        axis_unit = axis / np.linalg.norm(axis)
+        q  = quat.make(np.cos(radian),axis_unit[0] * np.sin(radian),axis_unit[1] * np.sin(radian),axis_unit[2] * np.sin(radian))
+        expected = 0.5*np.pi 
+        actual , _   = quat.to_angle_axis(quat.hat(q)) 
+        self.assertTrue(utils.array_equal(actual / 2, expected))
+
+    def test_hat_2(self):
+        radian    = (0.25 * np.pi)/2
+        axis      = np.array([0,1,0])
+        axis_unit = axis / np.linalg.norm(axis)
+        q  = quat.make(np.cos(radian),axis_unit[0] * np.sin(radian),axis_unit[1] * np.sin(radian),axis_unit[2] * np.sin(radian))
+        expected = 0.5*np.pi 
+        actual , _   = quat.to_angle_axis(quat.hat(q))
+        self.assertTrue(utils.array_equal(actual / 2, expected))
+
+
+    def test_lerp_1(self):
+        radian    = (0.5 * np.pi)/2
+        axis_1      = np.array([0,1,0])
+        axis_2      = np.array([0,1,0])
+        axis_unit_1 = axis_1 / np.linalg.norm(axis_1)
+        axis_unit_2 = axis_2 / np.linalg.norm(axis_2)
+        q_1  = quat.make(np.cos(radian),axis_unit_1[0] * np.sin(radian),axis_unit_1[1] * np.sin(radian),axis_unit_1[2] * np.sin(radian))
+        q_2  = quat.make(np.cos(radian),axis_unit_2[0] * np.sin(radian),axis_unit_2[1] * np.sin(radian),axis_unit_2[2] * np.sin(radian))
+        h    = 0.5
+        expected = q_1*(1-h)+q_2*h
+        actual   = quat.lerp(q_1,q_2,h)
+        self.assertTrue(utils.array_equal(actual, expected))
+    
+    def test_lerp_2(self):
+        radian    = (0.5 * np.pi)/2
+        axis_1      = np.array([0,1,0])
+        axis_2      = np.array([1,0,0])
+        axis_unit_1 = axis_1 / np.linalg.norm(axis_1)
+        axis_unit_2 = axis_2 / np.linalg.norm(axis_2)
+        q_1  = quat.make(np.cos(radian),axis_unit_1[0] * np.sin(radian),axis_unit_1[1] * np.sin(radian),axis_unit_1[2] * np.sin(radian))
+        q_2  = quat.make(np.cos(radian),axis_unit_2[0] * np.sin(radian),axis_unit_2[1] * np.sin(radian),axis_unit_2[2] * np.sin(radian))
+        h    = 0.7
+        expected = q_1*(1-h)+q_2*h
+        actual   = quat.lerp(q_1,q_2,h)
+        self.assertTrue(utils.array_equal(actual, expected))
+    
+    def test_slerp_1(self):
+        radian    = (0.5 * np.pi)/2
+        axis_1      = np.array([0,1,0])
+        axis_2      = np.array([1,0,0])
+        axis_unit_1 = axis_1 / np.linalg.norm(axis_1)
+        axis_unit_2 = axis_2 / np.linalg.norm(axis_2)
+        q_1  = quat.make(np.cos(radian),axis_unit_1[0] * np.sin(radian),axis_unit_1[1] * np.sin(radian),axis_unit_1[2] * np.sin(radian))
+        q_2  = quat.make(np.cos(radian),axis_unit_2[0] * np.sin(radian),axis_unit_2[1] * np.sin(radian),axis_unit_2[2] * np.sin(radian))
+        h    = 0.0
+        expected = q_1
+        actual   = quat.slerp(q_1,q_2,h)
+        self.assertTrue(utils.array_equal(actual, expected))
+
+    def test_slerp_2(self):
+        radian    = (0.5 * np.pi)/2
+        axis_1      = np.array([0,1,0])
+        axis_2      = np.array([1,0,0])
+        axis_unit_1 = axis_1 / np.linalg.norm(axis_1)
+        axis_unit_2 = axis_2 / np.linalg.norm(axis_2)
+        q_1  = quat.make(np.cos(radian),axis_unit_1[0] * np.sin(radian),axis_unit_1[1] * np.sin(radian),axis_unit_1[2] * np.sin(radian))
+        q_2  = quat.make(np.cos(radian),axis_unit_2[0] * np.sin(radian),axis_unit_2[1] * np.sin(radian),axis_unit_2[2] * np.sin(radian))
+        h    = 1.0
+        expected = q_2
+        actual   = quat.slerp(q_1,q_2,h)
+        self.assertTrue(utils.array_equal(actual, expected))
+
+    def test_slerp_3(self):
+        radian    = (0.5 * np.pi)/2
+        axis_1      = np.array([0,1,0])
+        axis_2      = np.array([0,1,0])
+        axis_unit_1 = axis_1 / np.linalg.norm(axis_1)
+        axis_unit_2 = axis_2 / np.linalg.norm(axis_2)
+        q_1  = quat.make(np.cos(radian),axis_unit_1[0] * np.sin(radian),-axis_unit_1[1] * np.sin(radian),axis_unit_1[2] * np.sin(radian))
+        q_2  = quat.make(-np.cos(radian),axis_unit_2[0] * np.sin(radian),axis_unit_2[1] * np.sin(radian),axis_unit_2[2] * np.sin(radian))
+        h    = 1.0
+        expected = q_2
+        actual   = quat.slerp(q_1,q_2,h)
+        self.assertTrue(utils.array_equal(actual, expected))
+
+
