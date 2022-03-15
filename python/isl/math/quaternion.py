@@ -16,32 +16,39 @@ def from_array(data):
 
 def from_string(value):
 
-    if value == "identity":
+    value_lower = value.lower()
+
+    if value_lower == "identity":
         return identity()
 
-    if value.startswith("rx:"):
-        degrees = float(value.strip("rx:"))
+    if value_lower.startswith("rx:"):
+        degrees = float(value_lower.strip("rx:"))
         radians = ANGLE.degrees_to_radians(degrees)
         return Rx(radians)
 
-    if value.startswith("ry:"):
-        degrees = float(value.strip("ry:"))
+    if value_lower.startswith("ry:"):
+        degrees = float(value_lower.strip("ry:"))
         radians = ANGLE.degrees_to_radians(degrees)
         return Ry(radians)
 
-    if value.startswith("rz:"):
-        degrees = float(value.strip("rz:"))
+    if value_lower.startswith("rz:"):
+        degrees = float(value_lower.strip("rz:"))
         radians = ANGLE.degrees_to_radians(degrees)
         return Rz(radians)
 
-    if value.startswith("ru:"):
-        (degrees_str, axis_str) = value.strip("ru:").split(":")
+    if value_lower.startswith("ru:"):
+        (degrees_str, axis_str) = value_lower.strip("ru:").split(":")
         degrees = float(degrees_str)
         radians = ANGLE.degrees_to_radians(degrees)
         axis = V3.from_string(axis_str)
         return Ru(radians, axis)
 
-    return np.fromstring(value.strip("[]"), dtype=np.float64, count=4, sep=",")
+    string_2_array =  np.fromstring(value_lower.strip("[]"), dtype=np.float64, sep=",")
+
+    if len(string_2_array) < 4:
+        raise ValueError(f"Incorret input: {value}\n See documentation for help")
+
+    return string_2_array[:4]
 
 
 def from_vector3(w):
@@ -301,8 +308,8 @@ def slerp(a, b, t):
     return x * a + y * b
 
 
-def rand():
-    return unit(np.random.uniform(-1.0, 1.0, 4))
+def rand():                                      #pragma: no cover  
+    return unit(np.random.uniform(-1.0, 1.0, 4)) #pragma: no cover 
 
 
 def hat(q):
