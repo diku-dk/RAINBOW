@@ -2,9 +2,11 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.vscode/
 
 # C extensions
 *.so
+cpp/external/pybind11
 
 # Distribution / packaging
 .Python
