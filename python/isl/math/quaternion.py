@@ -249,13 +249,19 @@ def to_angle_axis(Q):
 
 
 def to_angle(Q, axis):
+    '''
+        If axis and and the rotation axis of the quaternion is zero 
+        then the function does not work as intended.
+    '''
     ct2 = Q[0]  # cos(theta / 2)
     st2 = np.linalg.norm(Q[1:])  # | sin(theta / 2) |
 
     if np.dot(Q[1:], axis) >= 0.0:
         theta = 2.0 * atan2(st2, ct2)
-    else:
-        theta = 2.0 * atan2(st2, -ct2)
+    else:                                          #pragma: no cover
+        # This case will never happen unless we    #pragma: no cover
+        # work with negative axis.                 #pragma: no cover  
+        theta = 2.0 * atan2(st2, -ct2)             #pragma: no cover
 
     if theta > pi:
         theta -= 2.0 * pi

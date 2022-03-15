@@ -918,8 +918,19 @@ class TestRigidBodiesAPI(unittest.TestCase):
         actual_theta, actual_axis   = quat.to_angle_axis(q)
         self.assertTrue(utils.array_equal(actual_theta,expected_theta))
         self.assertTrue(utils.array_equal(actual_axis,expected_axis))
+
+    def test_angle_axis_4(self):
+        radian    = np.pi/2
+        axis      = np.array([0,0,0])
+        axis_unit = axis # axis / np.linalg.norm(axis)
+        q  = quat.make(np.cos(radian),axis_unit[0] * np.sin(radian),axis_unit[1] * np.sin(radian),axis_unit[2] * np.sin(radian))
+        expected_theta = [0.0,radian  * 4]
+        expected_axis  = axis_unit 
+        actual_theta, actual_axis   = quat.to_angle_axis(q)
+        self.assertTrue(actual_theta in expected_theta)
+        self.assertTrue(utils.array_equal(actual_axis,expected_axis))
     
-    def test_angle_axis_1(self):
+    def test_to_angle_1(self):
         radian    = (0.5 * np.pi)/2
         axis      = np.array([0,1,0])
         axis_unit = axis / np.linalg.norm(axis)
@@ -928,14 +939,14 @@ class TestRigidBodiesAPI(unittest.TestCase):
         actual   = quat.to_angle(q, axis_unit)
         self.assertTrue(utils.array_equal(actual, expected))
     
-    # def test_angle_axis_2(self):
-        # radian    = (1.5 * np.pi)/2
-        # axis      = np.array([0,1,0])
-        # axis_unit = axis / np.linalg.norm(axis)
-        # q  = quat.make(np.cos(radian),axis_unit[0] * np.sin(radian),axis_unit[1] * np.sin(radian),axis_unit[2] * np.sin(radian))
-        # expected = radian  * 2
-        # actual   = quat.to_angle(q, axis_unit)
-        # self.assertTrue(utils.array_equal(actual, expected))
+    def test_to_angle_2(self):
+        radian    = (1.5 * np.pi)/2
+        axis      = np.array([0,1,0])
+        axis_unit = axis / np.linalg.norm(axis)
+        q  = quat.make(np.cos(radian),axis_unit[0] * np.sin(radian),axis_unit[1] * np.sin(radian),axis_unit[2] * np.sin(radian))
+        expected = np.pi-(radian  * 2)
+        actual   = quat.to_angle(q, axis_unit)
+        self.assertTrue(utils.array_equal(actual, expected))
 
     def test_hat_1(self):
         radian    = (0.5 * np.pi)/2
