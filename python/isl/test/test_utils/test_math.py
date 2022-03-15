@@ -1214,15 +1214,15 @@ class TestRigidBodiesAPI(unittest.TestCase):
         self.assertTrue(utils.array_equal(actual_2, expected_2))
         self.assertTrue(utils.array_equal(actual_3, expected_3))
 
-    def test_polar_decompostion_2(self):
-        M = mat3.identity()
-        M[0,0] = -3
-        M[1,1] = -2
-        M[2,2] = -1
-        print(np.trace(M))
-        S2 = np.matmul(M.T, M)
-        # eigh takes advantage of the matrix being symmetric, and guarantees a result of real elements.
-        eigvals, eigvecs = np.linalg.eigh(S2)
-        print(f"Eigen values {eigvals}")
-        with self.assertRaises(ValueError):
-            mat3.polar_decomposition(M)
+    # def test_polar_decompostion_2(self):
+    #     M = mat3.identity()
+    #     M[0,0] = -3
+    #     M[1,1] = -2
+    #     M[2,2] = -1
+    #     print(np.trace(M))
+    #     S2 = np.matmul(M.T, M)
+    #     # eigh takes advantage of the matrix being symmetric, and guarantees a result of real elements.
+    #     eigvals, eigvecs = np.linalg.eigh(S2)
+    #     print(f"Eigen values {eigvals}")
+    #     with self.assertRaises(ValueError):
+    #         mat3.polar_decomposition(M)
