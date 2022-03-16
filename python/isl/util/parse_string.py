@@ -43,7 +43,6 @@ def parse_array(input):
 def parse_rotation(input):
     keywords           = ["rx", "ry", "rz"]
     rot_input_template = Letters + ":" + Numbers + pp.LineEnd()
-
     try: 
         rot_input_array    = rot_input_template.parse_string(input)
         if rot_input_array[0] in keywords:
