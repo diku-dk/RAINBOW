@@ -16,12 +16,12 @@ def diag(a, b, c):
     return np.array([[a, 0, 0], [0, b, 0], [0, 0, c]], dtype=np.float64)
 
 
-def zero():
-    return np.zeros((3, 3), dtype=np.float64)
+def zero():                                      #pragma: no cover
+    return np.zeros((3, 3), dtype=np.float64)    #pragma: no cover
 
 
-def ones():
-    return np.ones((3, 3), dtype=np.float64)
+def ones():                                      #pragma: no cover
+    return np.ones((3, 3), dtype=np.float64)     #pragma: no cover
 
 
 def make(A00, A01, A02, A10, A11, A12, A20, A21, A22):
