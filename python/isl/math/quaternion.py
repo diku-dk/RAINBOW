@@ -3,20 +3,36 @@ import isl.math.matrix3 as M3
 import isl.math.vector3 as V3
 import isl.math.angle as ANGLE
 from isl.math.functions import clamp
+import isl.util.parse_string as parse
 from math import cos, sin, sqrt, pi, atan2, acos
-
 
 def make(qs, qx, qy, qz):
     return np.array([qs, qx, qy, qz], dtype=np.float64)
 
-
 def from_array(data):
     return np.array(data[0:4], dtype=np.float64)
 
+def check_string(lower_value):
+    '''
+        :param: a string
+
+        Parsing a string. The function returns true if the given
+        input string follows one of the above templates
+    '''
+    if   parse.parse_rotation(lower_value):
+        return True
+    elif parse.parse_array(lower_value):
+        return True
+    elif parse.parse_ru(lower_value):
+        return True
+    return parse.parse_keywords(lower_value)
 
 def from_string(value):
 
     value_lower = value.lower()
+
+    if not check_string(value_lower):
+        raise ValueError(f"Incorret input: {value}\n See documentation for help")
 
     if value_lower == "identity":
         return identity()

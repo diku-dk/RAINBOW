@@ -1,4 +1,5 @@
 import numpy as np
+import isl.util.parse_string as parse
 
 
 def zero():
@@ -16,28 +17,48 @@ def make(x, y, z):
 def make_vec4(x, y, z, w):
     return np.array([x, y, z, w], dtype=np.float64)
 
+def check_string(lower_value):
+    '''
+        :param: a string
+
+        Parsing a string. The function returns true if the given
+        input string follows one of the above templates
+    '''
+    if parse.parse_array(lower_value):
+        return True
+    return parse.parse_rand(lower_value)
 
 def from_string(value):
-    if value == "ones":
+    value_lower = value.lower()
+
+    if value_lower == "ones":
         return ones()
 
-    if value == "zero":
+    if value_lower == "zero":
         return zero()
 
-    if value == "i":
+    if value_lower == "i":
         return i()
 
-    if value == "j":
+    if value_lower == "j":
         return j()
 
-    if value == "k":
+    if value_lower == "k":
         return k()
+    
+    if not check_string(value_lower):
+        raise ValueError(f"Incorret input: {value}\n See documentation for help")
 
-    if value.startswith("rand:"):
-        (lower_str, upper_str) = value.strip("rand:").split(":")
+    if value_lower.startswith("rand:"):
+        (lower_str, upper_str) = value_lower.strip("rand:").split(":")
         return rand(float(lower_str), float(upper_str))
+    
+    string_2_array =  np.fromstring(value_lower.strip("[]"), dtype=np.float64, sep=",")
 
-    return np.fromstring(value.strip("[]"), dtype=np.float64, count=3, sep=",")
+    if len(string_2_array) < 3:
+        raise ValueError(f"Incorret input: {value}\n See documentation for help")
+
+    return string_2_array[:3]
 
 
 def i():
