@@ -244,7 +244,10 @@ def to_angle_axis(Q):
 
     if st2 > 0.0:
         return theta, Q[1:] / st2
-
+    '''
+        Happens if the rotation is 2pi, 0 or if the point is 
+        already on the rotating axis.
+    '''
     return theta, V3.zero()
 
 
