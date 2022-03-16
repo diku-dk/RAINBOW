@@ -1214,15 +1214,98 @@ class TestRigidBodiesAPI(unittest.TestCase):
         self.assertTrue(utils.array_equal(actual_2, expected_2))
         self.assertTrue(utils.array_equal(actual_3, expected_3))
 
-    # def test_polar_decompostion_2(self):
-    #     M = mat3.identity()
-    #     M[0,0] = -3
-    #     M[1,1] = -2
-    #     M[2,2] = -1
-    #     print(np.trace(M))
-    #     S2 = np.matmul(M.T, M)
-    #     # eigh takes advantage of the matrix being symmetric, and guarantees a result of real elements.
-    #     eigvals, eigvecs = np.linalg.eigh(S2)
-    #     print(f"Eigen values {eigvals}")
-    #     with self.assertRaises(ValueError):
-    #         mat3.polar_decomposition(M)
+    def test_polar_decompostion_2(self):
+        M = mat3.identity()
+        M[0,0] = 0
+        M[1,1] = -2
+        M[2,2] = -1
+
+        with self.assertRaises(ValueError):
+            mat3.polar_decomposition(M)
+    
+    def test_ru_1(self):
+        radians = 0.5 * np.pi
+        axis     = np.array([1,0,0]) 
+        radian_x = 0.5 * np.pi 
+        radian_y = 0.0 
+        radian_z = 0.0 
+        rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
+        expected        = rotation_matrix 
+        actual          = mat3.Ru(radians, axis)
+        self.assertTrue(utils.array_equal(actual, expected))
+
+    def test_ru_2(self):
+        radians = 0.5 * np.pi
+        axis     = np.array([0,1,0]) 
+        radian_x = 0.0 
+        radian_y = 0.5 * np.pi 
+        radian_z = 0.0 
+        rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
+        expected        = rotation_matrix 
+        actual          = mat3.Ru(radians, axis)
+        self.assertTrue(utils.array_equal(actual, expected))
+    
+    def test_ru_3(self):
+        radians = 0.5 * np.pi
+        axis     = np.array([0,0,1]) 
+        radian_x = 0.0 
+        radian_y = 0.0 
+        radian_z = 0.5 * np.pi 
+        rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
+        expected        = rotation_matrix 
+        actual          = mat3.Ru(radians, axis)
+        self.assertTrue(utils.array_equal(actual, expected))
+
+    def test_ru_3(self):
+        n      = np.array([1,1,0])
+        axis      = n / np.linalg.norm(n)
+        radians = (0.5 * np.pi) / 2
+        q      = np.array([np.cos(radians),axis[0]*np.sin(radians),axis[1]*np.sin(radians),axis[2]*np.sin(radians)], dtype=np.float64)
+        expected        = quat.to_matrix(q)
+        actual          = mat3.Ru(radians*2, axis)
+        self.assertTrue(utils.array_equal(actual, expected))
+
+    def test_ru_4(self):
+        n      = np.array([1,1,1])
+        axis      = n / np.linalg.norm(n)
+        radians = (0.75 * np.pi) / 2
+        q      = np.array([np.cos(radians),axis[0]*np.sin(radians),axis[1]*np.sin(radians),axis[2]*np.sin(radians)], dtype=np.float64)
+        expected        = quat.to_matrix(q)
+        actual          = mat3.Ru(radians*2, axis)
+        self.assertTrue(utils.array_equal(actual, expected))
+
+    def test_ru_5(self):
+        n      = np.array([1,0.56,1])
+        axis      = n / np.linalg.norm(n)
+        radians = (1.75 * np.pi) / 2
+        q      = np.array([np.cos(radians),axis[0]*np.sin(radians),axis[1]*np.sin(radians),axis[2]*np.sin(radians)], dtype=np.float64)
+        expected        = quat.to_matrix(q)
+        actual          = mat3.Ru(radians*2, axis)
+        self.assertTrue(utils.array_equal(actual, expected))
+
+    def test_polar_decompostion_array_1(self):
+        number_of_M = 4
+        shape = (number_of_M,3,3)
+        Ms = np.random.rand(shape[0], shape[1], shape[2])
+        Rs, Ss = mat3.polar_decomposition_array(Ms)
+
+        actual_1 = Ss
+        actual_2 = np.array([np.dot(r, np.transpose(r)) for r in Rs])
+        actual_3 = Ms
+        
+        expected_1 = np.array([np.transpose(s) for s in Ss])
+        expected_2 = np.array([mat3.identity() for _ in range(number_of_M)])
+        expected_3 = np.array([np.dot(r,s) for r,s in zip(Rs,Ss)])
+
+        self.assertTrue(utils.array_equal(actual_1, expected_1))
+        self.assertTrue(utils.array_equal(actual_2, expected_2))
+        self.assertTrue(utils.array_equal(actual_3, expected_3))
+
+    def test_polar_decompostion_array_2(self):
+        number_of_M = 4
+        shape = (number_of_M,3,3)
+        Ms = np.zeros(shape)
+        Ms[:,0,0] = 1
+
+        with self.assertRaises(ValueError):
+            mat3.polar_decomposition_array(Ms)
