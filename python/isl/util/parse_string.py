@@ -1,6 +1,3 @@
-from ast import keyword
-from calendar import leapdays
-from tabnanny import check
 import numpy as np
 import pyparsing as pp
 
@@ -10,29 +7,34 @@ import pyparsing as pp
     write directly using python.
 '''
 
-Integers = pp.Word(pp.nums)
-Floats   = Integers + "." + Integers
-Numbers  = (Floats | Integers)
+Integer          = pp.Regex("([1-9]\d*|0)")
+Float            = Integer + "." + Integer
+Number_unsigned  = (Float | Integer)
+Number_signed    = ("-" + Number_unsigned | Number_unsigned)
+Number_pos_scientific  = Number_signed + "e" + "+" + Number_unsigned
+Number_neg_scientific  = Number_signed + "e" + "-" + Number_unsigned
+Number_scientific      = (Number_pos_scientific | Number_neg_scientific)
+Number                 = (Number_scientific | Number_signed)
 Letters  = pp.Word(pp.alphas)
-List     = "[" + pp.delimitedList(Numbers, delim=",") + "]"
+List     = "[" + pp.delimitedList(Number, delim=",") + "]"
 
-def parse_rand(input):
-    rand_template = "rand" + ":" + Numbers + ":" + Numbers + pp.LineEnd()
+def parse_string_to_random_range_check(input):
+    rand_template = "rand" + ":" + Number + ":" + Number + pp.LineEnd()
     try:
         rand_template.parse_string(input)
         return True
     except:
         return False
 
-def parse_ru(input):
-    ru_template = "ru" + ":" + Numbers + ":" +  List + pp.LineEnd()
+def parse_string_to_ru_check(input):
+    ru_template = "ru" + ":" + Number + ":" +  List + pp.LineEnd()
     try:
         ru_template.parse_string(input)
         return True
     except:
         return False
 
-def parse_array(input):
+def parse_string_to_array_check(input):
     array_input_template = List + pp.LineEnd()
     try:
         array_input_template.parse_string(input)
@@ -40,9 +42,9 @@ def parse_array(input):
     except:
         return False
 
-def parse_rotation(input):
+def parse_string_to_rotation_check(input):
     keywords           = ["rx", "ry", "rz"]
-    rot_input_template = Letters + ":" + Numbers + pp.LineEnd()
+    rot_input_template = Letters + ":" + Number + pp.LineEnd()
     try: 
         rot_input_array    = rot_input_template.parse_string(input)
         if rot_input_array[0] in keywords:
@@ -50,6 +52,6 @@ def parse_rotation(input):
     except:
         return False
 
-def parse_keywords(input):
+def parse_string_to_keywords_check(input):
     keywords = ["identity"]
     return input in keywords

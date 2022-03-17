@@ -318,11 +318,11 @@ class TestQuaternionAPI(unittest.TestCase):
         self.assertTrue(utils.array_equal(actual,expected))
     
     def test_from_string_10(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AssertionError):
             quat.from_string(f"[1,2,3]")
 
     def test_from_string_11(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AssertionError):
             quat.from_string(f"rx: [1,2,3]")
 
     def test_from_vector3_1(self):
@@ -620,40 +620,40 @@ class TestQuaternionAPI(unittest.TestCase):
 
     def test_from_string_err_1(self):
         input_ = "hello world"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AssertionError):
             quat.from_string(input_)
 
     def test_from_string_err_2(self):
         input_ = "rx: 32a"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AssertionError):
             quat.from_string(input_)
     
     def test_from_string_err_3(self):
         input_ = "ry: 2+2"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AssertionError):
             quat.from_string(input_)
 
     def test_from_string_err_4(self):
         input_ = "[1,a,3]"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AssertionError):
             quat.from_string(input_)
     
     def test_from_string_err_5(self):
         input_ = "a [1,3,3]"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AssertionError):
             quat.from_string(input_)
 
     def test_from_string_err_6(self):
         input_ = "ru:1.3:[1,3,3]a"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AssertionError):
             quat.from_string(input_)
     
     def test_from_string_err_7(self):
         input_ = "rru:1.3:[1,3,3]"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AssertionError):
             quat.from_string(input_)
     
     def test_from_string_err_8(self):
-        input_ = "[1,3]"
-        with self.assertRaises(ValueError):
+        input_ = "[01,3]"
+        with self.assertRaises(AssertionError):
             quat.from_string(input_)

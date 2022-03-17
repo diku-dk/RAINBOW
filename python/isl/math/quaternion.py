@@ -13,26 +13,26 @@ def from_array(data):
     return np.array(data[0:4], dtype=np.float64)
 
 def check_string(lower_value):
-    '''
-        :param: a string
-
+    """
         Parsing a string. The function returns true if the given
         input string follows one of the above templates
-    '''
-    if   parse.parse_rotation(lower_value):
+
+        :param: A text string, that consist of valid oprations.
+        :return: A boolean telling if the string is valid.
+    """
+    if   parse.parse_string_to_rotation_check(lower_value):
         return True
-    elif parse.parse_array(lower_value):
+    elif parse.parse_string_to_array_check(lower_value):
         return True
-    elif parse.parse_ru(lower_value):
+    elif parse.parse_string_to_ru_check(lower_value):
         return True
-    return parse.parse_keywords(lower_value)
+    return parse.parse_string_to_keywords_check(lower_value)
 
 def from_string(value):
 
     value_lower = value.lower()
 
-    if not check_string(value_lower):
-        raise ValueError(f"Incorret input: {value}\n See documentation for help")
+    assert check_string(value_lower)
 
     if value_lower == "identity":
         return identity()
@@ -61,8 +61,7 @@ def from_string(value):
 
     string_2_array =  np.fromstring(value_lower.strip("[]"), dtype=np.float64, sep=",")
 
-    if len(string_2_array) < 4:
-        raise ValueError(f"Incorret input: {value}\n See documentation for help")
+    assert len(string_2_array) >= 4
 
     return string_2_array[:4]
 
