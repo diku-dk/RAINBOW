@@ -369,3 +369,43 @@ class TestVector3API(unittest.TestCase):
         self.assertTrue(
             utils.array_not_equal(actual, expected)
             )
+    
+    def test_from_string_err_1(self):
+        input_ = "Hello world"
+        with self.assertRaises(AssertionError):
+            vec3.from_string(input_)
+    
+    def test_from_string_err_2(self):
+        input_ = "ones1"
+        with self.assertRaises(AssertionError):
+            vec3.from_string(input_)
+
+    def test_from_string_err_3(self):
+        input_ = "ik"
+        with self.assertRaises(AssertionError):
+            vec3.from_string(input_)
+
+    def test_from_string_err_4(self):
+        input_ = "rand:1:"
+        with self.assertRaises(AssertionError):
+            vec3.from_string(input_)
+    
+    def test_from_string_err_5(self):
+        input_ = "rand:1:3a"
+        with self.assertRaises(AssertionError):
+            vec3.from_string(input_)
+
+    def test_from_string_err_6(self):
+        input_ = "[2,3,4]a"
+        with self.assertRaises(AssertionError):
+            vec3.from_string(input_)
+
+    def test_from_string_err_7(self):
+        input_ = "a[2,3,4]"
+        with self.assertRaises(AssertionError):
+            vec3.from_string(input_)
+    
+    def test_from_string_err_8(self):
+        input_ = "[2,3]"
+        with self.assertRaises(AssertionError):
+            vec3.from_string(input_)
