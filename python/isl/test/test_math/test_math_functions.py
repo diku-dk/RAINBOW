@@ -76,7 +76,6 @@ class TestFunctionAPI(unittest.TestCase):
                               points_3])
 
         mean, values, vectors = func.PCA(points)
-        print(mean)
 
         self.assertTrue(utils.array_equal(mean,np.array([mu,mu,mu])))
         self.assertTrue(utils.array_equal(values,np.array([0,0,0])))
