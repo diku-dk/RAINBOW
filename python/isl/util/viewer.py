@@ -92,8 +92,17 @@ class _ShapeHelper:
         arrow.add(cone)
         return arrow
 
+    @staticmethod
+    def make_ball_node(color):
+        V, F = MESH.create_sphere(0.25 / 3, 12, 12)
+        base = _ShapeHelper.make_mesh_node(V, F, color)
+        ball = p3js.Group()
+        ball.add(base)
+        return ball
+
 
 class _QuiverHelper:
+
     @staticmethod
     def create_quiver_node(V, N, scale=1.0, color=(0.1, 0.1, 0.7)):
         quiver = p3js.Group()
@@ -149,9 +158,51 @@ class _QuiverHelper:
         quiver.visible = True
 
 
+class _ScatterHelper:
+
+    @staticmethod
+    def create_scatter_node(V, scale=1.0, color=(0.1, 0.1, 0.7)):
+        scatter = p3js.Group()
+        if V is not None:
+            quiver.visible = False
+            K = len(V)
+            for k in range(K):
+                # TODO 2020-12-20 Kenny: Geometry instancing would be nice
+                ball = _ShapeHelper.make_ball_node(color)
+                ball.visible = True
+                ball.position = [V[k, 0], V[k, 1], V[k, 2]]
+                ball.scale = [scale, scale, scale]
+                scatter.add(ball)
+            scatter.visible = True
+        return scatter
+
+    @staticmethod
+    def update_scatter_node(scatter, V, scale=1.0, color=(0.1, 0.1, 0.7)):
+        scatter.visibility = False
+        # TODO 2021-04-20 Kenny: This does not quite protect against rendering artefact. Sometimes one can se dangling
+        #  arrows which do not really exist. There need to be some kind of double buffering to make this work.
+        K = len(V)
+        # Create more arrows if we have too many contact points.
+        while len(scatter.children) < K:
+            # TODO 2020-12-20 Kenny: Geometry instancing would be nice
+            ball = _ShapeHelper.make_ball_node(color)
+            scatter.add(ball)
+        k = 0
+        for ball in scatter.children:
+            if k < K:
+                ball.visible = True
+                ball.position = [V[k, 0], V[k, 1], V[k, 2]]
+                ball.scale = [scale, scale, scale]
+            else:
+                ball.visible = False
+            k = k + 1
+        scatter.visible = True
+
+
 class Viewer:
     
     def __init__(self, width=600, height=480):
+        self.scatters = {}
         self.quivers = {}
         self.meshes = {}
         self.width = int(width)
@@ -235,3 +286,28 @@ class Viewer:
             raise ValueError("No quiver exist with that name")
         quiver = self.quivers[name]
         _QuiverHelper.update_quiver_node(quiver, V, N, scale, color)
+
+    def create_scatter(self, name, V=None, N=None, scale=1.0, color=(0.1, 0.1, 0.7)):
+        if name in self.scatters:
+            raise ValueError("Scatter with that name already exists")
+        scatter = _ScatterHelper.create_scatter_node(V, scale, color)
+        self.scatters[name] = scatter
+        self.scene.add(scatter)
+
+    def hide_scatter(self, name):
+        if name not in self.scatters:
+            raise ValueError("No scatter exist with that name")
+        scatter = self.scatters[name]
+        scatter.visible = False
+
+    def show_scatter(self, name):
+        if name not in self.scatters:
+            raise ValueError("No scatter exist with that name")
+        scatter = self.scatters[name]
+        scatter.visible = True
+
+    def update_scatter(self, name, V, scale=1.0, color=(0.1, 0.1, 0.7)):
+        if name not in self.scatters:
+            raise ValueError("No scatter exist with that name")
+        scatter = self.scatters[name]
+        _ScatterHelper.update_scatter_node(scatter, V, scale, color)
