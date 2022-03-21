@@ -150,6 +150,7 @@ class _QuiverHelper:
 
 
 class Viewer:
+    
     def __init__(self, width=600, height=480):
         self.quivers = {}
         self.meshes = {}
