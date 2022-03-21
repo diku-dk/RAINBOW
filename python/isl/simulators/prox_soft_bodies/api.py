@@ -143,6 +143,40 @@ def set_velocity(engine, body_name, v) -> None:
         body.u[i] = v
 
 
+def get_material_coordinates(engine, body_name) -> np.ndarray:
+    """
+    Get material (undeformed) coordinates of the given body.
+    This interface function returns a copy of the coordinates.
+
+    :param engine:      A reference to the engine that has the body.
+    :param body_name:   The name of the body.
+    :return:            The material (undeformed) coordinates.
+    """
+    if body_name not in engine.bodies:
+        raise ValueError("Engine does not contain soft body of name", body_name)
+    body = engine.bodies[body_name]
+    x0 = np.copy(body.x0)
+    return x0
+
+
+def set_spatial_coordinates(engine, body_name, x) -> None:
+    """
+    Set spatial (deformed) coordinates of given body.
+    This interface function sets a copy of the provided input data.
+
+    :param engine:      A reference to the engine that has the body.
+    :param body_name:   The name of the body.
+    :param x:           The new deformed coordinates.
+    :return:            Nothing.
+    """
+    if body_name not in engine.bodies:
+        raise ValueError("Engine does not contain soft body of name", body_name)
+    body = engine.bodies[body_name]
+    if x.shape != body.x.shape:
+        raise ValueError("x input must have shape ", body.x.shape)
+    body.x = np.copy(x)
+
+
 def set_type(engine, body_name, body_type) -> None:
     """
     Toggle if a soft body is fixed (can not move at all) or free to move.

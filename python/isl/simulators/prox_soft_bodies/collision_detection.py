@@ -143,8 +143,8 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
     # Loop over all triangles from body A that are colliding with body B
     for k in range(len(results)):
         idx_triA, idx_triB = results[k]  # Get the triangle face indices
-        idx_tetA = bodyA.owner[idx_triA]  # Get index of tetrahedron that f_a comes from
-        idx_tetB = bodyB.owner[idx_triB]  # Get index of tetrahedron that f_b comes from
+        idx_tetA = bodyA.owners[idx_triA]  # Get index of tetrahedron that f_a comes from
+        idx_tetB = bodyB.owners[idx_triB]  # Get index of tetrahedron that f_b comes from
 
         if debug_on:
             contact_optimization_timer.start()
