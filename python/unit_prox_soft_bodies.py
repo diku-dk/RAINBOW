@@ -10,15 +10,128 @@ import numpy as np
 import matplotlib.pyplot as pyplot
 
 
+class TestBlackBoxSimulator:
+
+    def __init__(self):
+        #self.test_contraction_setup()
+        #self.test_gravity_setup()
+        self.test_traction_setup()
+
+    def test_contraction_setup(self):
+        V, T = VM.create_beam(2, 2, 2, 1.0, 1.0, 1.0)
+        engine = API.Engine()
+
+        API.create_soft_body(engine, 'cube', V, T)
+        API.set_type(engine, 'cube', 'Free')
+
+        API.create_material(engine, 'steel')
+        API.set_elasticity(engine, 'steel', 100.0, 0.45)
+        API.set_mass_density(engine, 'steel', 1.0)
+        API.set_constitutive_model(engine, 'steel', API.SVK)
+        API.set_viscosity(engine, 'steel', 10.0)
+        API.create_surfaces_interaction(engine,'steel','steel', 0.5)
+        API.set_gravity(engine, 'cube', (0, 0, 0))  #No gravity forces
+
+        API.set_material(engine, 'cube', 'steel')
+
+        # Create an initial deformation, so beam will contract it self along x-axis.
+        x = API.get_material_coordinates(engine, 'cube')
+        x[:, 0] = 1.1*x[:, 0]
+        API.set_spatial_coordinates(engine, 'cube', x)
+
+        print('---- before stepper ---------------')
+        for body in engine.bodies.values():
+            print("velocities", body.u)
+            print("spatial coords = ", body.x)
+            print("elastic forces = ", body.Fe)
+
+        for i in range(1000):
+            SOLVER.stepper(0.01, engine, debug_on=True)
+
+        print('---- after stepper --------------')
+        for body in engine.bodies.values():
+            print("velocities", body.u)                   # Should be close zero
+            print("spatial coords = ", body.x)            # Should be close to material space
+            print("elastic forces = ", body.Fe)           # Should be close zero
+
+    def test_gravity_setup(self):
+        V, T = VM.create_beam(2, 2, 2, 1.0, 1.0, 1.0)
+        engine = API.Engine()
+
+        API.create_soft_body(engine, 'cube', V, T)
+        API.set_type(engine, 'cube', 'Free')
+
+        API.create_material(engine, 'steel')
+        API.set_elasticity(engine, 'steel', 100.0, 0.45)
+        API.set_mass_density(engine, 'steel', 1.0)
+        API.set_constitutive_model(engine, 'steel', API.SVK)
+        API.create_surfaces_interaction(engine, 'steel', 'steel', 0.5)
+        API.set_gravity(engine, 'cube', (0, 0, -10))
+        API.set_viscosity(engine, 'steel', 0.0)
+        API.set_material(engine, 'cube', 'steel')
+
+        print('---- before stepper ---------------')
+        for body in engine.bodies.values():
+            print("velocities", body.u)
+            print("spatial coords = ", body.x)
+
+        for i in range(1000):
+            SOLVER.stepper(0.001, engine, debug_on=True)
+
+        print('---- after stepper --------------')
+        for body in engine.bodies.values():
+            print("velocities", body.u)                   # Should be close to 0,0,-10
+            print("spatial coords = ", body.x)            # Should be close to displaced by (0,0,-5)
+            print("elastic forces = ", body.Fe)           # Should be zero
+            print("external forces = ", body.Fext)        # Should be non-zero
+
+    def test_traction_setup(self):
+        def phi(x):
+            return x[0] + 0.49
+
+        V, T = VM.create_beam(2, 2, 2, 1.0, 1.0, 1.0)
+        engine = API.Engine()
+
+        API.create_soft_body(engine, 'cube', V, T)
+        API.set_type(engine, 'cube', 'Free')
+        API.create_material(engine, 'steel')
+        API.set_elasticity(engine, 'steel', 100.0, 0.45)
+        API.set_mass_density(engine, 'steel', 1.0)
+        API.set_constitutive_model(engine, 'steel', API.SVK)
+        API.create_surfaces_interaction(engine, 'steel', 'steel', 0.5)
+        API.set_gravity(engine, 'cube', (0, 0, 0))
+        API.set_viscosity(engine, 'steel', 0.0)
+        API.set_material(engine, 'cube', 'steel')
+
+        load = np.array([1., 0., 0.])
+        API.create_traction_conditions(engine, 'cube', phi, load)
+
+        print('---- before stepper ---------------')
+        for body in engine.bodies.values():
+            print("velocities", body.u)
+            print("spatial coords = ", body.x)
+
+        for i in range(1000):
+            SOLVER.stepper(0.001, engine, debug_on=True)
+
+        print('---- after stepper --------------')
+        for body in engine.bodies.values():
+            print("velocities", body.u)                   # Should be non-zero
+            print("spatial coords = ", body.x)            # Should be  displaced by (?,0,0)
+            print("elastic forces = ", body.Ft)           # Should be non-zero
+            print("elastic forces = ", body.Fe)           # Should be zero
+
+
+
 class TestSoftBodySimulator:
 
     def __init__(self):
-        self.test_one()
-        self.test_two()
-        self.test_traction_force()
-        self.test_three()
+        #self.test_one()
+        #self.test_two()
+        #self.test_traction_force()
+        #self.test_three()
         self.test_forces()
-        self.test_solver()
+        #self.test_solver()
 
     def test_one(self):
         print('running test one')
@@ -108,7 +221,7 @@ class TestSoftBodySimulator:
         print('-- Done traction force test -------------------')
 
     def test_forces(self):
-        print('-- Running test of traction force -------------')
+        print('-- Running test of forces -------------')
         T = np.array([[0, 1, 2, 3], [0, 2, 1, 4]])
         V = np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.], [0., 0., 1.], [0., 0., -1.]])
         E, nu, rho = API.create_material_parameters()
@@ -198,4 +311,5 @@ class TestSoftBodySimulator:
 
 
 if __name__ == '__main__':
-    test = TestSoftBodySimulator()
+    #test = TestSoftBodySimulator()
+    test = TestBlackBoxSimulator()

@@ -121,6 +121,8 @@ class Native:
         """
         Computes outward pointing face vectors for each tetrahedron.
 
+        Observe that outward face vectors are the negative gradient of the shape functions.
+
         :param x:    The current vertex coordinates to use for the face-vector computation.
         :param T:    The tetrahedron array.
         :return:     A K-by-3-by-4 array. One 3-by-4 array for each tetrahedron. Each
@@ -354,6 +356,10 @@ class Native:
     def compute_elastic_forces(x, T, gradN0, F, lambda_, mu_, pk1_stress):
         """
         Compute elastic forces.
+
+        Recall that elastic forces are Fe = - P grad phi, where grad phi is the gradient of the shape function.
+        For linear elements we have that (grad phi) is opposite the outward face normal of the opposing
+        face s and has magnitude equal to area that face.
 
         :param x:              The current spatial position.
         :param T:              The tetrahedral elements.
@@ -693,7 +699,7 @@ def compute_elastic_forces(x, engine, stats, debug_on):
     for body in engine.bodies.values():
         # Precomputed deformation gradient
         F = Native.compute_deformation_gradient(
-            x[body.offset : body.offset + len(body.x)], body.T, body.invD0
+            x[body.offset: body.offset + len(body.x)], body.T, body.invD0
         )
         # Convert soft body elastic parameters into Lame parameters
         lambda_in = MECH.first_lame(
@@ -703,8 +709,8 @@ def compute_elastic_forces(x, engine, stats, debug_on):
             body.material_description.E, body.material_description.nu
         )
         pk1_stress = body.material_description.constitutive_model.pk1_stress
-        forces[body.offset : body.offset + len(body.u)] = Native.compute_elastic_forces(
-            x[body.offset : body.offset + len(body.x)],
+        body.Fe = Native.compute_elastic_forces(
+            x[body.offset: body.offset + len(body.x)],
             body.T,
             body.gradN0,
             F,
@@ -712,6 +718,7 @@ def compute_elastic_forces(x, engine, stats, debug_on):
             mu_in,
             pk1_stress,
         )
+        forces[body.offset : body.offset + len(body.u)] = body.Fe
     if debug_on:
         timer.end()
         stats["compute_elastic_forces"] = timer.elapsed
@@ -734,11 +741,12 @@ def compute_traction_forces(x, engine, stats, debug_on):
         timer.start()
     forces = np.zeros((engine.number_of_nodes, 3), dtype=np.float64)
     for body in engine.bodies.values():
+        body.Ft = Native.compute_traction_forces(
+            x[body.offset: body.offset + len(body.x)], body.traction_conditions
+        )
         forces[
             body.offset : body.offset + len(body.u)
-        ] = Native.compute_traction_forces(
-            x[body.offset : body.offset + len(body.x)], body.traction_conditions
-        )
+        ] = body.Ft
     if debug_on:
         timer.end()
         stats["compute_traction_forces"] = timer.elapsed
@@ -765,9 +773,10 @@ def compute_damping_forces(u, engine, stats, debug_on):
         #  stepper function works differently, it extracts and assembles global vectors and matrices. Hence, those
         #  global matrices/vectors should be used. One should only access information from bodies that are constant
         #  throughout the simulation. It is a design flaw.
-        forces[body.offset : body.offset + len(body.u)] = Native.compute_damping_forces(
+        body.Fd = Native.compute_damping_forces(
             body.T, body.C_array, u[body.offset : body.offset + len(body.u)]
         )
+        forces[body.offset : body.offset + len(body.u)] = body.Fd
     if debug_on:
         timer.end()
         stats["compute_damping_forces"] = timer.elapsed
@@ -789,9 +798,10 @@ def compute_external_forces(engine, stats, debug_on):
         timer.start()
     forces = np.zeros((engine.number_of_nodes, 3), dtype=np.float64)
     for body in engine.bodies.values():
-        forces[body.offset : body.offset + len(body.u)] = Native.compute_gravity_forces(
+        body.Fext = Native.compute_gravity_forces(
             len(body.x), body.T, body.vol0, body.material_description.rho, body.gravity
         )
+        forces[body.offset : body.offset + len(body.u)] = body.Fext
     if debug_on:
         timer.end()
         stats["compute_external_forces"] = timer.elapsed
@@ -993,7 +1003,7 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
     # TODO 2021-12-06 Kenny: If gravity is the only external force then it is constant
     #  and it does not make sense to recompute gravity forces in every stepper call.
     Fext = compute_external_forces(engine, stats, debug_on)
-    F_tot = Fext - Fe - Ft - Fd
+    F_tot = Fext + Fe + Ft + Fd
 
     # --- Convert from N-by-3 into 3N-by-1 vector format ------------------
     # TODO 2021-12-07 Kenny: This seems a bit silly to make this conversion. It should be abstracted

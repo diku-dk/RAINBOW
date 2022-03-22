@@ -153,12 +153,15 @@ class SoftBody:
             None  # Precomputed inverted material edge-vector matrices (K 3-by-3 array).
         )
         self.vol0 = None  # The material volume of each tetrahedron.
-        self.gradN0 = None  # Precomputed material space tetrahedron face normals.
+        self.gradN0 = None  # Precomputed material space face normals, or the negative gradient of the shape function.
         self.M_array = None  # Precomputed mass element array.
         self.C_array = None  # Precomputed damping element array.
         self.x = None  # The spatial (deformed) vertex coordinates of the soft body (N-by-3 array).
         self.u = None  # The spatial velocity of each vertex.  This is an N-by-3 array.
-        self.vol = None  # The spatial volume of each tetrahedron.
+        self.Fe = None  # The spatial elastic nodal forces. This is an N-by-3 array.
+        self.Ft = None  # The traction nodal forces. This is an N-by-3 array.
+        self.Fd = None  # The damping nodal forces. This is an N-by-3 array.
+        self.Fext = None  # The external nodal forces. This is an N-by-3 array.
         self.material_description = None  # The material this soft body is made of.
         self.gravity = V3.make(0, -9.82, 0)  # Gravitational acceleration on this body.
         self.is_lumped = (
