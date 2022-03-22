@@ -493,6 +493,17 @@ class TestQuaternionAPI(unittest.TestCase):
         actual_theta, actual_axis   = quat.to_angle_axis(q)
         self.assertTrue(utils.array_equal(actual_theta,expected_theta))
         self.assertTrue(utils.array_equal(actual_axis,expected_axis))
+    
+    def test_angle_axis_2b(self):
+        radian    = (0.75 * np.pi)/2
+        axis      = np.array([1,1,1])
+        axis_unit = axis / np.linalg.norm(axis)
+        q  = quat.make(np.cos(radian),axis_unit[0] * np.sin(radian),axis_unit[1] * np.sin(radian),axis_unit[2] * np.sin(radian))
+        expected_theta = radian  * 2
+        expected_axis  = axis_unit 
+        actual_theta, actual_axis   = quat.to_angle_axis(q)
+        self.assertTrue(utils.array_equal(actual_theta,expected_theta))
+        self.assertTrue(utils.array_equal(actual_axis,expected_axis))
 
     def test_angle_axis_3(self):
         radian    = (0.00001 * np.pi)/2
