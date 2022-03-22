@@ -55,28 +55,85 @@ class TestFunctionAPI(unittest.TestCase):
         self.assertEqual(actual, expected) 
     
     def test_pca_1(self):
-        mu, sigma = 1, 0.1 # mean and standard deviation
-        M = 200
-        points_3d = np.random.normal(mu, sigma, size=(M, 3))
-        means = np.mean(points_3d, axis=0)
-        expected = means[0]
-        actual_mean, _ ,_ = func.PCA(points_3d)
+        amount = 12 
+        length = 2*np.pi
+        step_size  = length / amount 
+        input = np.arange(0,length, step_size)
+        x = np.cos(input)
+        y = np.sin(input)
+        z = np.zeros(len(x), dtype=np.float64)
 
-        self.assertAlmostEqual(actual_mean[0], expected, 3)
+        points = np.moveaxis(np.array([x,y,z]), 0, 1)
+
         
+
+        _, values, _ = func.PCA(points)
+
+        self.assertTrue(values[0] > 0)
+        self.assertTrue(values[1] > 0)
+        self.assertFalse(values[2] > 0)
+    
     def test_pca_2(self):
-        mu = 0
-        M = 10
-        points_1 = np.random.normal(mu, 0, size=(M,3))
-        points_2 = np.random.normal(mu, 0, size=(M,3))
-        points_3 = np.random.normal(mu, 0, size=(M,3))
+        amount = 12 
+        x = np.zeros(amount, dtype=np.float64)
+        y = np.zeros(amount, dtype=np.float64)
+        z = np.arange(amount, dtype=np.float64)
+
+        points = np.moveaxis(np.array([x,y,z]), 0, 1)
+
+        _, values, _ = func.PCA(points)
         
-        points   = np.vstack([points_1,
-                              points_2,
-                              points_3])
+        self.assertFalse(values[0] > 0)
+        self.assertFalse(values[1] > 0)
+        self.assertTrue(values[2] > 0)
 
-        mean, values, vectors = func.PCA(points)
+    def test_pca_3(self):
+        amount = 12 
+        length = 2*np.pi
+        step_size  = length / amount 
+        input = np.arange(0,length, step_size)
+        x = np.cos(input)
+        y = np.sin(input)
+        z = np.zeros(len(x), dtype=np.float64)
 
-        self.assertTrue(utils.array_equal(mean,np.array([mu,mu,mu])))
-        self.assertTrue(utils.array_equal(values,np.array([0,0,0])))
-        self.assertTrue(utils.array_equal(vectors,np.array([[1,0,0], [0,1,0],[0,0,1]])))
+        points = np.moveaxis(np.array([x,y,z]), 0, 1)
+
+        
+
+        mean, _, _ = func.PCA(points)
+
+        self.assertAlmostEqual(mean[0], 0)
+        self.assertAlmostEqual(mean[1], 0)
+        self.assertAlmostEqual(mean[2], 0)
+    
+    def test_pca_4(self):
+        amount = 12 
+        x = np.zeros(amount, dtype=np.float64)
+        y = np.zeros(amount, dtype=np.float64)
+        z = np.arange(amount, dtype=np.float64)
+
+        points = np.moveaxis(np.array([x,y,z]), 0, 1)
+
+        _, values, vector = func.PCA(points)
+
+        pc1 = vector[np.argmax(values)]
+
+        self.assertTrue(pc1[2] > 0)
+
+    def test_direction_of_most_variance(self):
+        amount = 12 
+        x = np.zeros(amount, dtype=np.float64)
+        y = np.zeros(amount, dtype=np.float64)
+        z = np.arange(amount, dtype=np.float64)
+
+        points = np.moveaxis(np.array([x,y,z]), 0, 1)
+
+        _, values, vector = func.PCA(points)
+
+        expected = vector[np.argmax(values)]
+        actual   = func.direction_of_most_variance(points)
+
+        self.assertTrue(utils.array_equal(actual,expected))
+    
+
+
