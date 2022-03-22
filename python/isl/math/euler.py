@@ -8,7 +8,7 @@ class EulerXYZ:
         self.beta = beta  # Rotation angle around y-axis in radians
         self.gamma = gamma  # Rotation angle around z-axis in radians
 
-
+# Actually R = R_z(theta_z)R_y(theta_y)R_x(theta_x)
 def make_euler_xyz_from_matrix(R):
     r00 = R[0, 0]
     r01 = R[0, 1]
