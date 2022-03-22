@@ -23,7 +23,7 @@ def sinc(x):
     factor = 0.166666666666666666667
     if fabs(x) < tiny:
         return 1.0 - x * x * factor
-    return sin(x) / x
+    return sin(x) / x  #pragma: no cover   
 
 
 def clamp(value, lower, upper):
