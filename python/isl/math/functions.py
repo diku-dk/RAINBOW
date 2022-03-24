@@ -45,6 +45,6 @@ def direction_of_most_variance(P):
     :param P:   An M-by-3 numpy array of floats, stores M 3D points.
     :return:    The direction of most variance of the points
     """
-    _, values, vectors = PCA(P)
+    _, values, vectors = PCA(P)            # Returns eigenvalue not sorted
     largest_eigenv_idx = np.argmax(values)
     return vectors[largest_eigenv_idx]
