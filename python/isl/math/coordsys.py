@@ -4,6 +4,7 @@ import isl.math.vector3 as V3
 
 
 class CoordSys:
+    # Coordinate system transformation
     def __init__(self):
         self.q = Q.identity()  # Orientation stored as a quaternion
         self.r = V3.zero()  # Position of Origin
@@ -19,9 +20,9 @@ def make(r, q):
 def xform_point(X, p):
     return Q.rotate(X.q, p) + X.r
 
-
-def xform_vector(X, v):
-    return Q.rotate(X.q, p)
+# Error in code 
+def xform_vector(X, v):      
+    return Q.rotate(X.q, v)  
 
 
 def xform_matrix(X, M):
@@ -37,12 +38,15 @@ def concat(B, A):
     :return:
     """
     C = CoordSys()
-    C.q = Q.unit(prod(B.q, A.q))
+    C.q = Q.unit(Q.prod(B.q, A.q))
     C.r = Q.rotate(B.q, A.r) + B.r
     return C
 
 
 def inverse(X):
+    # Use to find the inverse basis transformation s.t
+    # point_t = xform_point(make(r,q), point)
+    #   point = xform_point(inverse(make(r,q), point_t)
     C = CoordSys()
     C.q = Q.conjugate(X.q)
     C.r = Q.rotate(C.q, -X.r)
