@@ -35,25 +35,6 @@ class TestFunctionAPI(unittest.TestCase):
         actual   = func.sinc(x)
         self.assertAlmostEqual(actual, expected, 4)
 
-    # chech issue 53
-    # https://github.com/diku-dk/libRAINBOW/issues/53
-    # def test_func2(self):
-    #     x = np.array([x for x in range(10)])
-    #     x[x % 2 == 0] = -1*x[x % 2 == 0]
-    #     x = x * 1e-10
-    #     expected = taylor_expansion(x)
-    #     actual   = func.sinc(x)
-    #     self.assertTrue(utils.array_equal(expected, expected))
-
-    # Why not use np.clip instead
-    def test_clamp_1(self):
-        value = np.random.randint(0,10)
-        lower = np.random.randint(0,5)
-        upper = np.random.randint(lower+1, 10)
-        expected = np.clip(value, lower, upper)
-        actual   = func.clamp(value, lower, upper)
-        self.assertEqual(actual, expected) 
-    
     def test_pca_1(self):
         amount = 12 
         length = 2*np.pi
@@ -64,8 +45,6 @@ class TestFunctionAPI(unittest.TestCase):
         z = np.zeros(len(x), dtype=np.float64)
 
         points = np.moveaxis(np.array([x,y,z]), 0, 1)
-
-        
 
         _, values, _ = func.PCA(points)
 

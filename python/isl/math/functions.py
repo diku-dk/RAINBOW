@@ -26,14 +26,6 @@ def sinc(x):
     return sin(x) / x  #pragma: no cover   
 
 
-def clamp(value, lower, upper):
-    if value < lower:
-        return lower
-    if value > upper:
-        return upper
-    return value
-
-
 def PCA(P):
     """
     Perform PCA analysis on 3D data points stored in P array.
@@ -53,5 +45,6 @@ def direction_of_most_variance(P):
     :param P:   An M-by-3 numpy array of floats, stores M 3D points.
     :return:    The direction of most variance of the points
     """
-    _, _, vectors = PCA(P)
-    return vectors[0]
+    _, values, vectors = PCA(P)
+    largest_eigenv_idx = np.argmax(values)
+    return vectors[largest_eigenv_idx]
