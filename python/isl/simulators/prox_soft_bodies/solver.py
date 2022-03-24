@@ -881,12 +881,13 @@ def compute_potential_energy(engine, stats, debug_on):
         if body.is_fixed:
             continue
         # Below we use a FVM approach to compute energies per element. That is we use mid-point rule approximation.
+        up_dir = - body.gravity
         for e in range(len(body.T)):
             x = body.x[body.T[e]]  # Nodal positions
             x_mid = (x[0] + x[1] + x[2] + x[3]) / 4.0  # Center position
             delta_potential = (
                 body.material_description.rho * body.vol0[e]
-            ) * body.gravity.dot(x_mid)
+            ) * up_dir.dot(x_mid)
             potential += delta_potential
     if debug_on:
         timer.end()
