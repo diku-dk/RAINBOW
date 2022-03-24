@@ -407,6 +407,5 @@ class TestCoordSys(unittest.TestCase):
 
         expected   = point
         actual     = cs.xform_point(coord_B2A, cs.xform_point(coord_A2B, point))
-
         self.assertTrue(utils.array_equal(actual,expected))
         
