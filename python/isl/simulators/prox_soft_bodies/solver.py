@@ -881,12 +881,13 @@ def compute_potential_energy(engine, stats, debug_on):
         if body.is_fixed:
             continue
         # Below we use a FVM approach to compute energies per element. That is we use mid-point rule approximation.
+        up_dir = - body.gravity
         for e in range(len(body.T)):
             x = body.x[body.T[e]]  # Nodal positions
             x_mid = (x[0] + x[1] + x[2] + x[3]) / 4.0  # Center position
             delta_potential = (
                 body.material_description.rho * body.vol0[e]
-            ) * body.gravity.dot(x_mid)
+            ) * up_dir.dot(x_mid)
             potential += delta_potential
     if debug_on:
         timer.end()
@@ -980,6 +981,37 @@ def apply_post_stabilization(J, WJT, engine, stats, debug_on):
     return stats
 
 
+def apply_boundary_conditions_on_positions(x: np.array, engine) -> None:
+    """
+    Apply boundary conditions.
+
+    :param x:           The position vector to apply boundary conditions on.
+    :param engine:      The current engine instance we are working with.
+    """
+    for body in engine.bodies.values():
+        if len(body.dirichlet_conditions) > 0:
+            # 2022-03-24 Kenny: TODO This is performance wise not the best
+            #                    way to do it. Indices and values could be precomputed.
+            indices = np.array([dc.idx for dc in body.dirichlet_conditions])
+            values = np.array([dc.value for dc in body.dirichlet_conditions])
+            x[indices + body.offset] = values
+
+
+def apply_boundary_conditions_on_velocities(u: np.array, engine) -> None:
+    """
+    Apply boundary conditions.
+
+    :param u:           The velocity vector to apply boundary conditions on.
+    :param engine:      The current engine instance we are working with.
+    """
+    for body in engine.bodies.values():
+        if len(body.dirichlet_conditions) > 0:
+            # 2022-03-24 Kenny: TODO This is performance wise not the best
+            #                    way to do it. Indices could be precomputed.
+            indices = np.array([dc.idx for dc in body.dirichlet_conditions])
+            u[indices + body.offset] = 0.0
+
+
 def stepper(dt: float, engine, debug_on: bool) -> dict:
     """
     This function advances time in the world modelled by the engine by the time-step size dt.
@@ -996,7 +1028,11 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
     stats = {}
 
     x = get_position_vector(engine)
+    apply_boundary_conditions_on_positions(x, engine)
+
     u = get_velocity_vector(engine)
+    apply_boundary_conditions_on_velocities(u, engine)
+
     Fe = compute_elastic_forces(x, engine, stats, debug_on)
     Ft = compute_traction_forces(x, engine, stats, debug_on)
     Fd = compute_damping_forces(u, engine, stats, debug_on)
@@ -1054,9 +1090,13 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
     # ---------------------------------------------------------------------
 
     # Semi-implicit time integration
+    apply_boundary_conditions_on_velocities(u_prime, engine)
     u = u_prime + WPc
-    set_velocity_vector(u, engine)
+    apply_boundary_conditions_on_velocities(u, engine)
     x += u * dt
+    apply_boundary_conditions_on_positions(x, engine)
+
+    set_velocity_vector(u, engine)
     set_position_vector(x, engine)
 
     if engine.params.use_post_stabilization:

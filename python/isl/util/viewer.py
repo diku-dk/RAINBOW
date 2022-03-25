@@ -101,6 +101,57 @@ class _ShapeHelper:
         return ball
 
 
+    @staticmethod
+    def make_frame_node():
+        V, F = MESH.create_sphere(0.25 / 3, 12, 12)
+        base = _ShapeHelper.make_mesh_node(V, F, color = (0.1, 0.1, 0.1))
+
+        #--- y-axis -----------------------------------------
+        V, F = MESH.create_cylinder(0.1 / 3, 2.0 / 3, 12)
+        yshaft = _ShapeHelper.make_mesh_node(V, F,  color = (0.1, 0.7, 0.1))
+        yshaft.position = [0, 1.0 / 3, 0]
+
+        V, F = MESH.create_cone(0.25 / 3, 1.0 / 3, 12)
+        ycone = _ShapeHelper.make_mesh_node(V, F,  color = (0.1, 0.7, 0.1))
+        ycone.position = [0, 2.0 / 3, 0.0]
+
+        #--- x-axis -----------------------------------------
+        Qz = Q.Rz(  -np.pi / 2 )
+
+        V, F = MESH.create_cylinder(0.1 / 3, 2.0 / 3, 12)
+        V = Q.rotate_array(Qz, V)
+        xshaft = _ShapeHelper.make_mesh_node(V, F,  color = (0.7, 0.1, 0.1))
+        xshaft.position = [1.0 / 3, 0.0, 0.0]
+
+        V, F = MESH.create_cone(0.25 / 3, 1.0 / 3, 12)
+        V = Q.rotate_array(Qz, V)
+        xcone = _ShapeHelper.make_mesh_node(V, F,  color = (0.7, 0.1, 0.1))
+        xcone.position = [2.0 / 3, 0.0, 0.0]
+
+        #---  z-axis -----------------------------------------
+        Qx = Q.Rx( np.pi / 2 )
+
+        V, F = MESH.create_cylinder(0.1 / 3, 2.0 / 3, 12)
+        V = Q.rotate_array(Qx, V)
+        zshaft = _ShapeHelper.make_mesh_node(V, F,  color = (0.1, 0.1, 0.8))
+        zshaft.position = [0.0, 0.0, 1.0 / 3]
+
+        V, F = MESH.create_cone(0.25 / 3, 1.0 / 3, 12)
+        V = Q.rotate_array(Qx, V)
+        zcone = _ShapeHelper.make_mesh_node(V, F,  color = (0.1, 0.1, 0.8))
+        zcone.position = [0.0, 0.0, 2.0 / 3]
+
+        frame = p3js.Group()
+        frame.add(base)
+        frame.add(xshaft)
+        frame.add(xcone)
+        frame.add(yshaft)
+        frame.add(ycone)
+        frame.add(zshaft)
+        frame.add(zcone)
+        return frame
+
+
 class _QuiverHelper:
 
     @staticmethod
@@ -117,12 +168,17 @@ class _QuiverHelper:
                 # By default the arrow geometry points along the positive y-axis. We must compute the
                 # rotation so the arrow points along the N-axis instead.
                 n = V3.unit(V3.make(N[k, 0], N[k, 1], N[k, 2]))
+
                 r = V3.cross(V3.j(), n)
                 if np.any(r):
                     rad = np.arccos(np.clip(np.dot(V3.j(), n), -1.0, 1.0))
                     q = Q.Ru(rad, r)
-                    arrow.quaternion = [q[1], q[2], q[3], q[0]]
-                arrow.scale = [scale, scale, scale]
+                elif  n.dot(V3.j()) < 0:
+                    q = Q.Rx(np.pi)
+                arrow.quaternion = [q[1], q[2], q[3], q[0]]
+
+                magnitude = V3.norm(N)*scale
+                arrow.scale = [magnitude, magnitude, magnitude]
                 quiver.add(arrow)
             quiver.visible = True
         return quiver
@@ -146,12 +202,17 @@ class _QuiverHelper:
                 # By default the arrow geometry points along the positive y-axis. We must compute the
                 # rotation so the arrow points along the N-axis instead.
                 n = V3.unit(V3.make(N[k, 0], N[k, 1], N[k, 2]))
+
                 r = V3.cross(V3.j(), n)
                 if np.any(r):
                     rad = np.arccos(np.clip(np.dot(V3.j(), n), -1.0, 1.0))
                     q = Q.Ru(rad, r)
-                    arrow.quaternion = [q[1], q[2], q[3], q[0]]
-                arrow.scale = [scale, scale, scale]
+                elif  n.dot(V3.j()) < 0:
+                    q = Q.Rx(np.pi)
+                arrow.quaternion = [q[1], q[2], q[3], q[0]]
+
+                magnitude = V3.norm(N)*scale
+                arrow.scale = [magnitude, magnitude, magnitude]
             else:
                 arrow.visible = False
             k = k + 1
@@ -236,9 +297,7 @@ class Viewer:
     def show(self):
         display(self.renderer)
 
-    def create_mesh(
-        self, name, V, T, color=None, opacity_value=1.0, wire_frame_on=True
-    ):
+    def create_mesh(self, name, V, T, color=None, opacity_value=1.0, wire_frame_on=True):
         if name in self.meshes:
             raise ValueError("Mesh with that name already exists")
         mesh_node = _ShapeHelper.make_mesh_node(
@@ -311,3 +370,20 @@ class Viewer:
             raise ValueError("No scatter exist with that name")
         scatter = self.scatters[name]
         _ScatterHelper.update_scatter_node(scatter, V, scale, color)
+
+    def create_frame(self, name):
+        if name in self.meshes:
+            raise ValueError("Mesh with that name already exists")
+        mesh_node = _ShapeHelper.make_frame_node()
+        self.meshes[name] = mesh_node
+        self.scene.add(mesh_node)
+
+    def place_frame(self, name, r, q, scale=1.0):
+        if name not in self.meshes:
+            raise ValueError("Mesh with that name did not exists")
+        obj = self.meshes[name]
+        position = [r[0], r[1], r[2]]
+        orientation = [q[1], q[2], q[3], q[0]]
+        obj.position = position
+        obj.quaternion = orientation
+        obj.scale = scale
