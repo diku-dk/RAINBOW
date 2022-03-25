@@ -2,7 +2,6 @@ import numpy as np
 import isl.math.matrix3 as M3
 import isl.math.vector3 as V3
 import isl.math.angle as ANGLE
-from isl.math.functions import clamp
 import isl.util.parse_string as parse
 from math import cos, sin, sqrt, pi, atan2, acos
 
@@ -295,7 +294,7 @@ def lerp(a, b, t):
     :param t:    Interpolation parameter, 0 <= t <= 1
     :return:     Returns q(t) = (1-t)*a + t*b
     """
-    t = clamp(t, 0.0, 1.0)
+    t = np.clip(t, 0.0, 1.0)
     return a + (b - a) * t
 
 
@@ -308,9 +307,9 @@ def slerp(a, b, t):
     :param t:    Interpolation parameter, 0 <= t <= 1
     :return:     Returns q(t) = (sin((1-t)Omega)/sin(Omega))* a + (sin(Omega*t)/sin(Omega))*b
     """
-    t = clamp(t, 0.0, 1.0)
+    t = np.clip(t, 0.0, 1.0)
 
-    dot = clamp(np.dot(a, b), -1.0, 1.0)
+    dot = np.clip(np.dot(a, b), -1.0, 1.0)
 
     flip = False
     if dot < 0.0:

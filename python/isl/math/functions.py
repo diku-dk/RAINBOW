@@ -23,15 +23,7 @@ def sinc(x):
     factor = 0.166666666666666666667
     if fabs(x) < tiny:
         return 1.0 - x * x * factor
-    return sin(x) / x
-
-
-def clamp(value, lower, upper):
-    if value < lower:
-        return lower
-    if value > upper:
-        return upper
-    return value
+    return sin(x) / x  #pragma: no cover   
 
 
 def PCA(P):
@@ -53,5 +45,6 @@ def direction_of_most_variance(P):
     :param P:   An M-by-3 numpy array of floats, stores M 3D points.
     :return:    The direction of most variance of the points
     """
-    _, _, vectors = PCA(P)
-    return vectors[0]
+    _, values, vectors = PCA(P)            # Returns eigenvalue not sorted
+    largest_eigenv_idx = np.argmax(values)
+    return vectors[largest_eigenv_idx]
