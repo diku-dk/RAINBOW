@@ -20,7 +20,7 @@ def make(r, q):
 def xform_point(X, p):
     return Q.rotate(X.q, p) + X.r
 
-# Error in code 
+
 def xform_vector(X, v):      
     return Q.rotate(X.q, v)  
 
