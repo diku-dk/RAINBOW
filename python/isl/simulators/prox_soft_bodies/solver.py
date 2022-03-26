@@ -669,10 +669,11 @@ def compute_mass_matrix(engine, stats, debug_on):
     s = 0
     for body in engine.bodies.values():
         row_body, col_body, data_body = COO[body]
+        offset = body.offset*3
         for i in range(len(row_body)):
-            row[s] = row_body[i] + body.offset
-            col[s] = col_body[i] + body.offset
-            data[s] = data_body[i] + body.offset
+            row[s] = row_body[i] + offset
+            col[s] = col_body[i] + offset
+            data[s] = data_body[i]
             s += 1
     M = sparse.csr_matrix((data, (row, col)), shape=(N * 3, N * 3))
     if debug_on:
