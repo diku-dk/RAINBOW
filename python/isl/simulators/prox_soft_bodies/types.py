@@ -133,25 +133,17 @@ class SoftBody:
         # We assume we have N vertices, K tetrahedrons and H surface triangles
         self.name = name
         self.idx = None  # Unique index of soft body, used to access body information stored in arrays.
-        self.offset = (
-            0  # Starting global index used to access body information stored in arrays
-        )
+        self.offset = 0  # Starting global index used to access body information stored in arrays
         self.T = None  # Array of tetrahedral elements (K-by-4 array).
         self.surface = None  # Array of triangle surface elements (H-by-3 array).
         self.owners = None  # Surface triangle tetrahedral owner information.
         self.neighbors = None  # Tetrahedron neighbor information
         self.bvh = None  # A kDOP bvh hierarchy of surface elements.
         self.grid = None  # A signed distance field of the surface mesh.
-        self.dirichlet_conditions = (
-            []
-        )  # List of nodal dirichlet conditions to apply to the object.
-        self.traction_conditions = (
-            []
-        )  # List of surface traction conditions to apply to the object.
+        self.dirichlet_conditions = []  # List of nodal dirichlet conditions to apply to the object.
+        self.traction_conditions = []  # List of surface traction conditions to apply to the object.
         self.x0 = None  # The material/un-deformed vertex coordinates of the soft body (N-by-3 array).
-        self.invD0 = (
-            None  # Precomputed inverted material edge-vector matrices (K 3-by-3 array).
-        )
+        self.invD0 = None  # Precomputed inverted material edge-vector matrices (K 3-by-3 array).
         self.vol0 = None  # The material volume of each tetrahedron.
         self.gradN0 = None  # Precomputed material space face normals, or the negative gradient of the shape function.
         self.M_array = None  # Precomputed mass element array.
@@ -164,12 +156,8 @@ class SoftBody:
         self.Fext = None  # The external nodal forces. This is an N-by-3 array.
         self.material_description = None  # The material this soft body is made of.
         self.gravity = V3.make(0, -9.82, 0)  # Gravitational acceleration on this body.
-        self.is_lumped = (
-            True  # Boolean flag that indicates if the body should be lumped or not.
-        )
-        self.is_fixed = (
-            False  # Boolean flag that indicates if tbe body should be fixed or not.
-        )
+        self.is_lumped = True  # Boolean flag that indicates if the body should be lumped or not.
+        self.is_fixed = False  # Boolean flag that indicates if tbe body should be fixed or not.
 
 
 class Parameters:
