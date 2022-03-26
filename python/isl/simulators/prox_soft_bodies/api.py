@@ -256,7 +256,10 @@ def set_material(engine, body_name, material_name) -> None:
     material = engine.materials[material_name]
     body.material_description = material
     body.M_array = SOLVER.Native.compute_mass_element_array(
-        body.material_description.rho, body.vol0, body.T, body.is_lumped
+        body.material_description.rho,
+        body.vol0,
+        body.T,
+        body.is_lumped
     )
     body.C_array = SOLVER.Native.compute_damping_element_array(
         body.material_description.c, body.vol0, body.T, body.is_lumped
