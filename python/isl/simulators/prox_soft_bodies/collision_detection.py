@@ -327,6 +327,11 @@ def run_collision_detection(engine, stats, debug_on):
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            A dictionary with profiling and timing measurements.
     """
+    # 2022-03-27 Kenny TODO: Interface should be reworked to take as input the global position and velocity
+    #                    vectors, x, u of all bodies as input, as well as a look-ahead time-step. Further, the
+    #                    method should return the contact point information as a return value, as well as a
+    #                    next-safe time-step value. Using these changes will allow the collision detection module to
+    #                    support continuous collision detection as well as discrete collision detection too.
     collision_detection_timer = None
     if debug_on:
         collision_detection_timer = Timer("collision_detection")

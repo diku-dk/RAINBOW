@@ -1034,6 +1034,17 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            A dictionary with profiling and timing measurements.
     """
+    # 2022-03-27 Kenny TODO: This function should be redesigned to "semi_implicit_stepper" and
+    #                   one should feed in the contact states, x and u vectors that it should work
+    #                   on. This may it would be easier to use the stepper as a building block in
+    #                   more advanced simulation loops. The semi-implicit-stepper should then be
+    #                   called from API.simulate function. The stepper should not depend on state
+    #                   information stored in the bodies. Bodies should just be shallow views into
+    #                   global state-vectors and force vectors.
+    #                   The global inverse mass and mass matrices should also only be reassembled once (or
+    #                   reassembled when changes happen to the world). The current implementation rebuilds
+    #                   everything in every step taken. If semi-implicit-stepper changed interface to take
+    #                   the inverse-mass matrix as input then this assembly could be done elsewhere.
     timer = None
     if debug_on:
         timer = Timer("Stepper")
