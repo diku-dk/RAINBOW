@@ -220,6 +220,9 @@ class Parameters:
 
 
 class Engine:
+    # 2022-03-27 Kenny TODO: The word engine may be a little misplaced. Perhaps we should rename this to
+    #                   "World" and then keep Parameters as a separate argument for our interfaces? This would create
+    #                   a nicer API interface too. Like API.create_world and API.create_body(..,world,..)
     def __init__(self):
         """
         This initializes an engine instance which holds all the configuration data of the world that is to

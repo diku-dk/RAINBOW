@@ -842,6 +842,9 @@ def compute_kinetic_energy(engine, stats, debug_on):
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            The total kinetic energy of the whole system.
     """
+    # 2022-03-27 Kenny TODO: Ideally we should keep consistent interfaces. This means this function should
+    #                   take the velocity u-vector as input, so one specifies the state at which the energy
+    #                   should be computed. Right now the method relies on values stored in the bodies.
     timer = None
     if debug_on:
         timer = Timer("compute_kinetic_energy")
@@ -873,6 +876,9 @@ def compute_potential_energy(engine, stats, debug_on):
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            The total potential energy of the whole system.
     """
+    # 2022-03-27 Kenny TODO: Ideally we should keep consistent interfaces. This means this function should
+    #                   take the position x-vector as input, so one specifies the state at which the energy
+    #                   should be computed. Right now the method relies on values stored in the bodies.
     timer = None
     if debug_on:
         timer = Timer("compute_potential_energy")
@@ -905,6 +911,9 @@ def compute_elastic_energy(engine, stats, debug_on):
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            The total elastic energy of the whole system.
     """
+    # 2022-03-27 Kenny TODO: Ideally we should keep consistent interfaces. This means this function should
+    #                   take the position x-vector as input, so one specifies the state at which the energy
+    #                   should be computed. Right now the method relies on values stored in the bodies.
     timer = None
     if debug_on:
         timer = Timer("compute_elastic_energy")
@@ -944,6 +953,9 @@ def apply_post_stabilization(J, WJT, engine, stats, debug_on):
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            A dictionary with profiling and timing measurements.
     """
+    # 2022-03-27 Kenny TODO: This method uses the contact points stored in the engine to build a right hand side
+    #                   for a LCP projection type of problem. It would be nicer if instead a vector of penetration
+    #                   depths is passed to the interface. So one have more explicit control over the state.
     timer = None
     if debug_on:
         timer = Timer("apply_post_stabilization")

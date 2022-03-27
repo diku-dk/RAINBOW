@@ -349,9 +349,28 @@ def set_gravity(engine, body_name, g) -> None:
     :param g:              The gravity acceleration vector.
     :return:               Nothing.
     """
+    # 2022-03-27 Kenny TODO: We currently allow a per-body gravity force to be specified. One could define
+    #                   gravity to be the same in the whole world instead. In this case gravity could be
+    #                   stored in the engine class.
     if body_name not in engine.bodies:
         raise ValueError("Engine does not contain soft body of name", body_name)
     if len(g) != 3:
         raise ValueError("Gravity acceleration must be a 3D vector")
     body = engine.bodies[body_name]
     body.gravity = V3.make(g[0], g[1], g[2])
+
+# 2022-03-27 Kenny TODO: We should add a simulate function to this API, such that end users do not need
+#                   to know that they should call the stepper function in the SOLVER module. Potentially,
+#                   we could also have more than one stepper function. Hence, the simulate function could
+#                   have the logic to switch between different simulation paradigms.
+
+# 2022-03-27 Kenny TODO: We should add a create_engine or create_world (depending on what we call the class) to
+#                   the API, such that end-users do not need to know about the TYPES module. This way we only
+#                   have to expose end-users to the API interface. We might need to have a create_params function too.
+
+# 2022-03-27 Kenny TODO: End users might want to be able to read back the contact force solutions too. This could
+#                   be both as nodal forces on the surface mesh, or as normal load and shear stress on the surface
+#                   mesh.
+
+# 2022-03-27 Kenny TODO: Would be nice to add capabilities for exporting to VTK files, so users can post-process
+#                    data in paraview.
