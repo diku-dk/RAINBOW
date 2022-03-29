@@ -2,6 +2,7 @@ import isl.math.matrix3 as M3
 import isl.math.vector3 as V3
 import isl.math.quaternion as Q
 from math import cos, sin, pi, acos, fmod, fabs
+from numpy import tan
 
 
 class Constants:
@@ -15,7 +16,7 @@ class Constants:
 
         :return:
         """
-        return 1e-7
+        return 1e-6
 
     @staticmethod
     def cutoff_angle():
@@ -38,6 +39,8 @@ def reparameterization(v):
     if theta > 2.0 * pi:
         psi = fmod(theta, 2 * pi)
         v = v * (psi / theta)
+        theta = V3.norm(v)
+    
     if theta > Constants.cutoff_angle():
         # Observe this flips the direction of v! Because
         # for all values of pi < theta < 2 pi we have
@@ -164,7 +167,7 @@ def dQdv_i(v, i):
         ang = 1.0 / theta
         sang = sinp * ang
         cterm = v[i] * (ang ** 2) * (0.5 * cosp - sang)
-        dQdvi[0] = -0.5 * v[i] * sang
+        dQdvi[0] = -0.5 * v[i] * sang        
         dQdvi[i + 1] = cterm * v[i] + sang
         dQdvi[i1 + 1] = cterm * v[i1]
         dQdvi[i2 + 1] = cterm * v[i2]
@@ -185,15 +188,19 @@ def __dRdv_i(q, dqdvi):
     # Thi efficient formulation is arrived at by writing out the entire chain
     # rule product dRdq * dqdv in terms of 'q' and noticing that all the
     # entries are formed from sums of just nine products of 'q' and 'dqdv'
-    prod0 = -4 * q[0] * dqdvi[1]
-    prod1 = -4 * q[1] * dqdvi[2]
-    prod2 = -4 * q[2] * dqdvi[3]
-    prod3 = 2 * (q[1] * dqdvi[1] + q[1] * dqdvi[1])
-    prod4 = 2 * (q[0] * dqdvi[2] + q[2] * dqdvi[0])
-    prod5 = 2 * (q[2] * dqdvi[1] + q[1] * dqdvi[2])
-    prod6 = 2 * (q[0] * dqdvi[1] + q[1] * dqdvi[0])
-    prod7 = 2 * (q[2] * dqdvi[1] + q[1] * dqdvi[2])
-    prod8 = 2 * (q[0] * dqdvi[1] + q[1] * dqdvi[0])
+    W = 0
+    X = 1
+    Y = 2
+    Z = 3
+    prod0 = -4 * q[X] * dqdvi[X]
+    prod1 = -4 * q[Y] * dqdvi[Y]
+    prod2 = -4 * q[Z] * dqdvi[Z]
+    prod3 = 2 * (q[Y] * dqdvi[X] + q[X] * dqdvi[Y])
+    prod4 = 2 * (q[W] * dqdvi[Z] + q[Z] * dqdvi[W])
+    prod5 = 2 * (q[Z] * dqdvi[X] + q[X] * dqdvi[Z])
+    prod6 = 2 * (q[W] * dqdvi[Y] + q[Y] * dqdvi[W])
+    prod7 = 2 * (q[Z] * dqdvi[Y] + q[Y] * dqdvi[Z])
+    prod8 = 2 * (q[W] * dqdvi[X] + q[X] * dqdvi[W])
     dRdvi = M3.zero()
     dRdvi[0][0] = prod1 + prod2
     dRdvi[0][1] = prod3 - prod4
@@ -222,53 +229,3 @@ def dRdv_i(v, i):
     dQdvi = dQdv_i(v, i)
     dRdvi = __dRdv_i(q, dQdvi)
     return dRdvi
-
-
-class TestExpMap:
-    def __init__(self):
-        self.test_log_exp()
-        self.test_time_derivative()
-        self.test_derivatives()
-
-    def test_log_exp(self):
-        print("testing log and exp")
-        q = Q.rand()
-        v = log(q)
-        q2 = exp(v)
-        print(q, " == ", q2)
-
-        q = Q.rand()
-        v = to_expmap(q)
-        q2 = to_quaternion(v)
-        print(q, " == ", q2)
-        print("testing done")
-
-    def test_time_derivative(self):
-        print("testing time derivative")
-        v = V3.i()
-        omega = V3.k()
-        dot_v = dvdt(omega, v)
-        print(dot_v)
-        print("testing done")
-
-    def test_derivatives(self):
-        print("testing derivatives")
-        v = V3.i()
-        dqdv0 = dQdv_i(v, 0)
-        dqdv1 = dQdv_i(v, 1)
-        dqdv2 = dQdv_i(v, 2)
-        print(dqdv0)
-        print(dqdv1)
-        print(dqdv2)
-
-        dRdv0 = dRdv_i(v, 0)
-        dRdv1 = dRdv_i(v, 1)
-        dRdv2 = dRdv_i(v, 2)
-        print(dRdv0)
-        print(dRdv1)
-        print(dRdv2)
-        print("testing done")
-
-
-if __name__ == "__main__":
-    test = TestExpMap()
