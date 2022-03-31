@@ -112,7 +112,7 @@ class TestFunctionAPI(unittest.TestCase):
         expected = vector[np.argmax(values)]
         actual   = func.direction_of_most_variance(points)
 
-        self.assertTrue(utils.array_equal(actual,expected))
+        self.assertTrue(utils.assert_array_equal(actual,expected))
     
 
 
