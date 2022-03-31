@@ -16,13 +16,13 @@ class TestMatrix3API(unittest.TestCase):
         v = np.array([1,2,3])
         expected = np.diag(v)
         actual   = mat3.diag_from_array(v)
-        self.assertTrue(utils.array_equal(actual, expected))
+        self.assertTrue(utils.assert_array_equal(actual, expected))
     
     def test_diag_1(self):
         a, b, c = 1,2,3
         expected = np.diag(np.array([a,b,c]))
         actual   = mat3.diag(a,b,c)
-        self.assertTrue(utils.array_equal(actual, expected))
+        self.assertTrue(utils.assert_array_equal(actual, expected))
 
     def test_diag_2(self):
         a, b, c = 1,2,"three"
@@ -39,7 +39,7 @@ class TestMatrix3API(unittest.TestCase):
             ]
         )
         actual   = mat3.make(a,b,c,d,e,f,h,i,j)
-        self.assertTrue(utils.array_equal(actual, expected))
+        self.assertTrue(utils.assert_array_equal(actual, expected))
 
     def test_make_from_row_1(self):
         a,d,h = (np.array([1,2,3]),
@@ -54,7 +54,7 @@ class TestMatrix3API(unittest.TestCase):
             ]
         )
         actual = mat3.make_from_rows(a,d,h)
-        self.assertTrue(utils.array_equal(actual, expected))
+        self.assertTrue(utils.assert_array_equal(actual, expected))
     
     def test_make_from_col_1(self):
         a,d,h = (np.array([1,4,7]),
@@ -69,14 +69,14 @@ class TestMatrix3API(unittest.TestCase):
             ]
         )
         actual = mat3.make_from_cols(a,d,h)
-        self.assertTrue(utils.array_equal(actual, expected))
+        self.assertTrue(utils.assert_array_equal(actual, expected))
     
     def test_star_1(self):
         rand_array = utils.psu_rand_array_gen((2,3))
         v1, v2 = rand_array[0], rand_array[1]
         expected = np.cross(v1,v2)
         actual   = np.dot(mat3.star(v1), v2)
-        self.assertTrue(utils.array_equal(actual, expected))
+        self.assertTrue(utils.assert_array_equal(actual, expected))
     
     def test_orthonomalize_1(self):
         M    = np.random.rand(3,3)
@@ -84,8 +84,8 @@ class TestMatrix3API(unittest.TestCase):
         expected = mat3.identity()
         actual   = np.dot(np.transpose(M_orthonomalized), M_orthonomalized)
         expected_false_actual = np.dot(np.transpose(M), M)
-        self.assertTrue(utils.array_equal(actual, expected))
-        self.assertTrue(utils.array_not_equal(expected_false_actual, expected))
+        self.assertTrue(utils.assert_array_equal(actual, expected))
+        self.assertTrue(utils.assert_array_not_equal(expected_false_actual, expected))
 
     def test_matrix3_rotation_1(self):
        v = np.array([1,0,0])
@@ -95,7 +95,7 @@ class TestMatrix3API(unittest.TestCase):
        rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
        expected        = v
        actual          = np.dot(rotation_matrix, v)
-       self.assertTrue(utils.array_equal(actual, expected))
+       self.assertTrue(utils.assert_array_equal(actual, expected))
     
     def test_matrix3_rotation_2(self):
        v = np.array([1,0,0])
@@ -105,7 +105,7 @@ class TestMatrix3API(unittest.TestCase):
        rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
        expected        = np.array([0,1,0])
        actual          = np.dot(rotation_matrix, v)
-       self.assertTrue(utils.array_equal(actual, expected))
+       self.assertTrue(utils.assert_array_equal(actual, expected))
     
     def test_matrix3_rotation_3(self):
        v = np.array([1,0,0])
@@ -115,7 +115,7 @@ class TestMatrix3API(unittest.TestCase):
        rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
        expected        = np.array([0,0,-1])
        actual          = np.dot(rotation_matrix, v)
-       self.assertTrue(utils.array_equal(actual, expected))
+       self.assertTrue(utils.assert_array_equal(actual, expected))
     
     def test_matrix3_rotation_4(self):
        v = np.array([0,1,0])
@@ -125,7 +125,7 @@ class TestMatrix3API(unittest.TestCase):
        rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
        expected        = v 
        actual          = np.dot(rotation_matrix, v)
-       self.assertTrue(utils.array_equal(actual, expected))
+       self.assertTrue(utils.assert_array_equal(actual, expected))
     
     def test_matrix3_rotation_5(self):
        v = np.array([0,1,0])
@@ -135,7 +135,7 @@ class TestMatrix3API(unittest.TestCase):
        rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
        expected        = np.array([0,0,1]) 
        actual          = np.dot(rotation_matrix, v)
-       self.assertTrue(utils.array_equal(actual, expected))
+       self.assertTrue(utils.assert_array_equal(actual, expected))
     
     def test_matrix3_rotation_6(self):
        v = np.array([0,1,0])
@@ -145,7 +145,7 @@ class TestMatrix3API(unittest.TestCase):
        rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
        expected        = np.array([-1,0,0]) 
        actual          = np.dot(rotation_matrix, v)
-       self.assertTrue(utils.array_equal(actual, expected))
+       self.assertTrue(utils.assert_array_equal(actual, expected))
     
     def test_matrix3_rotation_7(self):
        v = np.array([0,0,1])
@@ -155,7 +155,7 @@ class TestMatrix3API(unittest.TestCase):
        rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
        expected        = v 
        actual          = np.dot(rotation_matrix, v)
-       self.assertTrue(utils.array_equal(actual, expected))
+       self.assertTrue(utils.assert_array_equal(actual, expected))
     
     def test_matrix3_rotation_8(self):
        v = np.array([0,0,1])
@@ -165,7 +165,7 @@ class TestMatrix3API(unittest.TestCase):
        rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
        expected        = np.array([1,0,0]) 
        actual          = np.dot(rotation_matrix, v)
-       self.assertTrue(utils.array_equal(actual, expected))   
+       self.assertTrue(utils.assert_array_equal(actual, expected))   
     
     def test_matrix3_rotation_9(self):
        v = np.array([0,0,1])
@@ -175,7 +175,7 @@ class TestMatrix3API(unittest.TestCase):
        rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
        expected        = np.array([0,-1,0]) 
        actual          = np.dot(rotation_matrix, v)
-       self.assertTrue(utils.array_equal(actual, expected))
+       self.assertTrue(utils.assert_array_equal(actual, expected))
     
     def test_polar_decompostion_1(self):
         M = np.random.rand(3,3)
@@ -189,9 +189,9 @@ class TestMatrix3API(unittest.TestCase):
         expected_2 = mat3.identity()
         expected_3 = np.dot(R,S)
         
-        self.assertTrue(utils.array_equal(actual_1, expected_1))
-        self.assertTrue(utils.array_equal(actual_2, expected_2))
-        self.assertTrue(utils.array_equal(actual_3, expected_3))
+        self.assertTrue(utils.assert_array_equal(actual_1, expected_1))
+        self.assertTrue(utils.assert_array_equal(actual_2, expected_2))
+        self.assertTrue(utils.assert_array_equal(actual_3, expected_3))
 
     def test_polar_decompostion_2(self):
         M = mat3.identity()
@@ -211,7 +211,7 @@ class TestMatrix3API(unittest.TestCase):
         rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
         expected        = rotation_matrix 
         actual          = mat3.Ru(radians, axis)
-        self.assertTrue(utils.array_equal(actual, expected))
+        self.assertTrue(utils.assert_array_equal(actual, expected))
 
     def test_ru_2(self):
         radians = 0.5 * np.pi
@@ -222,7 +222,7 @@ class TestMatrix3API(unittest.TestCase):
         rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
         expected        = rotation_matrix 
         actual          = mat3.Ru(radians, axis)
-        self.assertTrue(utils.array_equal(actual, expected))
+        self.assertTrue(utils.assert_array_equal(actual, expected))
     
     def test_ru_3(self):
         radians = 0.5 * np.pi
@@ -233,7 +233,7 @@ class TestMatrix3API(unittest.TestCase):
         rotation_matrix = np.dot(mat3.Rx(radian_x), np.dot(mat3.Ry(radian_y), mat3.Rz(radian_z)))
         expected        = rotation_matrix 
         actual          = mat3.Ru(radians, axis)
-        self.assertTrue(utils.array_equal(actual, expected))
+        self.assertTrue(utils.assert_array_equal(actual, expected))
 
     def test_ru_3(self):
         n      = np.array([1,1,0])
@@ -242,7 +242,7 @@ class TestMatrix3API(unittest.TestCase):
         q      = np.array([np.cos(radians),axis[0]*np.sin(radians),axis[1]*np.sin(radians),axis[2]*np.sin(radians)], dtype=np.float64)
         expected        = quat.to_matrix(q)
         actual          = mat3.Ru(radians*2, axis)
-        self.assertTrue(utils.array_equal(actual, expected))
+        self.assertTrue(utils.assert_array_equal(actual, expected))
 
     def test_ru_4(self):
         n      = np.array([1,1,1])
@@ -251,7 +251,7 @@ class TestMatrix3API(unittest.TestCase):
         q      = np.array([np.cos(radians),axis[0]*np.sin(radians),axis[1]*np.sin(radians),axis[2]*np.sin(radians)], dtype=np.float64)
         expected        = quat.to_matrix(q)
         actual          = mat3.Ru(radians*2, axis)
-        self.assertTrue(utils.array_equal(actual, expected))
+        self.assertTrue(utils.assert_array_equal(actual, expected))
 
     def test_ru_5(self):
         n      = np.array([1,0.56,1])
@@ -260,7 +260,7 @@ class TestMatrix3API(unittest.TestCase):
         q      = np.array([np.cos(radians),axis[0]*np.sin(radians),axis[1]*np.sin(radians),axis[2]*np.sin(radians)], dtype=np.float64)
         expected        = quat.to_matrix(q)
         actual          = mat3.Ru(radians*2, axis)
-        self.assertTrue(utils.array_equal(actual, expected))
+        self.assertTrue(utils.assert_array_equal(actual, expected))
 
     def test_polar_decompostion_array_1(self):
         number_of_M = 4
@@ -276,9 +276,9 @@ class TestMatrix3API(unittest.TestCase):
         expected_2 = np.array([mat3.identity() for _ in range(number_of_M)])
         expected_3 = np.array([np.dot(r,s) for r,s in zip(Rs,Ss)])
 
-        self.assertTrue(utils.array_equal(actual_1, expected_1))
-        self.assertTrue(utils.array_equal(actual_2, expected_2))
-        self.assertTrue(utils.array_equal(actual_3, expected_3))
+        self.assertTrue(utils.assert_array_equal(actual_1, expected_1))
+        self.assertTrue(utils.assert_array_equal(actual_2, expected_2))
+        self.assertTrue(utils.assert_array_equal(actual_3, expected_3))
 
     def test_polar_decompostion_array_2(self):
         number_of_M = 4

@@ -277,7 +277,7 @@ class TestVector3API(unittest.TestCase):
         expected = n
         actual   = np.cross(tangent, binormal)
         self.assertTrue(
-            utils.array_equal(actual, expected)
+            utils.assert_array_equal(actual, expected)
         )
     
     def test_make_orthonomal_vectors_2(self):
@@ -287,7 +287,7 @@ class TestVector3API(unittest.TestCase):
         expected = n
         actual   = np.cross(tangent, binormal)
         self.assertTrue(
-            utils.array_equal(actual, expected)
+            utils.assert_array_equal(actual, expected)
         )
     
     def test_make_orthonomal_vectors_3(self):
@@ -297,7 +297,7 @@ class TestVector3API(unittest.TestCase):
         expected = tangent
         actual   = np.cross(binormal, n)
         self.assertTrue(
-            utils.array_equal(actual, expected)
+            utils.assert_array_equal(actual, expected)
         )
 
     def test_make_orthonomal_vectors_4(self):
@@ -307,7 +307,7 @@ class TestVector3API(unittest.TestCase):
         expected = tangent
         actual   = np.cross(binormal, n)
         self.assertTrue(
-            utils.array_equal(actual, expected)
+            utils.assert_array_equal(actual, expected)
         )
     
     def test_make_orthonomal_vectors_5(self):
@@ -317,7 +317,7 @@ class TestVector3API(unittest.TestCase):
         expected = binormal
         actual   = np.cross(n, tangent)
         self.assertTrue(
-            utils.array_equal(actual, expected)
+            utils.assert_array_equal(actual, expected)
         )
     
     def test_make_orthonomal_vectors_6(self):
@@ -327,7 +327,7 @@ class TestVector3API(unittest.TestCase):
         expected = n
         actual   = np.cross(tangent, binormal)
         self.assertTrue(
-            utils.array_equal(actual, expected)
+            utils.assert_array_equal(actual, expected)
         )
     
     def test_make_orthonomal_vectors_7(self):
@@ -337,7 +337,7 @@ class TestVector3API(unittest.TestCase):
         expected = n
         actual   = np.cross(tangent, binormal)
         self.assertTrue(
-            utils.array_equal(actual, expected)
+            utils.assert_array_equal(actual, expected)
         )
     
     def test_make_orthonomal_vectors_8(self):
@@ -347,7 +347,7 @@ class TestVector3API(unittest.TestCase):
         expected = n
         actual   = np.cross(tangent, binormal)
         self.assertTrue(
-            utils.array_equal(actual, expected)
+            utils.assert_array_equal(actual, expected)
         )
 
     def test_make_orthonomal_vectors_9(self):
@@ -357,7 +357,7 @@ class TestVector3API(unittest.TestCase):
         expected = n
         actual   = np.cross(binormal, tangent)
         self.assertTrue(
-            utils.array_not_equal(actual, expected)
+            utils.assert_array_not_equal(actual, expected)
             )
     
     def test_make_orthonomal_vectors_10(self):
@@ -367,7 +367,7 @@ class TestVector3API(unittest.TestCase):
         expected = n
         actual   = np.cross(binormal, tangent)
         self.assertTrue(
-            utils.array_not_equal(actual, expected)
+            utils.assert_array_not_equal(actual, expected)
             )
     
     def test_from_string_err_1(self):

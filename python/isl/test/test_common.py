@@ -1,10 +1,10 @@
 import numpy as np
 
 
-def array_equal(arr1, arr2, dec=8):
+def assert_array_equal(arr1, arr2, dec=8):
     return None == np.testing.assert_array_almost_equal(arr1, arr2, dec)
 
-def array_not_equal(arr1, arr2):
+def assert_array_not_equal(arr1, arr2):
     return np.any(np.not_equal(arr1,arr2))
 
 def psu_rand_array_gen(size, min_lim=10,max_lim=100):
