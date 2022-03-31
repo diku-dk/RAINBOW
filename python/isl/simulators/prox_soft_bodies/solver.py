@@ -669,10 +669,11 @@ def compute_mass_matrix(engine, stats, debug_on):
     s = 0
     for body in engine.bodies.values():
         row_body, col_body, data_body = COO[body]
+        offset = body.offset*3
         for i in range(len(row_body)):
-            row[s] = row_body[i] + body.offset
-            col[s] = col_body[i] + body.offset
-            data[s] = data_body[i] + body.offset
+            row[s] = row_body[i] + offset
+            col[s] = col_body[i] + offset
+            data[s] = data_body[i]
             s += 1
     M = sparse.csr_matrix((data, (row, col)), shape=(N * 3, N * 3))
     if debug_on:
@@ -841,6 +842,9 @@ def compute_kinetic_energy(engine, stats, debug_on):
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            The total kinetic energy of the whole system.
     """
+    # 2022-03-27 Kenny TODO: Ideally we should keep consistent interfaces. This means this function should
+    #                   take the velocity u-vector as input, so one specifies the state at which the energy
+    #                   should be computed. Right now the method relies on values stored in the bodies.
     timer = None
     if debug_on:
         timer = Timer("compute_kinetic_energy")
@@ -872,6 +876,9 @@ def compute_potential_energy(engine, stats, debug_on):
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            The total potential energy of the whole system.
     """
+    # 2022-03-27 Kenny TODO: Ideally we should keep consistent interfaces. This means this function should
+    #                   take the position x-vector as input, so one specifies the state at which the energy
+    #                   should be computed. Right now the method relies on values stored in the bodies.
     timer = None
     if debug_on:
         timer = Timer("compute_potential_energy")
@@ -904,6 +911,9 @@ def compute_elastic_energy(engine, stats, debug_on):
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            The total elastic energy of the whole system.
     """
+    # 2022-03-27 Kenny TODO: Ideally we should keep consistent interfaces. This means this function should
+    #                   take the position x-vector as input, so one specifies the state at which the energy
+    #                   should be computed. Right now the method relies on values stored in the bodies.
     timer = None
     if debug_on:
         timer = Timer("compute_elastic_energy")
@@ -943,6 +953,9 @@ def apply_post_stabilization(J, WJT, engine, stats, debug_on):
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            A dictionary with profiling and timing measurements.
     """
+    # 2022-03-27 Kenny TODO: This method uses the contact points stored in the engine to build a right hand side
+    #                   for a LCP projection type of problem. It would be nicer if instead a vector of penetration
+    #                   depths is passed to the interface. So one have more explicit control over the state.
     timer = None
     if debug_on:
         timer = Timer("apply_post_stabilization")
@@ -1021,6 +1034,17 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            A dictionary with profiling and timing measurements.
     """
+    # 2022-03-27 Kenny TODO: This function should be redesigned to "semi_implicit_stepper" and
+    #                   one should feed in the contact states, x and u vectors that it should work
+    #                   on. This may it would be easier to use the stepper as a building block in
+    #                   more advanced simulation loops. The semi-implicit-stepper should then be
+    #                   called from API.simulate function. The stepper should not depend on state
+    #                   information stored in the bodies. Bodies should just be shallow views into
+    #                   global state-vectors and force vectors.
+    #                   The global inverse mass and mass matrices should also only be reassembled once (or
+    #                   reassembled when changes happen to the world). The current implementation rebuilds
+    #                   everything in every step taken. If semi-implicit-stepper changed interface to take
+    #                   the inverse-mass matrix as input then this assembly could be done elsewhere.
     timer = None
     if debug_on:
         timer = Timer("Stepper")
