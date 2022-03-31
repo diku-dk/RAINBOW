@@ -5,7 +5,7 @@ filename: "expmap.py"
 folder_dir: "isl/math/"
 author: Kenny Erleben
 maintainer: DIKU
-permalink: my_collections/documentation_pages/math/vector3/exp_guide
+permalink: my_collections/documentation_pages/math/expmap/exp_guide
 math: http://latex.codecogs.com/svg.latex? 
 ---
 ## The Exponential Map
