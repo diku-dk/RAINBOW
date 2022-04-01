@@ -1,4 +1,3 @@
-from telnetlib import OUTMRK
 import unittest
 import os
 import sys
