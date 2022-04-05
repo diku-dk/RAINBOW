@@ -134,3 +134,4 @@ dmypy.json
 */*.stl
 .DS_Store
 .idea/
+cpp/external/Eigen3/
