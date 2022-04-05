@@ -1,5 +1,6 @@
 import rainbow.geometry.kdop as KDOP
 import math
+import numpy as np
 from collections import deque
 
 
@@ -49,12 +50,13 @@ def _is_undefined(node):
     )
 
 
-def _refit_sub_tree(V, T, sub_tree, K, envelope=0.0) -> None:
+def _refit_sub_tree(V, U, T, sub_tree, K, envelope=0.0) -> None:
     """
     This function refits a subtree by iterating through every node in a bottom up
     approach. Each node will then be updated based on its children.
 
     :param V:             The current coordinates of the object
+    :param U:             The swept coordinates of the object
     :param T:             The elements (triangles/tetrahedrons) of the object
     :param sub_tree:      The BVH subtree
     :param K:             The number of intervals for the KDOPs
@@ -66,7 +68,12 @@ def _refit_sub_tree(V, T, sub_tree, K, envelope=0.0) -> None:
             continue
         if _is_leaf(node):
             vertices = V[T[node.start]]
-            node.volume = KDOP.make(K, vertices, envelope)
+            if U is None:
+                node.volume = KDOP.make(K, vertices, envelope)
+            else:
+                swept_vertices = U[T[node.start]]
+                swept_vertices = np.concatenate([vertices, swept_vertices])
+                node.volume = KDOP.make(K, swept_vertices, envelope)
         else:
             left_child = sub_tree.nodes[node.start]
             right_child = sub_tree.nodes[node.end]
@@ -207,17 +214,18 @@ def make_bvh(X, T, K, N, envelope=0.0):
         # Finally store the sub-tree
         tree.chunks.append(sub_tree)
 
-    refit_bvh(X, T, tree, K, envelope)
+    refit_bvh(X, None, T, tree, K, envelope)
 
     return tree
 
 
-def refit_bvh(V, T, tree, K, envelope=0.0) -> None:
+def refit_bvh(V, U, T, tree, K, envelope=0.0) -> None:
     """
     This function refits a BVH tree such that all nodes are updated to the current
     coordinates of the object it encompasses.
 
     :param V:                 The current coordinates of the object
+    :param U:                 The swept coordinates of the object
     :param T:                 The elements of the object
     :param tree:              The BVH tree
     :param K:                 The number of intervals for the KDOPs
@@ -225,7 +233,7 @@ def refit_bvh(V, T, tree, K, envelope=0.0) -> None:
                               one should use the value zero.
     """
     for subtree in tree.chunks:
-        _refit_sub_tree(V, T, subtree, K, envelope)
+        _refit_sub_tree(V, U, T, subtree, K, envelope)
     tree.root = KDOP.KDOP(K)
     for subtree in tree.chunks:
         tree.root = KDOP.union(tree.root, subtree.nodes[0].volume)
