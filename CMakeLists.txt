@@ -33,7 +33,7 @@ FetchContent_Declare(
 	)
 FetchContent_MakeAvailable(pybind11)
 
-find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+find_package (Eigen3 3.3 NO_MODULE)
 
 if (NOT TARGET Eigen3::Eigen)
 	message("Could not find Eigen3 on your system, getting it myself, please wait")
