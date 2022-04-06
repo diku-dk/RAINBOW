@@ -466,7 +466,7 @@ def get_largest_gap_error(engine) -> float:
     return -gap
 
 
-def stepper(dt: float, engine, debug_on: bool) -> dict:
+def stepper_dcd(dt: float, engine, debug_on: bool) -> dict:
     """
     This is the main simulation method that is responsible for stepping time
      forward to the next time-step.
@@ -489,7 +489,13 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
     du_contact = np.zeros(u.shape, dtype=np.float64)
     du_ext = W.dot(dt * f_ext)
 
-    stats = CD.run_collision_detection(dt, engine, stats, debug_on)
+    # stats = CD.run_collision_detection(dt, engine, stats, debug_on)
+
+    du_total = du_ext + du_contact
+    u += du_total
+    position_update(x, u, dt, engine)
+    set_position_vector(x, engine)
+    set_velocity_vector(u, engine)
 
     J = None
     WJT = None
@@ -513,9 +519,10 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
         du_contact = WJT.dot(sol)
 
     du_total = du_ext + du_contact
-    u += du_total
-    position_update(x, u, dt, engine)
-    set_position_vector(x, engine)
+    # u += du_total
+    # position_update(x, u, dt, engine)
+    # set_position_vector(x, engine)
+    u += du_contact
     set_velocity_vector(u, engine)
     engine.params.current_time += dt
 
@@ -539,4 +546,24 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
         stats['potential_energy'] = potential_energy
         stats['max_gap'] = get_largest_gap_error(engine)
 
+    return stats
+
+def stepper(dt: float, engine, debug_on: bool) -> dict:
+    # timer = None
+    # if debug_on:
+    #     timer = Timer('Stepper CCD')
+    #     timer.start()
+    stats = {}
+
+    dti = dt
+    while (dti > 0):
+        stats, toi = CD.run_collision_detection(dti, engine, stats, debug_on)
+        print(f"{toi=}")
+        stats = stepper_dcd(toi, engine, debug_on)
+        dti -= toi
+
+    # if debug_on:
+    #     timer.end()
+    #     stats['stepper_time'] = timer.elapsed
+    #     stats['dt'] = dt
     return stats

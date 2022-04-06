@@ -5,7 +5,7 @@ from isl.simulators.prox_rigid_bodies_ccd.types import *
 from itertools import combinations
 from isl.util.timer import Timer
 import numpy as np
-
+import queue
 
 def _update_bvh(dt, engine, stats, debug_on):
     """
@@ -86,8 +86,7 @@ def _narrow_phase(engine, stats, debug_on):
         stats['number_of_overlaps'] = np.sum([len(results) for results in overlaps.values()])
     return overlaps, stats
 
-
-def _compute_contacts(engine, stats, bodyA, bodyB, trianglesA, debug_on):
+def _compute_contacts_dcd(engine, stats, bodyA, bodyB, trianglesA, debug_on):
     """
     This function computes contacts between triangles from body A against the signed distance field of body B.
 
@@ -200,11 +199,292 @@ def _compute_contacts(engine, stats, bodyA, bodyB, trianglesA, debug_on):
         stats['contact_point_generation'] += contact_point_generation_timer.total
 
 
-def _contact_determination(overlaps, engine, stats, debug_on):
+class Interval():
+    def __init__(self, l, r):
+        self.L = l
+        self.R = r
+
+    def __add__(self, other):
+        a, b, c, d = self.L, self.R, other.L, other.R
+        return Interval(a + c, b + d)
+
+    def __sub__(self, other):
+        a, b, c, d = self.L, self.R, other.L, other.R
+        return Interval(a - d, b - c)
+
+    def __mul__(self, other):
+        if isinstance(other, float):
+            return Interval(self.L * other, self.R * other)
+
+        a, b, c, d = self.L, self.R, other.L, other.R
+        if isinstance(other, Interval3):
+            return Interval3(a * c, b * d)
+
+        elif isinstance(other, self.__class__):
+            return Interval(min(a*c, a*d, b*c, b*d),
+                            max(a*c, a*d, b*c, b*d))
+
+    def __div__(self, other):
+        a, b, c, d = self.L, self.R, other.L, other.R
+        # [c,d] cannot contain zero:
+        if c*d <= 0:
+            raise ValueError(f"Interval {other} cannot be denominator because it contains zero")
+        return Interval(min(a/c, a/d, b/c, b/d),
+                        max(a/c, a/d, b/c, b/d))
+
+    def __contains__(self, key):
+        return self.L <= key and key <= self.R
+
+    def w(self):
+        return self.R - self.L
+
+    def __str__(self):
+        return f"[{self.L}, {self.R}]"
+
+
+class Interval3():
+    def __init__(self, t, u, v):
+        self.t = t
+        self.u = u
+        self.v = v
+
+    def w(self):
+        return max(self.t.w(), self.u.w(), self.v.w())
+
+    def __str__(self):
+        return f"[t: {self.t}, u: {self.u}, v: {self.v}]"
+
+
+class VertexFace():
+    def __init__(self,
+                 v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
+                 v_t1, f_v0_t1, f_v1_t1, f_v2_t1):
+
+        self.P_t0 = v_t0
+        self.V_p = v_t1 - v_t0
+        self.A_t0 = f_v0_t0
+        self.V_a = f_v0_t1 - f_v0_t0
+        self.B_t0 = f_v1_t0
+        self.V_b = f_v1_t1 - f_v1_t0
+        self.C_t0 = f_v2_t0
+        self.V_c = f_v2_t1 - f_v2_t0
+
+    def P(self, t):
+        return self.P_t0 + t*self.V_p
+
+    def v1(self, t):
+        return self.A_t0 + t*self.V_a
+
+    def v2(self, t):
+        return self.B_t0 + t*self.V_b
+
+    def v3(self, t):
+        return self.C_t0 + t*self.V_c
+
+    def N(self, t):
+        return np.cross(self.v2(t) - self.v1(t), self.v3(t) - self.v1(t))
+
+    def mapping(self, t, u, v):
+        return self.P(t) - ((1 - u - v)*self.v1(t) + u*self.v2(t) + v*self.v3(t))
+
+    def inclusion(self, I: Interval3):
+        res = []
+        for t in [I.t.L, I.t.R]:
+            for u in [I.u.L, I.u.R]:
+                for v in [I.v.L, I.v.R]:
+                    res.append(self.mapping(t, u, v))
+        x_max = max(res, key=lambda v: v[0])[0]
+        y_max = max(res, key=lambda v: v[1])[1]
+        z_max = max(res, key=lambda v: v[2])[2]
+        x_min = min(res, key=lambda v: v[0])[0]
+        y_min = min(res, key=lambda v: v[1])[1]
+        z_min = min(res, key=lambda v: v[2])[2]
+        return ((0 >= x_min and 0 <= x_max)
+            and (0 >= y_min and 0 <= y_max)
+            and (0 >= z_min and 0 <= z_max))
+
+
+class EdgeEdge():
+    def __init__(self,
+                 p1_t0, p2_t0, p3_t0, p4_t0,
+                 p1_t1, p2_t1, p3_t1, p4_t1):
+
+        self.p1_t0 = p1_t0
+        self.p1_v = p1_t1 - p1_t0
+        self.p2_t0 = p2_t0
+        self.p2_v = p2_t1 - p2_t0
+        self.p3_t0 = p3_t0
+        self.p3_v = p3_t1 - p3_t0
+        self.p4_t0 = p4_t0
+        self.p4_v = p4_t1 - p4_t0
+
+    def P1(self, t):
+        return self.p1_t0 + t*self.p1_v
+
+    def p2(self, t):
+        return self.p2_t0 + t*self.p2_v
+
+    def p3(self, t):
+        return self.p2_t0 + t*self.p3_v
+
+    def p4(self, t):
+        return self.p4_t0 + t*self.p4_v
+
+    def mapping(self, t, u, v):
+        return ((1 - u)*self.p1(t) + u*self.p2(t)) - ((1 - v)*self.p3(t) + v*self.p4(t)) 
+
+    def inclusion(self, I: Interval3):
+        res = []
+        for t in [I.t.L, I.t.R]:
+            for u in [I.u.L, I.u.R]:
+                for v in [I.v.L, I.v.R]:
+                    res.append(self.mapping(t, u, v))
+        x_max = max(res, key=lambda v: v[0])[0]
+        y_max = max(res, key=lambda v: v[1])[1]
+        z_max = max(res, key=lambda v: v[2])[2]
+        x_min = min(res, key=lambda v: v[0])[0]
+        y_min = min(res, key=lambda v: v[1])[1]
+        z_min = min(res, key=lambda v: v[2])[2]
+        return ((0 >= x_min and 0 <= x_max)
+            and (0 >= y_min and 0 <= y_max)
+            and (0 >= z_min and 0 <= z_max))
+
+
+def split_interval(I: Interval3):
+    t_m = (I.t.L + I.t.R) / 2
+    u_m = (I.u.L + I.u.R) / 2
+    v_m = (I.v.L + I.v.R) / 2
+    t_1, t_2 = Interval(I.t.L, t_m), Interval(t_m, I.t.R)
+    u_1, u_2 = Interval(I.u.L, u_m), Interval(u_m, I.u.R)
+    v_1, v_2 = Interval(I.v.L, v_m), Interval(v_m, I.v.R)
+
+    return [
+                Interval3(t_1, u_1, v_1),
+                Interval3(t_1, u_2, v_1),
+                Interval3(t_1, u_1, v_2),
+                Interval3(t_1, u_2, v_2),
+                Interval3(t_2, u_1, v_1),
+                Interval3(t_2, u_2, v_1),
+                Interval3(t_2, u_1, v_2),
+                Interval3(t_2, u_2, v_2)
+            ]
+
+
+def solve_interval(I_0: Interval3, g, sigma):
+    res = []
+    l = 0
+
+    q = queue.Queue()
+    q.put(I_0)
+
+    while q.qsize() != 0:
+        I = q.get()
+        I_g = g.inclusion(I)
+        if I_g:
+            # print(I.w())
+            if I.w() < sigma:
+                res.append(I)
+            else:
+                Is = split_interval(I)
+                for i in Is:
+                    q.put(i)
+        l = l + 1
+
+    min_res = min(res, key=lambda tuv: tuv.t.L) if len(res) > 0 else None
+    return min_res
+    # return min(res, key=lambda tuv: tuv.t.L) if len(res) > 0 else None
+
+
+def _compute_vertex_face_ccd(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
+                             v_t1, f_v0_t1, f_v1_t1, f_v2_t1):
+
+    vf = VertexFace(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
+                    v_t1, f_v0_t1, f_v1_t1, f_v2_t1)
+
+    res = solve_interval(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), vf, 0.000001)
+    if res is not None:
+        return [res.t, vf.P(res.t.L), vf.N(res.t.L), 0]
+    return None
+
+def _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
+                           p1_t1, p2_t1, p3_t1, p4_t1):
+
+    ee = EdgeEdge(p1_t0, p2_t0, p3_t0, p4_t0,
+                  p1_t1, p2_t1, p3_t1, p4_t1)
+
+    return solve_interval(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), ee, 0.000001)
+
+
+def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
+    """
+    This function computes time of impacts and contacts between triangles from body A and body B using continuous collision detecton.
+
+    :param engine:      The current engine instance we are working with.
+    :param stats:       A dictionary where to add more profiling and timing measurements.
+    :param dt:          Time-step
+    :param bodyA:       Reference to body A.
+    :param bodyB:       Reference to body B.
+    :param trianglesA:  Array of triangles from body A that may be colliding with body B.
+    :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
+    :return:            Nothing.
+    """
+    # Make BVH traversel return start and end points instead
+    toi = Interval(np.Infinity, np.Infinity)
+    mesh_A_0 = Q.rotate_array(bodyA.q, bodyA.shape.mesh.V) + bodyA.r
+    mesh_B_0 = Q.rotate_array(bodyB.q, bodyB.shape.mesh.V) + bodyB.r
+    mesh_A_1 = Q.rotate_array(Q.unit(bodyA.q + (Q.prod(Q.from_vector3(bodyA.w), bodyA.q) * dt * 0.5)), bodyA.shape.mesh.V) + bodyA.r + bodyA.v * dt
+    mesh_B_1 = Q.rotate_array(Q.unit(bodyB.q + (Q.prod(Q.from_vector3(bodyB.w), bodyB.q) * dt * 0.5)), bodyB.shape.mesh.V) + bodyB.r + bodyB.v * dt
+    # res = []
+    for triangleA, triangleB in triangles:
+        f_a_t0 = mesh_A_0[bodyA.shape.mesh.T[triangleA]]
+        f_a_t1 = mesh_A_1[bodyA.shape.mesh.T[triangleA]]
+        f_b_t0 = mesh_B_0[bodyB.shape.mesh.T[triangleB]]
+        f_b_t1 = mesh_B_1[bodyB.shape.mesh.T[triangleB]]
+        # print("A", f_a_t0, f_a_t1)
+        # print("B", f_b_t0, f_b_t1)
+        for i in range(3):
+            v_a_t0 = f_a_t0[i]
+            v_a_t1 = f_a_t1[i]
+            v_b_t0 = f_b_t0[i]
+            v_b_t1 = f_b_t1[i]
+            a_vf = _compute_vertex_face_ccd(v_a_t0, f_b_t0[0], f_b_t0[1], f_b_t0[2], v_a_t1, f_b_t1[0], f_b_t1[1], f_b_t1[2])
+            b_vf = _compute_vertex_face_ccd(v_b_t0, f_a_t0[0], f_a_t0[1], f_a_t0[2], v_b_t1, f_a_t1[0], f_a_t1[1], f_a_t1[2])
+            if a_vf is not None:
+                dti = a_vf[0]*dt
+                toi = min(toi, dti, key=lambda t: t.L)
+                cp = ContactPoint(bodyA, bodyB, a_vf[1], V3.unit(a_vf[2]), a_vf[3], dti.L)
+                engine.contact_points.append(cp)
+                # res.append(a_vf)
+            if b_vf is not None:
+                dti = b_vf[0]*dt
+                toi = min(toi, dti, key=lambda t: t.L)
+                cp = ContactPoint(bodyA, bodyB, b_vf[1], V3.unit(b_vf[2]), b_vf[3], dti.L)
+                engine.contact_points.append(cp)
+                # res.append(b_vf)
+            # print(f"{toi_a=}, {toi_b=}")
+            # toi = min(toi, toi_a_vf)
+            # toi = min(toi, toi_b_vf)
+            # _compute_edge_edge_ccd()
+        # for i in range(3):
+        #     for j in range(3):
+        #         p1_t0, p2_t0 = f_a_t0[i], f_a_t0[(i+1) % 3]
+        #         p3_t0, p4_t0 = f_b_t0[j], f_b_t0[(j+1) % 3]
+        #         p1_t1, p2_t1 = f_a_t1[i], f_a_t1[(i+1) % 3]
+        #         p3_t1, p4_t1 = f_b_t1[j], f_b_t1[(j+1) % 3]
+        #         ee = _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
+        #                                     p1_t1, p2_t1, p3_t1, p4_t1)
+                # if ee is not None:
+                #     # res.append(ee)
+
+    # print("final", toi)
+    return toi
+
+def _contact_determination(dt, overlaps, engine, stats, debug_on):
     """
     This function performs determination of contact points between all pairs of overlapping bodies. The function
      essentially post-process the overlap-data that was computed by the narrow-phase collision detection function.
 
+    :param dt:          Time-step
     :param overlaps:    A dictionary where keys are overlapping bodies and values are a list of potential
                         colliding triangle pairs.
     :param engine:      The current engine instance we are working with.
@@ -217,36 +497,25 @@ def _contact_determination(overlaps, engine, stats, debug_on):
         contact_determination_timer = Timer('contact_determination', 8)
         contact_determination_timer.start()
     engine.contact_points = []
+    toi = Interval(dt, dt)
     for key, results in overlaps.items():
-        # TODO 2021-12-31 Kenny: As we only test triangles against SDF
-        #  and BVH returns overlapping triangle pairs and since a triangle
-        #  from one body can easily overlap with many triangles from the
-        #  other body we have to reduce the pair-wise info to unique list
-        #  of triangles that could be overlapping with the other body. It
-        #  is an overhead we have to pay due to how the BVH traversal
-        #  algorithm works. A different algorithm than the current BVH
-        #  traversal may not need this overhead.
-        _compute_contacts(engine,
-                          stats,
-                          key[0],  # Body A
-                          key[1],  # Body B
-                          np.unique(results[:, 0]),  # 1st column will be all triangles from A that may collide with B
-                          debug_on
-                          )
-        _compute_contacts(engine,
-                          stats,
-                          key[1],  # Body B
-                          key[0],  # Body A
-                          np.unique(results[:, 1]),  # 2nd column will be all triangles from B that may collide with A
-                          debug_on
-                          )
+        dti = _compute_contacts(engine,
+                            stats,
+                            dt,
+                            key[0],  # Body A
+                            key[1],  # Body B
+                            results, # All triangles from A and B that may collide
+                            debug_on
+                            )
+        toi = min(toi, dti, key=lambda t: t.L)
+
     if debug_on:
         contact_determination_timer.end()
         stats['contact_determination'] = contact_determination_timer.elapsed
-    return stats
+    return stats, toi
 
 
-def _contact_reduction(engine, stats, debug_on):
+def _contact_reduction(toi, engine, stats, debug_on):
     """
     During contact point computation it may happen that different colliding triangles of one body results
     in the same contact point locations wrt to the other signed distance field of the other body. Imagine a spiky
@@ -266,6 +535,15 @@ def _contact_reduction(engine, stats, debug_on):
     if debug_on:
         reduction_timer = Timer('contact_point_reduction', 8)
         reduction_timer.start()
+
+    reduced_list = []
+
+    for cp in engine.contact_points:
+        if cp.toi <= toi.R:
+            reduced_list.append(cp)
+
+    engine.contact_points = reduced_list
+
     # TODO 2020-09-07 Kristian: This brute force implementation can be implemented better
     reduced_list = []
     for cp1 in engine.contact_points:
@@ -302,9 +580,9 @@ def run_collision_detection(dt, engine, stats, debug_on):
         collision_detection_timer.start()
     stats = _update_bvh(dt, engine, stats, debug_on)
     overlaps, stats = _narrow_phase(engine, stats, debug_on)
-    stats = _contact_determination(overlaps, engine, stats, debug_on)
-    stats = _contact_reduction(engine, stats, debug_on)
+    stats, toi = _contact_determination(dt, overlaps, engine, stats, debug_on)
+    stats = _contact_reduction(toi, engine, stats, debug_on)
     if debug_on:
         collision_detection_timer.end()
         stats['collision_detection_time'] = collision_detection_timer.elapsed
-    return stats
+    return stats, toi.L
