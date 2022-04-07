@@ -5,8 +5,9 @@ import numpy as np
 import math as m
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
-import isl.test.test_common as utils
-import isl.util.parse_string as ps 
+
+import isl.util.parse_string as ps
+import isl.test.testtools.Tools as Tools
 
 class TestQuaternionAPI(unittest.TestCase):
     def test_parse_rotation_1(self):

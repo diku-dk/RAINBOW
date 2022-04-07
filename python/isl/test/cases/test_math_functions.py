@@ -1,13 +1,14 @@
-import re
 import unittest
+import re
 import os
 import sys
 import numpy as np
 import math as m
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
+
 import isl.math.functions as func
-import isl.test.test_common as utils
+import isl.test.testtools.Tools as Tools
 
 
 def dxxf(x):

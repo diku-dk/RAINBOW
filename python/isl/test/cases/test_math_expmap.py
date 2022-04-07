@@ -1,16 +1,17 @@
+import unittest
 from cmath import exp, sin, tan
 from ctypes import util
-import unittest
 import os
 import sys
 import numpy as np
 import math as m
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
+
 import isl.math.expmap as exm
 import isl.math.quaternion as Q
 import isl.math.vector3 as vec3
-import isl.test.test_common as utils
+import isl.test.testtools.Tools as Tools
 
 
 class TestExomapAPI(unittest.TestCase):

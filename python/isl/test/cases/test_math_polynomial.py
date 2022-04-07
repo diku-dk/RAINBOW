@@ -6,6 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/
 
 import numpy as np
 import isl.math.polynomial as POLY
+import isl.test.testtools.Tools as Tools
 
 
 class TestPolynomial(unittest.TestCase):

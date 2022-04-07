@@ -1,14 +1,16 @@
+import unittest
 from cmath import sin, tan
 from ctypes import util
-import unittest
 import os
 import sys
 import numpy as np
 import math as m
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
-import isl.test.test_common as utils
+
 import isl.math.quaternion as quat
+import isl.test.testtools.Tools as Tools
+
 
 class TestQuaternionAPI(unittest.TestCase):
     def test_quaterion_make_1(self):

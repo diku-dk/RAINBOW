@@ -1,15 +1,17 @@
+import unittest
 from cmath import sin, tan
 from ctypes import util
-import unittest
 import os
 import sys
 import numpy as np
 import math as m
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
-import isl.test.test_common as utils
+
 import isl.math.quaternion as quat
 import isl.math.matrix3 as mat3
+import isl.test.testtools.Tools as Tools
+
 
 class TestMatrix3API(unittest.TestCase):
     def test_diag_from_array_1(self):
