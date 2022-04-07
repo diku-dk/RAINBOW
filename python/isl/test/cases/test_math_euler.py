@@ -12,249 +12,254 @@ import isl.math.euler as eu
 import isl.math.quaternion as quat
 import isl.math.angle as angle
 import isl.math.matrix3 as mat3
-import isl.test.testtools.Tools as Tools
 
 
 def compute_orientation_zyx(matrix):
-    # https://www.geometrictools.com/Documentation/EulerAngles.pdf
-    r20 = matrix[2,0]
-    r12 = matrix[1,2]
-    r11 = matrix[1,1]
+    """
+    This is an auxiliary function used to set up test-cases in a more convenient way. It is based on
 
-    r10 = matrix[1,0]
-    r00 = matrix[0,0]
-    r21 = matrix[2,1]
-    r22 = matrix[2,2]
+    https://www.geometrictools.com/Documentation/EulerAngles.pdf
 
-    rz  = None
-    ry  = None 
-    rx  = None 
+    :param matrix: A rotation matrix.
+    :return: The three Euler angles.
+    """
+    r20 = matrix[2, 0]
+    r12 = matrix[1, 2]
+    r11 = matrix[1, 1]
+
+    r10 = matrix[1, 0]
+    r00 = matrix[0, 0]
+    r21 = matrix[2, 1]
+    r22 = matrix[2, 2]
+
+    rz = None
+    ry = None
+    rx = None
 
     if r20 >= 1.0:
         rz = np.arctan2(-r12, r11)
         ry = -np.pi / 2
         rx = 0
-    
     elif r20 <= -1.0:
         rz = -np.arctan2(-r12, r11)
         ry = np.pi / 2
         rx = 0
     else:
-        rz = np.arctan2(r10,r00)
+        rz = np.arctan2(r10, r00)
         ry = np.arcsin(-r20)
-        rx = np.arctan2(r21,r22)
-    
+        rx = np.arctan2(r21, r22)
+
     return rx, ry, rz
 
 
 class TestEulerAPI(unittest.TestCase):
     def test_make_euler_xyz_from_matrix_1(self):
-        radians_x = -1.2 
-        radians_y = np.pi / 2 
-        radians_z = 1.2 
+        radians_x = -1.2
+        radians_y = np.pi / 2
+        radians_z = 1.2
 
-        matrix         = np.dot(mat3.Rx(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rz(radians_x)))
-        Euler          = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(mat3.Rx(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rz(radians_x)))
+        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
         expected_alpha, expected_beta, expected_gamma = compute_orientation_zyx(matrix)
 
-        actual_alpha  = Euler.alpha
-        actual_beta   = Euler.beta
-        actual_gamma  = Euler.gamma
+        actual_alpha = euler_angles.alpha
+        actual_beta = euler_angles.beta
+        actual_gamma = euler_angles.gamma
 
         self.assertAlmostEqual(actual_alpha, expected_alpha, 4)
         self.assertAlmostEqual(actual_beta, expected_beta, 4)
         self.assertAlmostEqual(actual_gamma, expected_gamma, 4)
-    
+
     def test_make_euler_xyz_from_matrix_2(self):
-        radians_x = -1.2 
+        radians_x = -1.2
         radians_y = np.pi / 2 + np.pi
-        radians_z = 1.2 
+        radians_z = 1.2
 
-        matrix         = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        Euler          = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
+        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
         expected_alpha, expected_beta, expected_gamma = compute_orientation_zyx(matrix)
 
-        actual_alpha  = Euler.alpha
-        actual_beta   = Euler.beta
-        actual_gamma  = Euler.gamma
+        actual_alpha = euler_angles.alpha
+        actual_beta = euler_angles.beta
+        actual_gamma = euler_angles.gamma
 
         self.assertAlmostEqual(actual_alpha, expected_alpha, 4)
         self.assertAlmostEqual(actual_beta, expected_beta, 4)
         self.assertAlmostEqual(actual_gamma, expected_gamma, 4)
-    
+
     def test_make_euler_xyz_from_matrix_3(self):
-        radians_x = -1.2 
+        radians_x = -1.2
         radians_y = 1.1
-        radians_z = 1.2 
+        radians_z = 1.2
 
-        matrix         = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        Euler          = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
+        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
         expected_alpha, expected_beta, expected_gamma = compute_orientation_zyx(matrix)
 
-        actual_alpha  = Euler.alpha
-        actual_beta   = Euler.beta
-        actual_gamma  = Euler.gamma
+        actual_alpha = euler_angles.alpha
+        actual_beta = euler_angles.beta
+        actual_gamma = euler_angles.gamma
 
         self.assertAlmostEqual(actual_alpha, expected_alpha, 4)
         self.assertAlmostEqual(actual_beta, expected_beta, 4)
         self.assertAlmostEqual(actual_gamma, expected_gamma, 4)
-    
-    def test_make_euler_xyz_from_matrix_4(self):
-        radians_x = -1.2 
-        radians_y = -1.1
-        radians_z = 1.2 
 
-        matrix         = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        Euler          = eu.make_euler_xyz_from_matrix(matrix)
+    def test_make_euler_xyz_from_matrix_4(self):
+        radians_x = -1.2
+        radians_y = -1.1
+        radians_z = 1.2
+
+        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
+        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
         expected_alpha, expected_beta, expected_gamma = compute_orientation_zyx(matrix)
 
-        actual_alpha  = Euler.alpha
-        actual_beta   = Euler.beta
-        actual_gamma  = Euler.gamma
+        actual_alpha = euler_angles.alpha
+        actual_beta = euler_angles.beta
+        actual_gamma = euler_angles.gamma
 
         self.assertAlmostEqual(actual_alpha, expected_alpha, 4)
         self.assertAlmostEqual(actual_beta, expected_beta, 4)
         self.assertAlmostEqual(actual_gamma, expected_gamma, 4)
 
     def test_make_euler_xyz_from_matrix_5(self):
-        radians_x = -1.2 
+        radians_x = -1.2
         radians_y = -1.1
-        radians_z = 1.2 
+        radians_z = 1.2
 
-        matrix         = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        Euler          = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
+        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
         expected_alpha, expected_beta, expected_gamma = radians_x, radians_y, radians_z
 
-        actual_alpha  = Euler.alpha
-        actual_beta   = Euler.beta
-        actual_gamma  = Euler.gamma
+        actual_alpha = euler_angles.alpha
+        actual_beta = euler_angles.beta
+        actual_gamma = euler_angles.gamma
 
         self.assertEqual(actual_alpha, expected_alpha)
         self.assertEqual(actual_beta, expected_beta)
         self.assertEqual(actual_gamma, expected_gamma)
 
     def test_make_euler_xyz_from_matrix_6(self):
-        radians_x = -1.3 
+        radians_x = -1.3
         radians_y = -1.2
         radians_z = 0.3
 
-        matrix         = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        Euler          = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
+        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
         expected_alpha, expected_beta, expected_gamma = radians_x, radians_y, radians_z
 
-        actual_alpha  = Euler.alpha
-        actual_beta   = Euler.beta
-        actual_gamma  = Euler.gamma
+        actual_alpha = euler_angles.alpha
+        actual_beta = euler_angles.beta
+        actual_gamma = euler_angles.gamma
 
         self.assertAlmostEqual(actual_alpha, expected_alpha, 4)
         self.assertAlmostEqual(actual_beta, expected_beta, 4)
         self.assertAlmostEqual(actual_gamma, expected_gamma, 4)
-    
+
     def test_make_euler_xyz_from_matrix_7(self):
-        radians_x = 0.0 
+        radians_x = 0.0
         radians_y = np.pi / 2
         radians_z = 0.0
 
-        matrix         = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        Euler          = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
+        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
         expected_alpha, expected_beta, expected_gamma = radians_x, radians_y, radians_z
 
-        actual_alpha  = Euler.alpha
-        actual_beta   = Euler.beta
-        actual_gamma  = Euler.gamma
+        actual_alpha = euler_angles.alpha
+        actual_beta = euler_angles.beta
+        actual_gamma = euler_angles.gamma
 
         self.assertAlmostEqual(actual_alpha, expected_alpha, 4)
         self.assertAlmostEqual(actual_beta, expected_beta, 4)
         self.assertAlmostEqual(actual_gamma, expected_gamma, 4)
 
     def test_make_euler_xyz_from_matrix_8(self):
-        radians_x = 0.0 
+        radians_x = 0.0
         radians_y = np.pi / 2 + np.pi
         radians_z = 0.0
 
-        matrix         = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        Euler          = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
+        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
         expected_alpha, _, expected_gamma = radians_x, radians_y, radians_z
 
-        actual_alpha  = Euler.alpha
-        actual_beta   = sin(Euler.beta)
-        actual_gamma  = Euler.gamma
+        actual_alpha = euler_angles.alpha
+        actual_beta = sin(euler_angles.beta)
+        actual_gamma = euler_angles.gamma
 
         self.assertAlmostEqual(actual_alpha, expected_alpha, 4)
         self.assertAlmostEqual(actual_beta, -1, 4)
         self.assertAlmostEqual(actual_gamma, expected_gamma, 4)
-    
+
     def test_euler_xyz_from_quaternion_1(self):
-        radians_x = 0.0 
+        radians_x = 0.0
         radians_y = np.pi / 2 + np.pi
         radians_z = 0.0
 
-        matrix         = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        q              = quat.from_matrix(matrix)
-        
-        Euler          = eu.make_euler_xyz_from_quaternion(q)
+        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
+        q = quat.from_matrix(matrix)
+
+        euler_angles = eu.make_euler_xyz_from_quaternion(q)
         expected_alpha, _, expected_gamma = radians_x, radians_y, radians_z
 
-        actual_alpha  = Euler.alpha
-        actual_beta   = sin(Euler.beta)
-        actual_gamma  = Euler.gamma
+        actual_alpha = euler_angles.alpha
+        actual_beta = sin(euler_angles.beta)
+        actual_gamma = euler_angles.gamma
 
         self.assertAlmostEqual(actual_alpha, expected_alpha, 4)
         self.assertAlmostEqual(actual_beta, -1, 4)
         self.assertAlmostEqual(actual_gamma, expected_gamma, 4)
 
     def test_euler_xyz_from_quaternion_2(self):
-        radians_x =  0.4 
-        radians_y =  1.1
+        radians_x = 0.4
+        radians_y = 1.1
         radians_z = -1.3
 
-        matrix         = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        q              = quat.from_matrix(matrix)
-        
-        Euler          = eu.make_euler_xyz_from_quaternion(q)
+        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
+        q = quat.from_matrix(matrix)
+
+        euler_angles = eu.make_euler_xyz_from_quaternion(q)
         expected_alpha, expected_beta, expected_gamma = radians_x, radians_y, radians_z
 
-        actual_alpha  = Euler.alpha
-        actual_beta   = Euler.beta
-        actual_gamma  = Euler.gamma
+        actual_alpha = euler_angles.alpha
+        actual_beta = euler_angles.beta
+        actual_gamma = euler_angles.gamma
 
         self.assertAlmostEqual(actual_alpha, expected_alpha, 4)
         self.assertAlmostEqual(actual_beta, expected_beta, 4)
         self.assertAlmostEqual(actual_gamma, expected_gamma, 4)
-    
+
     def test_euler_xyz_from_quaternion_3(self):
-        radians_x =  -0.4 
-        radians_y =  0.5
+        radians_x = -0.4
+        radians_y = 0.5
         radians_z = 1.7
 
-        matrix         = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        q              = quat.from_matrix(matrix)
-        
-        Euler          = eu.make_euler_xyz_from_quaternion(q)
+        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
+        q = quat.from_matrix(matrix)
+
+        euler_angles = eu.make_euler_xyz_from_quaternion(q)
         expected_alpha, expected_beta, expected_gamma = radians_x, radians_y, radians_z
 
-        actual_alpha  = Euler.alpha
-        actual_beta   = Euler.beta
-        actual_gamma  = Euler.gamma
+        actual_alpha = euler_angles.alpha
+        actual_beta = euler_angles.beta
+        actual_gamma = euler_angles.gamma
 
         self.assertAlmostEqual(actual_alpha, expected_alpha, 4)
         self.assertAlmostEqual(actual_beta, expected_beta, 4)
         self.assertAlmostEqual(actual_gamma, expected_gamma, 4)
-    
+
     def test_euler_xyz_from_quaternion_4(self):
-        radians_x = 0.0 
+        radians_x = 0.0
         radians_y = np.pi / 2
         radians_z = 0.0
 
-        matrix         = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        q              = quat.from_matrix(matrix)
-        
-        Euler          = eu.make_euler_xyz_from_quaternion(q)
+        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
+        q = quat.from_matrix(matrix)
+
+        euler_angles = eu.make_euler_xyz_from_quaternion(q)
         expected_alpha, _, expected_gamma = radians_x, radians_y, radians_z
 
-        actual_alpha  = Euler.alpha
-        actual_beta   = sin(Euler.beta)
-        actual_gamma  = Euler.gamma
+        actual_alpha = euler_angles.alpha
+        actual_beta = sin(euler_angles.beta)
+        actual_gamma = euler_angles.gamma
 
         self.assertAlmostEqual(actual_alpha, expected_alpha, 4)
         self.assertAlmostEqual(actual_beta, 1, 4)
