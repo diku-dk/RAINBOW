@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/
 import isl.math.expmap as exm
 import isl.math.quaternion as Q
 import isl.math.vector3 as vec3
-import isl.test.testtools.Tools as Tools
+from isl.test.testtools import Tools
 
 
 class TestExomapAPI(unittest.TestCase):
