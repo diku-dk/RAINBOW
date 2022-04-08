@@ -3,10 +3,10 @@ import os
 import sys
 import numpy as np
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import isl.math.quaternion as quat
-from isl.test.testtools import Tools
+import isl.util.test_tools as TEST
 
 
 class TestQuaternionAPI(unittest.TestCase):
@@ -17,7 +17,7 @@ class TestQuaternionAPI(unittest.TestCase):
 
         expected = np.array([1, 2, 3, 4], dtype=np.float64)
         actual = quat.make(1, 2, 3, 4)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_quaterion_make_2(self):
         # First define a quaterion q:
@@ -26,7 +26,7 @@ class TestQuaternionAPI(unittest.TestCase):
 
         expected = np.array([1, 2, 3, 4], dtype=np.float64)
         actual = quat.make(1, -2, 3, 4)
-        self.assertTrue(Tools.is_array_not_equal(actual, expected))
+        self.assertTrue(TEST.is_array_not_equal(actual, expected))
 
     def test_quaterion_prod_1(self):
         # First define a quaterion q:
@@ -45,7 +45,7 @@ class TestQuaternionAPI(unittest.TestCase):
 
         expected = qq_c
         actual = quat.prod(q, q_c)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_quaterion_prod_2(self):
         # First define a quaterion q:
@@ -64,7 +64,7 @@ class TestQuaternionAPI(unittest.TestCase):
 
         expected = qq_c
         actual = quat.prod(q, q_c)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_quaterion_prod_3(self):
         # First define a quaterion q:
@@ -82,7 +82,7 @@ class TestQuaternionAPI(unittest.TestCase):
 
         expected = qq_c
         actual = quat.prod(q, q_c)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_quaterion_unit_1(self):
         # Using def 18.44
@@ -97,7 +97,7 @@ class TestQuaternionAPI(unittest.TestCase):
         expected = q / norm
         actual = quat.unit(q)
 
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_quaterion_unit_2(self):
         # Using def 18.44
@@ -112,7 +112,7 @@ class TestQuaternionAPI(unittest.TestCase):
         expected = q / norm
         actual = quat.unit(q)
 
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_quaterion_unit_3(self):
         # Using def 18.44
@@ -120,7 +120,7 @@ class TestQuaternionAPI(unittest.TestCase):
         expected = np.array([1, 0, 0, 0], dtype=np.float64)
         actual = quat.unit(q)
 
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_quaterion_unit_4(self):
         # Using def 18.44
@@ -132,7 +132,7 @@ class TestQuaternionAPI(unittest.TestCase):
         expected = q / norm
         actual = quat.unit(q)
 
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_rotate_1(self):
         n = np.array([1, 0, 0], dtype=np.float64)
@@ -144,7 +144,7 @@ class TestQuaternionAPI(unittest.TestCase):
 
         expected = quat.prod(quat.prod(q, qr), quat.conjugate(q))
         actual = quat.rotate(q, p)
-        self.assertTrue(Tools.is_array_equal(actual, expected[1:]))
+        self.assertTrue(TEST.is_array_equal(actual, expected[1:]))
 
     def test_rotate_2(self):
         q = quat.unit(quat.make(1, 2, 3, 4))
@@ -157,7 +157,7 @@ class TestQuaternionAPI(unittest.TestCase):
 
         expected = quat.prod(quat.prod(q, qr), quat.conjugate(q))
         actual = quat.rotate(q, p)
-        self.assertTrue(Tools.is_array_equal(actual, expected[1:]))
+        self.assertTrue(TEST.is_array_equal(actual, expected[1:]))
 
     def test_rotate_3(self):
         r = np.array([1, 0, 0])
@@ -167,7 +167,7 @@ class TestQuaternionAPI(unittest.TestCase):
                      dtype=np.float64)
         expected = np.array([0, 0, -1])
         actual = quat.rotate(q, r)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_rotate_4(self):
         r = np.array([1, 0, 0])
@@ -177,7 +177,7 @@ class TestQuaternionAPI(unittest.TestCase):
                      dtype=np.float64)
         expected = np.array([0, 1, 0])
         actual = quat.rotate(q, r)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_rotate_5(self):
         r = np.array([1, 0, 0])
@@ -187,7 +187,7 @@ class TestQuaternionAPI(unittest.TestCase):
                      dtype=np.float64)
         expected = np.array([1, 0, 0])
         actual = quat.rotate(q, r)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_rotate_6(self):
         r = np.array([0, 1, 0])
@@ -197,7 +197,7 @@ class TestQuaternionAPI(unittest.TestCase):
                      dtype=np.float64)
         expected = np.array([-1, 0, 0])
         actual = quat.rotate(q, r)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_rotate_7(self):
         r = np.array([0, 1, 0])
@@ -207,7 +207,7 @@ class TestQuaternionAPI(unittest.TestCase):
                      dtype=np.float64)
         expected = np.array([0, 0, 1])
         actual = quat.rotate(q, r)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_rotate_8(self):
         r = np.array([0, 1, 0])
@@ -217,7 +217,7 @@ class TestQuaternionAPI(unittest.TestCase):
                      dtype=np.float64)
         expected = np.array([0, 1, 0])
         actual = quat.rotate(q, r)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_rotate_9(self):
         r = np.array([0, 0, 1])
@@ -227,7 +227,7 @@ class TestQuaternionAPI(unittest.TestCase):
                      dtype=np.float64)
         expected = np.array([0, -1, 0])
         actual = quat.rotate(q, r)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_rotate_10(self):
         r = np.array([0, 0, 1])
@@ -237,7 +237,7 @@ class TestQuaternionAPI(unittest.TestCase):
                      dtype=np.float64)
         expected = np.array([1, 0, 0])
         actual = quat.rotate(q, r)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_rotate_11(self):
         r = np.array([0, 0, 1])
@@ -247,54 +247,54 @@ class TestQuaternionAPI(unittest.TestCase):
                      dtype=np.float64)
         expected = np.array([0, 0, 1])
         actual = quat.rotate(q, r)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_string_1(self):
         expected = np.array([1, 0, 0, 0], dtype=np.float64)
         actual = quat.from_string("identity")
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_string_2(self):
         degree = 90
         expected_radian = (0.5 * np.pi) / 2
         expected = np.array([np.cos(expected_radian), np.sin(expected_radian), 0, 0], dtype=np.float64)
         actual = quat.from_string(f"rx: {degree}")
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_string_3(self):
         degree = 90
         expected_radian = (0.5 * np.pi) / 2
         expected = np.array([np.cos(expected_radian), np.sin(expected_radian), 0, 0], dtype=np.float64)
         actual = quat.from_string(f"Rx: {degree}")
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_string_3b(self):
         degree = 90
         expected_radian = (0.5 * np.pi) / 2
         expected = np.array([np.cos(expected_radian), np.sin(expected_radian), 0, 0], dtype=np.float64)
         actual = quat.from_string(f"RX: {degree}")
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_string_3c(self):
         degree = 90
         expected_radian = (0.5 * np.pi) / 2
         expected = np.array([np.cos(expected_radian), np.sin(expected_radian), 0, 0], dtype=np.float64)
         actual = quat.from_string(f"rX: {degree}")
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_string_4(self):
         degree = 90
         expected_radian = (0.5 * np.pi) / 2
         expected = np.array([np.cos(expected_radian), 0, np.sin(expected_radian), 0], dtype=np.float64)
         actual = quat.from_string(f"ry: {degree}")
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_string_5(self):
         degree = 90
         expected_radian = (0.5 * np.pi) / 2
         expected = np.array([np.cos(expected_radian), 0, 0, np.sin(expected_radian)], dtype=np.float64)
         actual = quat.from_string(f"rz: {degree}")
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_string_6(self):
         degree = 90
@@ -302,7 +302,7 @@ class TestQuaternionAPI(unittest.TestCase):
         axis = "[1,0,0]"
         expected = np.array([np.cos(expected_radian), np.sin(expected_radian), 0, 0, ], dtype=np.float64)
         actual = quat.from_string(f"ru: {degree}:{axis}")
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_string_7(self):
         degree = 90
@@ -310,7 +310,7 @@ class TestQuaternionAPI(unittest.TestCase):
         axis = "[0,1,0]"
         expected = np.array([np.cos(expected_radian), 0, np.sin(expected_radian), 0, ], dtype=np.float64)
         actual = quat.from_string(f"ru: {degree}:{axis}")
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_string_8(self):
         degree = 90
@@ -318,12 +318,12 @@ class TestQuaternionAPI(unittest.TestCase):
         axis = "[0,0,1]"
         expected = np.array([np.cos(expected_radian), 0, 0, np.sin(expected_radian)], dtype=np.float64)
         actual = quat.from_string(f"ru: {degree}:{axis}")
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_string_9(self):
         expected = np.array([1, 2, 3, 4], dtype=np.float64)
         actual = quat.from_string(f"[1,2,3,4,5,6,7]")
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_string_10(self):
         with self.assertRaises(AssertionError):
@@ -336,12 +336,12 @@ class TestQuaternionAPI(unittest.TestCase):
     def test_from_vector3_1(self):
         expected = np.array([0, 1, 2, 3], dtype=np.float64)
         actual = quat.from_vector3(np.array([1, 2, 3]))
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_vector3_2(self):
         expected = np.array([0, 1, 2, 3], dtype=np.float64)
         actual = quat.from_vector3(np.array([1, 2, 3, 4]))
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_vector3_3(self):
         with self.assertRaises(IndexError):
@@ -351,7 +351,7 @@ class TestQuaternionAPI(unittest.TestCase):
         radian = (0.5 * np.pi) / 2
         expected = quat.make(np.cos(radian), np.sin(radian), 0, 0)
         actual = quat.from_matrix(quat.to_matrix(expected))
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_to_matrix_2(self):
         radian = (0.5 * np.pi) / 2
@@ -360,7 +360,7 @@ class TestQuaternionAPI(unittest.TestCase):
         expected = quat.make(np.cos(radian), axis_unit[0] * np.sin(radian), axis_unit[1] * np.sin(radian),
                              axis_unit[2] * np.sin(radian))
         actual = quat.from_matrix(quat.to_matrix(expected))
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_to_matrix_3(self):
         '''
@@ -375,7 +375,7 @@ class TestQuaternionAPI(unittest.TestCase):
         ])
 
         actual = quat.to_matrix(q)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_matrix_1(self):
         '''
@@ -394,7 +394,7 @@ class TestQuaternionAPI(unittest.TestCase):
         z = (M[0, 1] - M[1, 0]) / (4 * s)
         expected = np.array([s, x, y, z], dtype=np.float64)
         actual = quat.from_matrix(M)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_matrix_1(self):
         '''
@@ -413,7 +413,7 @@ class TestQuaternionAPI(unittest.TestCase):
         z = (M[0, 1] - M[1, 0]) / (4 * s)
         expected = np.array([s, x, y, z], dtype=np.float64)
         actual = quat.from_matrix(M)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_matrix_2(self):
         radian = np.pi / 2
@@ -425,7 +425,7 @@ class TestQuaternionAPI(unittest.TestCase):
         s = (M[1, 2] - M[2, 1]) / (4 * x)
         expected = np.array([s, x, y, z], dtype=np.float64)
         actual = quat.from_matrix(M)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_matrix_3(self):
         radian = np.pi / 2
@@ -435,7 +435,7 @@ class TestQuaternionAPI(unittest.TestCase):
         M = quat.to_matrix(q)
         expected = q
         actual = quat.from_matrix(M)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_matrix_4(self):
         radian = np.pi / 2
@@ -445,7 +445,7 @@ class TestQuaternionAPI(unittest.TestCase):
         M = quat.to_matrix(q)
         expected = q
         actual = quat.from_matrix(M)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_rotate_array_1(self):
         radian = (0.5 * np.pi) / 2
@@ -464,7 +464,7 @@ class TestQuaternionAPI(unittest.TestCase):
             [1, 0, 0]
         ], dtype=np.float64)
         actual = quat.rotate_array(q, rs)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_prod_array_1(self):
         radian = (0.5 * np.pi) / 2
@@ -493,8 +493,8 @@ class TestQuaternionAPI(unittest.TestCase):
         expected_theta = radian * 2
         expected_axis = axis_unit
         actual_theta, actual_axis = quat.to_angle_axis(q)
-        self.assertTrue(Tools.is_array_equal(actual_theta, expected_theta))
-        self.assertTrue(Tools.is_array_equal(actual_axis, expected_axis))
+        self.assertTrue(TEST.is_array_equal(actual_theta, expected_theta))
+        self.assertTrue(TEST.is_array_equal(actual_axis, expected_axis))
 
     def test_angle_axis_2(self):
         radian = (0.75 * np.pi) / 2
@@ -505,8 +505,8 @@ class TestQuaternionAPI(unittest.TestCase):
         expected_theta = radian * 2
         expected_axis = axis_unit
         actual_theta, actual_axis = quat.to_angle_axis(q)
-        self.assertTrue(Tools.is_array_equal(actual_theta, expected_theta))
-        self.assertTrue(Tools.is_array_equal(actual_axis, expected_axis))
+        self.assertTrue(TEST.is_array_equal(actual_theta, expected_theta))
+        self.assertTrue(TEST.is_array_equal(actual_axis, expected_axis))
 
     def test_angle_axis_2b(self):
         radian = (0.75 * np.pi) / 2
@@ -517,8 +517,8 @@ class TestQuaternionAPI(unittest.TestCase):
         expected_theta = radian * 2
         expected_axis = axis_unit
         actual_theta, actual_axis = quat.to_angle_axis(q)
-        self.assertTrue(Tools.is_array_equal(actual_theta, expected_theta))
-        self.assertTrue(Tools.is_array_equal(actual_axis, expected_axis))
+        self.assertTrue(TEST.is_array_equal(actual_theta, expected_theta))
+        self.assertTrue(TEST.is_array_equal(actual_axis, expected_axis))
 
     def test_angle_axis_3(self):
         radian = (0.00001 * np.pi) / 2
@@ -529,8 +529,8 @@ class TestQuaternionAPI(unittest.TestCase):
         expected_theta = radian * 2
         expected_axis = axis_unit
         actual_theta, actual_axis = quat.to_angle_axis(q)
-        self.assertTrue(Tools.is_array_equal(actual_theta, expected_theta))
-        self.assertTrue(Tools.is_array_equal(actual_axis, expected_axis))
+        self.assertTrue(TEST.is_array_equal(actual_theta, expected_theta))
+        self.assertTrue(TEST.is_array_equal(actual_axis, expected_axis))
 
     def test_angle_axis_4(self):
         radian = np.pi / 2
@@ -542,7 +542,7 @@ class TestQuaternionAPI(unittest.TestCase):
         expected_axis = axis_unit
         actual_theta, actual_axis = quat.to_angle_axis(q)
         self.assertTrue(actual_theta in expected_theta)
-        self.assertTrue(Tools.is_array_equal(actual_axis, expected_axis))
+        self.assertTrue(TEST.is_array_equal(actual_axis, expected_axis))
 
     def test_to_angle_1(self):
         radian = (0.5 * np.pi) / 2
@@ -552,7 +552,7 @@ class TestQuaternionAPI(unittest.TestCase):
                       axis_unit[2] * np.sin(radian))
         expected = radian * 2
         actual = quat.to_angle(q, axis_unit)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_to_angle_2(self):
         radian = (1.5 * np.pi) / 2
@@ -562,7 +562,7 @@ class TestQuaternionAPI(unittest.TestCase):
                       axis_unit[2] * np.sin(radian))
         expected = np.pi - (radian * 2)
         actual = quat.to_angle(q, axis_unit)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_hat_1(self):
         radian = (0.5 * np.pi) / 2
@@ -572,7 +572,7 @@ class TestQuaternionAPI(unittest.TestCase):
                       axis_unit[2] * np.sin(radian))
         expected = 0.5 * np.pi
         actual, _ = quat.to_angle_axis(quat.hat(q))
-        self.assertTrue(Tools.is_array_equal(actual / 2, expected))
+        self.assertTrue(TEST.is_array_equal(actual / 2, expected))
 
     def test_hat_2(self):
         radian = (0.25 * np.pi) / 2
@@ -582,7 +582,7 @@ class TestQuaternionAPI(unittest.TestCase):
                       axis_unit[2] * np.sin(radian))
         expected = 0.5 * np.pi
         actual, _ = quat.to_angle_axis(quat.hat(q))
-        self.assertTrue(Tools.is_array_equal(actual / 2, expected))
+        self.assertTrue(TEST.is_array_equal(actual / 2, expected))
 
     def test_lerp_1(self):
         radian = (0.5 * np.pi) / 2
@@ -597,7 +597,7 @@ class TestQuaternionAPI(unittest.TestCase):
         h = 0.5
         expected = q_1 * (1 - h) + q_2 * h
         actual = quat.lerp(q_1, q_2, h)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_lerp_2(self):
         radian = (0.5 * np.pi) / 2
@@ -612,7 +612,7 @@ class TestQuaternionAPI(unittest.TestCase):
         h = 0.7
         expected = q_1 * (1 - h) + q_2 * h
         actual = quat.lerp(q_1, q_2, h)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_slerp_1(self):
         radian = (0.5 * np.pi) / 2
@@ -627,7 +627,7 @@ class TestQuaternionAPI(unittest.TestCase):
         h = 0.0
         expected = q_1
         actual = quat.slerp(q_1, q_2, h)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_slerp_2(self):
         radian = (0.5 * np.pi) / 2
@@ -642,7 +642,7 @@ class TestQuaternionAPI(unittest.TestCase):
         h = 1.0
         expected = q_2
         actual = quat.slerp(q_1, q_2, h)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_slerp_3(self):
         radian = (0.5 * np.pi) / 2
@@ -657,7 +657,7 @@ class TestQuaternionAPI(unittest.TestCase):
         h = 1.0
         expected = q_2
         actual = quat.slerp(q_1, q_2, h)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_from_string_err_1(self):
         input_ = "hello world"

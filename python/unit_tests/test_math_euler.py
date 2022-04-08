@@ -4,7 +4,7 @@ import os
 import sys
 import numpy as np
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import isl.math.euler as eu
 import isl.math.quaternion as quat
@@ -15,7 +15,7 @@ def compute_orientation_zyx(matrix):
     """
     This is an auxiliary function used to set up test-cases in a more convenient way. It is based on
 
-    https://www.geometrictools.com/Documentation/EulerAngles.pdf
+    https://www.geometricTEST.com/Documentation/EulerAngles.pdf
 
     :param matrix: A rotation matrix.
     :return: The three Euler angles.

@@ -4,10 +4,10 @@ import sys
 import numpy as np
 import math as m
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import isl.math.functions as func
-from isl.test.testtools import Tools
+import isl.util.test_tools as TEST
 
 
 def dxxf(x):
@@ -112,4 +112,4 @@ class TestFunctionAPI(unittest.TestCase):
         expected = vector[np.argmax(values)]
         actual = func.direction_of_most_variance(points)
 
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))

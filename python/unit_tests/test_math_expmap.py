@@ -3,12 +3,12 @@ import os
 import sys
 import numpy as np
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import isl.math.expmap as exm
 import isl.math.quaternion as Q
 import isl.math.vector3 as vec3
-from isl.test.testtools import Tools
+import isl.util.test_tools as TEST
 
 
 class TestExomapAPI(unittest.TestCase):
@@ -16,19 +16,19 @@ class TestExomapAPI(unittest.TestCase):
         expected = Q.rand()
         v = exm.log(expected)
         actual = exm.exp(v)
-        self.assertTrue(Tools.is_array_equal(abs(actual), abs(expected)))
+        self.assertTrue(TEST.is_array_equal(abs(actual), abs(expected)))
 
     def test_log_exp_2(self):
         expected = Q.rand()
         v = exm.to_expmap(expected)
         actual = exm.to_quaternion(v)
-        self.assertTrue(Tools.is_array_equal(abs(actual), abs(expected)))
+        self.assertTrue(TEST.is_array_equal(abs(actual), abs(expected)))
 
     def test_log_exp_3(self):
         zeros = Q.make(0, 1, 2, 3)
         expected = vec3.make(0, 0, 0)
         actual = exm.log(zeros)
-        self.assertTrue(Tools.is_array_equal(abs(actual), abs(expected)))
+        self.assertTrue(TEST.is_array_equal(abs(actual), abs(expected)))
 
     def test_exp_1(self):
         const = np.pi * (1 / (np.sqrt(3)))
@@ -39,7 +39,7 @@ class TestExomapAPI(unittest.TestCase):
             np.cos(0.5 * theta), sin_exp * v[0], sin_exp * v[1], sin_exp * v[2]
         )
         actual = exm.exp(v)
-        self.assertTrue(Tools.is_array_equal(abs(actual), abs(expected)))
+        self.assertTrue(TEST.is_array_equal(abs(actual), abs(expected)))
 
     def test_reparameterization_1(self):
         const = np.pi + np.pi / 2 + np.pi / 4

@@ -3,13 +3,13 @@ import os
 import sys
 import numpy as np
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import isl.math.coordsys as cs
 import isl.math.vector3 as vec3
 import isl.math.matrix3 as mat3
 import isl.math.quaternion as quat
-from isl.test.testtools import Tools
+import isl.util.test_tools as TEST
 
 
 class TestCoordSys(unittest.TestCase):
@@ -24,8 +24,8 @@ class TestCoordSys(unittest.TestCase):
         actual_q = coordsys.q
         expected_r = r
         expected_q = q
-        self.assertTrue(Tools.is_array_equal(actual_r, expected_r))
-        self.assertTrue(Tools.is_array_equal(actual_q, expected_q))
+        self.assertTrue(TEST.is_array_equal(actual_r, expected_r))
+        self.assertTrue(TEST.is_array_equal(actual_q, expected_q))
 
     def test_xform_point_1(self):
         x, y, z = 0, 0, 0
@@ -38,7 +38,7 @@ class TestCoordSys(unittest.TestCase):
         point_rot = cs.xform_point(coordsys, point)
         actual = point_rot
         expected = np.array([0, 1, 0])
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_xform_point_2(self):
         x, y, z = 1, 1, 1
@@ -51,7 +51,7 @@ class TestCoordSys(unittest.TestCase):
         point_rot = cs.xform_point(coordsys, point)
         actual = point_rot
         expected = np.array([1, 2, 1])
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_xform_point_3(self):
         x, y, z = 0, -2, 0
@@ -64,7 +64,7 @@ class TestCoordSys(unittest.TestCase):
         point_rot = cs.xform_point(coordsys, point)
         actual = point_rot
         expected = np.array([-2, -2, 0])
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_xform_vector_1(self):
         # just a test of rotate, therefore i assume it is already tested
@@ -78,7 +78,7 @@ class TestCoordSys(unittest.TestCase):
         vec_rot = cs.xform_vector(coordsys, vec)
         actual = vec_rot
         expected = np.array([-2, 0, 0])
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_xform_matrix_1(self):
         x, y, z = 1, 0, 0
@@ -98,7 +98,7 @@ class TestCoordSys(unittest.TestCase):
             [0, 0, 1]
         ])
         actual = cs.xform_matrix(coordsys, identity_basis)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_xform_matrix_2(self):
         x, y, z = 1, 0, 0
@@ -118,7 +118,7 @@ class TestCoordSys(unittest.TestCase):
             [-1, 0, 0]
         ])
         actual = cs.xform_matrix(coordsys, identity_basis)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_xform_matrix_3(self):
         x, y, z = 1, 0, 0
@@ -138,7 +138,7 @@ class TestCoordSys(unittest.TestCase):
             [0, 1, 0]
         ])
         actual = cs.xform_matrix(coordsys, identity_basis)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_concat_1(self):
         x, y, z = 1, 0, 0
@@ -159,7 +159,7 @@ class TestCoordSys(unittest.TestCase):
         ])
         concat_transform = cs.concat(coordsys, coordsys)
         actual = cs.xform_matrix(concat_transform, identity_basis)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_concat_2(self):
         x, y, z = 1, 0, 0
@@ -183,7 +183,7 @@ class TestCoordSys(unittest.TestCase):
         ])
         concat_transform = cs.concat(coordsys_1, coordsys_2)
         actual = cs.xform_matrix(concat_transform, identity_basis)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_concat_3(self):
         x, y, z = 1, 0, 0
@@ -208,7 +208,7 @@ class TestCoordSys(unittest.TestCase):
         ])
         concat_transform = cs.concat(coordsys_1, coordsys_2)
         actual = cs.xform_matrix(concat_transform, identity_basis)
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_inverse_1(self):
         radians = 2 * np.pi
@@ -219,7 +219,7 @@ class TestCoordSys(unittest.TestCase):
         coordsys_inverse = cs.inverse(coordsys)
         expected = mat3.make(1, 0, 0, 0, 1, 0, 0, 0, 1)
         actual = np.dot(quat.to_matrix(coordsys_inverse.q), quat.to_matrix(q))
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_inverse_2(self):
         radians = 2 * np.pi
@@ -230,7 +230,7 @@ class TestCoordSys(unittest.TestCase):
         coordsys_inverse = cs.inverse(cs.inverse(coordsys))
         expected = q
         actual = coordsys_inverse.q
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_inverse_3(self):
         radians = 2 * np.pi
@@ -241,7 +241,7 @@ class TestCoordSys(unittest.TestCase):
         coordsys_inverse = cs.inverse(cs.inverse(coordsys))
         expected = r
         actual = coordsys_inverse.r
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_inverse_4(self):
         radians = 2 * np.pi
@@ -252,7 +252,7 @@ class TestCoordSys(unittest.TestCase):
         coordsys_inverse = cs.inverse(cs.inverse(coordsys))
         expected = r
         actual = coordsys_inverse.r
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_inverse_5(self):
         radians = 2 * np.pi
@@ -263,7 +263,7 @@ class TestCoordSys(unittest.TestCase):
         coordsys_inverse = cs.inverse(coordsys)
         expected = -r
         actual = coordsys_inverse.r
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_inverse_6(self):
         radians = 2 * np.pi
@@ -274,7 +274,7 @@ class TestCoordSys(unittest.TestCase):
         coordsys_inverse = cs.inverse(coordsys)
         expected = -r
         actual = coordsys_inverse.r
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_inverse_7(self):
         x, y, z = 0, 0, 0
@@ -288,7 +288,7 @@ class TestCoordSys(unittest.TestCase):
         coordsys_inverse = cs.inverse(coordsys)
         actual = cs.xform_point(coordsys_inverse, point_rot)
         expected = point
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_inverse_8(self):
         x, y, z = 1, 0, 5
@@ -302,7 +302,7 @@ class TestCoordSys(unittest.TestCase):
         coordsys_inverse = cs.inverse(coordsys)
         actual = cs.xform_point(coordsys_inverse, point_rot)
         expected = point
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_inverse_9(self):
         x, y, z = -1, 0, 5
@@ -316,7 +316,7 @@ class TestCoordSys(unittest.TestCase):
         coordsys_inverse = cs.inverse(coordsys)
         actual = cs.xform_point(coordsys_inverse, point_rot)
         expected = point
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_make_coordsys_from_to_1(self):
         radians_A = np.pi * 0.5
@@ -341,7 +341,7 @@ class TestCoordSys(unittest.TestCase):
         coord_B2A = cs.make_coordsys_from_to(B, A)
         expected = point
         actual = cs.xform_point(coord_B2A, cs.xform_point(coord_A2B, point))
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
 
     def test_make_coordsys_from_to_2(self):
         radians_A = np.pi * 0.5
@@ -366,4 +366,4 @@ class TestCoordSys(unittest.TestCase):
         coord_B2A = cs.make_coordsys_from_to(B, A)
         expected = point
         actual = cs.xform_point(coord_B2A, cs.xform_point(coord_A2B, point))
-        self.assertTrue(Tools.is_array_equal(actual, expected))
+        self.assertTrue(TEST.is_array_equal(actual, expected))
