@@ -215,7 +215,7 @@ class ContactPoint:
     the contact area between two bodies.
     """
 
-    def __init__(self, bodyA, bodyB, position=V3.zero(), normal=V3.k(), gap=0.0, toi=None):
+    def __init__(self, bodyA, bodyB, position=V3.zero(), normal=V3.k(), gap=0.0):
         """
         Create an instance of a single contact point.
 
@@ -241,7 +241,6 @@ class ContactPoint:
         self.p = position
         self.n = normal
         self.g = gap
-        self.toi = toi
 
 
 class Parameters:

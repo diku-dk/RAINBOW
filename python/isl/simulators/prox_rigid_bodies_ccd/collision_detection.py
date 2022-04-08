@@ -403,7 +403,7 @@ def _compute_vertex_face_ccd(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
 
     res = solve_interval(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), vf, 0.000001)
     if res is not None:
-        return [res.t, vf.P(res.t.L), vf.N(res.t.L), 0]
+        return [res.t.L, vf.P(res.t.L), vf.N(res.t.L), 0]
     return None
 
 def _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
@@ -429,12 +429,12 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
     :return:            Nothing.
     """
     # Make BVH traversel return start and end points instead
-    toi = Interval(np.Infinity, np.Infinity)
+    # toi = Interval(np.Infinity, np.Infinity)
     mesh_A_0 = Q.rotate_array(bodyA.q, bodyA.shape.mesh.V) + bodyA.r
     mesh_B_0 = Q.rotate_array(bodyB.q, bodyB.shape.mesh.V) + bodyB.r
     mesh_A_1 = Q.rotate_array(Q.unit(bodyA.q + (Q.prod(Q.from_vector3(bodyA.w), bodyA.q) * dt * 0.5)), bodyA.shape.mesh.V) + bodyA.r + bodyA.v * dt
     mesh_B_1 = Q.rotate_array(Q.unit(bodyB.q + (Q.prod(Q.from_vector3(bodyB.w), bodyB.q) * dt * 0.5)), bodyB.shape.mesh.V) + bodyB.r + bodyB.v * dt
-    # res = []
+    toi = np.Infinity
     for triangleA, triangleB in triangles:
         f_a_t0 = mesh_A_0[bodyA.shape.mesh.T[triangleA]]
         f_a_t1 = mesh_A_1[bodyA.shape.mesh.T[triangleA]]
@@ -450,17 +450,15 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
             a_vf = _compute_vertex_face_ccd(v_a_t0, f_b_t0[0], f_b_t0[1], f_b_t0[2], v_a_t1, f_b_t1[0], f_b_t1[1], f_b_t1[2])
             b_vf = _compute_vertex_face_ccd(v_b_t0, f_a_t0[0], f_a_t0[1], f_a_t0[2], v_b_t1, f_a_t1[0], f_a_t1[1], f_a_t1[2])
             if a_vf is not None:
-                dti = a_vf[0]*dt
-                toi = min(toi, dti, key=lambda t: t.L)
-                cp = ContactPoint(bodyA, bodyB, a_vf[1], V3.unit(a_vf[2]), a_vf[3], dti.L)
-                engine.contact_points.append(cp)
-                # res.append(a_vf)
+                toi = min(toi, a_vf[0])
+                if a_vf[0] == 0:
+                    cp = ContactPoint(bodyA, bodyB, a_vf[1], V3.unit(a_vf[2]), a_vf[3])
+                    engine.contact_points.append(cp)
             if b_vf is not None:
-                dti = b_vf[0]*dt
-                toi = min(toi, dti, key=lambda t: t.L)
-                cp = ContactPoint(bodyA, bodyB, b_vf[1], V3.unit(b_vf[2]), b_vf[3], dti.L)
-                engine.contact_points.append(cp)
-                # res.append(b_vf)
+                toi = min(toi, b_vf[0])
+                if b_vf[0] == 0:
+                    cp = ContactPoint(bodyA, bodyB, b_vf[1], V3.unit(b_vf[2]), b_vf[3])
+                    engine.contact_points.append(cp)
             # print(f"{toi_a=}, {toi_b=}")
             # toi = min(toi, toi_a_vf)
             # toi = min(toi, toi_b_vf)
@@ -477,7 +475,7 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
                 #     # res.append(ee)
 
     # print("final", toi)
-    return toi
+    return toi*dt
 
 def _contact_determination(dt, overlaps, engine, stats, debug_on):
     """
@@ -497,7 +495,7 @@ def _contact_determination(dt, overlaps, engine, stats, debug_on):
         contact_determination_timer = Timer('contact_determination', 8)
         contact_determination_timer.start()
     engine.contact_points = []
-    toi = Interval(dt, dt)
+    toi = dt
     for key, results in overlaps.items():
         dti = _compute_contacts(engine,
                             stats,
@@ -507,7 +505,7 @@ def _contact_determination(dt, overlaps, engine, stats, debug_on):
                             results, # All triangles from A and B that may collide
                             debug_on
                             )
-        toi = min(toi, dti, key=lambda t: t.L)
+        toi = min(toi, dti)
 
     if debug_on:
         contact_determination_timer.end()
@@ -535,14 +533,6 @@ def _contact_reduction(toi, engine, stats, debug_on):
     if debug_on:
         reduction_timer = Timer('contact_point_reduction', 8)
         reduction_timer.start()
-
-    reduced_list = []
-
-    for cp in engine.contact_points:
-        if cp.toi <= toi.R:
-            reduced_list.append(cp)
-
-    engine.contact_points = reduced_list
 
     # TODO 2020-09-07 Kristian: This brute force implementation can be implemented better
     reduced_list = []
@@ -585,4 +575,4 @@ def run_collision_detection(dt, engine, stats, debug_on):
     if debug_on:
         collision_detection_timer.end()
         stats['collision_detection_time'] = collision_detection_timer.elapsed
-    return stats, toi.L
+    return stats, toi

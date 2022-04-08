@@ -491,12 +491,6 @@ def stepper_dcd(dt: float, engine, debug_on: bool) -> dict:
 
     # stats = CD.run_collision_detection(dt, engine, stats, debug_on)
 
-    du_total = du_ext + du_contact
-    u += du_total
-    position_update(x, u, dt, engine)
-    set_position_vector(x, engine)
-    set_velocity_vector(u, engine)
-
     J = None
     WJT = None
     if len(engine.contact_points) > 0:
@@ -519,10 +513,9 @@ def stepper_dcd(dt: float, engine, debug_on: bool) -> dict:
         du_contact = WJT.dot(sol)
 
     du_total = du_ext + du_contact
-    # u += du_total
-    # position_update(x, u, dt, engine)
-    # set_position_vector(x, engine)
-    u += du_contact
+    u += du_total
+    position_update(x, u, dt, engine)
+    set_position_vector(x, engine)
     set_velocity_vector(u, engine)
     engine.params.current_time += dt
 
