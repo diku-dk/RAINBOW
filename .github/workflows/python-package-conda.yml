@@ -30,7 +30,7 @@ jobs:
             conda install -c conda-forge igl
             conda install coverage
             conda install pyparsing
-            coverage run  -m unittest python/isl/test/test_*/test_*.py
+            coverage run  -m unittest python/isl/unit_tests/test_*.py
             coverage report
       - name: Format the code
         shell: bash -l {0}
