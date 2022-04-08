@@ -1,16 +1,13 @@
 import unittest
-from cmath import sin, tan
-from ctypes import util
+from cmath import sin
 import os
 import sys
 import numpy as np
-import math as m
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
 
 import isl.math.euler as eu
 import isl.math.quaternion as quat
-import isl.math.angle as angle
 import isl.math.matrix3 as mat3
 
 
