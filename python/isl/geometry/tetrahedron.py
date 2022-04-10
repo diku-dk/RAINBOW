@@ -1,6 +1,6 @@
+import numpy as np
 import isl.math.vector3 as V3
 import isl.math.matrix3 as M3
-import numpy as np
 
 
 def compute_signed_volume(pi, pj, pk, pm):

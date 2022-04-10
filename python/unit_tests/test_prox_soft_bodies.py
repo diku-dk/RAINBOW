@@ -1,3 +1,9 @@
+import unittest
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import isl.simulators.prox_soft_bodies.api as API
 import isl.simulators.prox_soft_bodies.solver as SOLVER
 import isl.simulators.prox_soft_bodies.mechanics as MECH
@@ -9,6 +15,7 @@ import isl.math.matrix3 as M3
 import numpy as np
 import matplotlib.pyplot as pyplot
 
+# 2022-04-10 Kenny TODO: Please re-implement into proper unit-test
 
 class TestBlackBoxSimulator:
 

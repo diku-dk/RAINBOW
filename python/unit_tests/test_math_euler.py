@@ -6,9 +6,9 @@ import numpy as np
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import isl.math.euler as eu
-import isl.math.quaternion as quat
-import isl.math.matrix3 as mat3
+import isl.math.euler as EULER
+import isl.math.quaternion as Q
+import isl.math.matrix3 as M3
 
 
 def compute_orientation_zyx(matrix):
@@ -55,8 +55,8 @@ class TestEulerAPI(unittest.TestCase):
         radians_y = np.pi / 2
         radians_z = 1.2
 
-        matrix = np.dot(mat3.Rx(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rz(radians_x)))
-        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(M3.Rx(radians_z), np.dot(M3.Ry(radians_y), M3.Rz(radians_x)))
+        euler_angles = EULER.make_euler_xyz_from_matrix(matrix)
         expected_alpha, expected_beta, expected_gamma = compute_orientation_zyx(matrix)
 
         actual_alpha = euler_angles.alpha
@@ -72,8 +72,8 @@ class TestEulerAPI(unittest.TestCase):
         radians_y = np.pi / 2 + np.pi
         radians_z = 1.2
 
-        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(M3.Rz(radians_z), np.dot(M3.Ry(radians_y), M3.Rx(radians_x)))
+        euler_angles = EULER.make_euler_xyz_from_matrix(matrix)
         expected_alpha, expected_beta, expected_gamma = compute_orientation_zyx(matrix)
 
         actual_alpha = euler_angles.alpha
@@ -89,8 +89,8 @@ class TestEulerAPI(unittest.TestCase):
         radians_y = 1.1
         radians_z = 1.2
 
-        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(M3.Rz(radians_z), np.dot(M3.Ry(radians_y), M3.Rx(radians_x)))
+        euler_angles = EULER.make_euler_xyz_from_matrix(matrix)
         expected_alpha, expected_beta, expected_gamma = compute_orientation_zyx(matrix)
 
         actual_alpha = euler_angles.alpha
@@ -106,8 +106,8 @@ class TestEulerAPI(unittest.TestCase):
         radians_y = -1.1
         radians_z = 1.2
 
-        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(M3.Rz(radians_z), np.dot(M3.Ry(radians_y), M3.Rx(radians_x)))
+        euler_angles = EULER.make_euler_xyz_from_matrix(matrix)
         expected_alpha, expected_beta, expected_gamma = compute_orientation_zyx(matrix)
 
         actual_alpha = euler_angles.alpha
@@ -123,8 +123,8 @@ class TestEulerAPI(unittest.TestCase):
         radians_y = -1.1
         radians_z = 1.2
 
-        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(M3.Rz(radians_z), np.dot(M3.Ry(radians_y), M3.Rx(radians_x)))
+        euler_angles = EULER.make_euler_xyz_from_matrix(matrix)
         expected_alpha, expected_beta, expected_gamma = radians_x, radians_y, radians_z
 
         actual_alpha = euler_angles.alpha
@@ -140,8 +140,8 @@ class TestEulerAPI(unittest.TestCase):
         radians_y = -1.2
         radians_z = 0.3
 
-        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(M3.Rz(radians_z), np.dot(M3.Ry(radians_y), M3.Rx(radians_x)))
+        euler_angles = EULER.make_euler_xyz_from_matrix(matrix)
         expected_alpha, expected_beta, expected_gamma = radians_x, radians_y, radians_z
 
         actual_alpha = euler_angles.alpha
@@ -157,8 +157,8 @@ class TestEulerAPI(unittest.TestCase):
         radians_y = np.pi / 2
         radians_z = 0.0
 
-        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(M3.Rz(radians_z), np.dot(M3.Ry(radians_y), M3.Rx(radians_x)))
+        euler_angles = EULER.make_euler_xyz_from_matrix(matrix)
         expected_alpha, expected_beta, expected_gamma = radians_x, radians_y, radians_z
 
         actual_alpha = euler_angles.alpha
@@ -174,8 +174,8 @@ class TestEulerAPI(unittest.TestCase):
         radians_y = np.pi / 2 + np.pi
         radians_z = 0.0
 
-        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        euler_angles = eu.make_euler_xyz_from_matrix(matrix)
+        matrix = np.dot(M3.Rz(radians_z), np.dot(M3.Ry(radians_y), M3.Rx(radians_x)))
+        euler_angles = EULER.make_euler_xyz_from_matrix(matrix)
         expected_alpha, _, expected_gamma = radians_x, radians_y, radians_z
 
         actual_alpha = euler_angles.alpha
@@ -191,10 +191,10 @@ class TestEulerAPI(unittest.TestCase):
         radians_y = np.pi / 2 + np.pi
         radians_z = 0.0
 
-        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        q = quat.from_matrix(matrix)
+        matrix = np.dot(M3.Rz(radians_z), np.dot(M3.Ry(radians_y), M3.Rx(radians_x)))
+        q = Q.from_matrix(matrix)
 
-        euler_angles = eu.make_euler_xyz_from_quaternion(q)
+        euler_angles = EULER.make_euler_xyz_from_quaternion(q)
         expected_alpha, _, expected_gamma = radians_x, radians_y, radians_z
 
         actual_alpha = euler_angles.alpha
@@ -210,10 +210,10 @@ class TestEulerAPI(unittest.TestCase):
         radians_y = 1.1
         radians_z = -1.3
 
-        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        q = quat.from_matrix(matrix)
+        matrix = np.dot(M3.Rz(radians_z), np.dot(M3.Ry(radians_y), M3.Rx(radians_x)))
+        q = Q.from_matrix(matrix)
 
-        euler_angles = eu.make_euler_xyz_from_quaternion(q)
+        euler_angles = EULER.make_euler_xyz_from_quaternion(q)
         expected_alpha, expected_beta, expected_gamma = radians_x, radians_y, radians_z
 
         actual_alpha = euler_angles.alpha
@@ -229,10 +229,10 @@ class TestEulerAPI(unittest.TestCase):
         radians_y = 0.5
         radians_z = 1.7
 
-        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        q = quat.from_matrix(matrix)
+        matrix = np.dot(M3.Rz(radians_z), np.dot(M3.Ry(radians_y), M3.Rx(radians_x)))
+        q = Q.from_matrix(matrix)
 
-        euler_angles = eu.make_euler_xyz_from_quaternion(q)
+        euler_angles = EULER.make_euler_xyz_from_quaternion(q)
         expected_alpha, expected_beta, expected_gamma = radians_x, radians_y, radians_z
 
         actual_alpha = euler_angles.alpha
@@ -248,10 +248,10 @@ class TestEulerAPI(unittest.TestCase):
         radians_y = np.pi / 2
         radians_z = 0.0
 
-        matrix = np.dot(mat3.Rz(radians_z), np.dot(mat3.Ry(radians_y), mat3.Rx(radians_x)))
-        q = quat.from_matrix(matrix)
+        matrix = np.dot(M3.Rz(radians_z), np.dot(M3.Ry(radians_y), M3.Rx(radians_x)))
+        q = Q.from_matrix(matrix)
 
-        euler_angles = eu.make_euler_xyz_from_quaternion(q)
+        euler_angles = EULER.make_euler_xyz_from_quaternion(q)
         expected_alpha, _, expected_gamma = radians_x, radians_y, radians_z
 
         actual_alpha = euler_angles.alpha

@@ -1,5 +1,5 @@
 import numpy as np
-import isl.geometry.grid3 as grid3
+import isl.geometry.grid3 as GRID
 
 
 def create_from_sdf(phi):
@@ -8,7 +8,7 @@ def create_from_sdf(phi):
     :return:      A grid3 of same dimension as input phi, but will contain the mean curvature value.
     """
     # TODO 2021-03-25 Kenny: We are missing a way of setting the boundary vertex to a high default value. They are currently 0.
-    kappa = grid3.Grid(phi.min_coord, phi.max_coord, phi.I, phi.J, phi.K)
+    kappa = GRID.Grid(phi.min_coord, phi.max_coord, phi.I, phi.J, phi.K)
     kappa.values = np.zeros(phi.values.shape, dtype=np.float64)
 
     dx = phi.spacing[0]
