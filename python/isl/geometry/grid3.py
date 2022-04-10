@@ -34,8 +34,8 @@ class Grid:
             raise ValueError()
         if K < 2:
             raise ValueError()
-        self.min_coord = min_coord
-        self.max_coord = max_coord
+        self.min_coord = np.array(min_coord).ravel()
+        self.max_coord = np.array(max_coord).ravel()
         self.I = I  # Number of nodes along x axis
         self.J = J  # Number of nodes along y axis
         self.K = K  # Number of nodes along z axis
@@ -336,10 +336,10 @@ def read_matlab_file(filename):
     I = int(data["I"])
     J = int(data["J"])
     K = int(data["K"])
-    min_coord = np.array(data["min_coord"], dtype=np.float64)
-    max_coord = np.array(data["max_coord"], dtype=np.float64)
+    min_coord = np.array(data["min_coord"], dtype=np.float64).ravel()
+    max_coord = np.array(data["max_coord"], dtype=np.float64).ravel()
     grid = Grid(min_coord=min_coord, max_coord=max_coord, I=I, J=J, K=K)
-    grid.values = data["values"]
+    grid.values = np.array(data["values"], dtype=np.float64).ravel()
     return grid
 
 
@@ -374,8 +374,8 @@ def create_signed_distance(V, F, I, J, K, boundary=0.5):
     """
     if boundary < 0:
         raise ValueError()
-    min_coord = V.min(axis=0) - boundary
-    max_coord = V.max(axis=0) + boundary
+    min_coord = (V.min(axis=0) - boundary).ravel()
+    max_coord = (V.max(axis=0) + boundary).ravel()
     grid = Grid(min_coord, max_coord, I, J, K)
     nodes = get_nodes_array(grid)
     grid.values, _, _ = igl.signed_distance(nodes, V, F)
