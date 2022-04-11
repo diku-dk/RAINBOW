@@ -27,6 +27,7 @@ jobs:
         run: |
             conda install numpy
             conda install scipy
+            conda install -c conda-forge matplotlib
             conda install -c conda-forge igl
             conda install coverage
             conda install pyparsing
