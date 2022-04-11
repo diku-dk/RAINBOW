@@ -72,7 +72,7 @@ class Grid:
 
     def get_node_value(self, i, j, k):
         """
-        This mehthod retrieves the grid value stored at the node with indices (i,j,k). The method
+        This method retrieves the grid value stored at the node with indices (i,j,k). The method
         does not check if (i,j,k) are valid values. Hence if values are given outside the grid node
         range then one should expect and access exception. Similar not test is done for whether the
         internal value array has been allocated and filled with meaningful values.
