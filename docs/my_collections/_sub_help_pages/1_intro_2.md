@@ -1,17 +1,13 @@
 ---
 layout: sub_page
 title: "Introduction"
+subtitle: "How Procedure"
+role: "child"
 prefix: "contribute"
-postfix: introduction
-permalink: my_collections/sub_help_pages/contribute/introduction
+postfix: introduction/how_procedure
+permalink: my_collections/sub_help_pages/contribute/introduction/how_procedure
 ---
-# How to contribute?
-This help page is intended for people who want to contribute to the libRAINBOW repository. 
-Before you can contribute, you need to be a member of the RAINBOW team or have other 
-collaborations with the IMAGE section. Otherwise please contact 
-[us](https://di.ku.dk/Ansatte/forskere/?pure=da/persons/566411). 
-
-## The Procedure
+# The Procedure
 1. Clone the repository from [git](https://github.com/diku-dk/libRAINBOW/tree/main)
 2. Create a [issue](https://docs.github.com/en/issues) on the [github webpage](https://github.com/diku-dk/libRAINBOW/issues)
 3. Create a local branch. You will make all the changes within the local branch. 

@@ -27,20 +27,35 @@
     <main id="content" class="main-content" role="main">
       <!-- {{ content }}        -->
       <div class="tab-sub-help">
-        <div class="left">
+        <div class="left-sub">
           {% for sub_help_page in site.sub_help_pages %}
-            {% if page.title == sub_help_page.title %}
-              <a href="{{ site.url }}{{ site.baseurl }}/my_collections/sub_help_pages/{{ sub_help_page.prefix }}/{{ sub_help_page.postfix }}" 
-               class="tablinks-active" onclick="openOS(event, '{{ sub_help_page.title }}')">{{ sub_help_page.title }}</a>
-            {% else %}
-              <a href="{{ site.url }}{{ site.baseurl }}/my_collections/sub_help_pages/{{ sub_help_page.prefix }}/{{ sub_help_page.postfix }}" 
-               class="tablinks" onclick="openOS(event, '{{ sub_help_page.title }}')">{{ sub_help_page.title }}</a>
+            {% if "parent" == sub_help_page.role %}
+              {% if page.title == sub_help_page.title %}
+                <a href="{{ site.url }}{{ site.baseurl }}/my_collections/sub_help_pages/{{ sub_help_page.prefix }}/{{ sub_help_page.postfix }}" 
+                 class="tablinks-active" onclick="openOS(event, '{{ sub_help_page.title }}')">{{ sub_help_page.title }}</a>
+              {% else %}
+                <a href="{{ site.url }}{{ site.baseurl }}/my_collections/sub_help_pages/{{ sub_help_page.prefix }}/{{ sub_help_page.postfix }}" 
+                 class="tablinks" onclick="openOS(event, '{{ sub_help_page.title }}')">{{ sub_help_page.title }}</a>
+              {% endif %}
             {% endif %}
           {% endfor %}
         </div>
-        <div class="right"> 
-            {{ content }}
+        <div class="right-sub"> 
+            {% for sub_help_page in site.sub_help_pages %}
+            {% if page.title == sub_help_page.title %}
+              {% if page.subtitle == sub_help_page.subtitle %}
+                <a href="{{ site.url }}{{ site.baseurl }}/my_collections/sub_help_pages/{{ sub_help_page.prefix }}/{{ sub_help_page.postfix }}" 
+                 class="sub-tablinks-active" onclick="openOS(event, '{{ sub_help_page.subtitle }}')">{{ sub_help_page.subtitle }}</a>
+              {% else %}
+                <a href="{{ site.url }}{{ site.baseurl }}/my_collections/sub_help_pages/{{ sub_help_page.prefix }}/{{ sub_help_page.postfix }}" 
+                 class="tablinks" onclick="openOS(event, '{{ sub_help_page.subtitle }}')">{{ sub_help_page.subtitle }}</a>
+              {% endif %}
+            {% endif %}
+          {% endfor %}
         </div>
+      </div>
+      <div>
+        {{ content }}
       </div>
       <footer class="site-footer">
         {% if site.github.is_project_page %}
