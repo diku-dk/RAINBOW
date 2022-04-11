@@ -45,3 +45,13 @@ def psu_rand_array_gen(size, min_lim=10, max_lim=100):
     values = np.linspace(min_value, max_value, length)
     np.random.shuffle(values)
     return values.reshape(size)
+
+
+def get_base_folder() -> str:
+    """
+    Retrieves the folder path to the top-most folder of the code-base.
+
+    :return: The top-folder path.
+    """
+    import os
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../.."

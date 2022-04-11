@@ -239,10 +239,10 @@ class TestGrid(unittest.TestCase):
         self.assertFalse(GRID.is_inside(A, p, boundary))
 
     def test_read_write_matlab(self):
-        V, F = igl.read_triangle_mesh("../../data/armadillo.obj")
+        V, F = igl.read_triangle_mesh(TEST.get_base_folder() + "/data/armadillo.obj")
         A = GRID.create_signed_distance(V, F, 98, 98, 98, 0.5)
-        GRID.write_matlab_file("../../data/test.mat", A)
-        B = GRID.read_matlab_file("../../data/test.mat")
+        GRID.write_matlab_file(TEST.get_base_folder() + "/data/test.mat", A)
+        B = GRID.read_matlab_file(TEST.get_base_folder() + "/data/test.mat")
 
         self.assertEqual(A.I, B.I)
         self.assertEqual(A.J, B.J)
