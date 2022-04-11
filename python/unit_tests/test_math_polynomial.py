@@ -1,10 +1,10 @@
 import unittest
 import os
 import sys
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/../../")
-
 import numpy as np
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import isl.math.polynomial as POLY
 
 
