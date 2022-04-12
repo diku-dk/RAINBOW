@@ -1,5 +1,6 @@
 import isl.math.vector3 as V3
 import isl.math.quaternion as Q
+import numpy as np
 
 
 class SurfacesInteraction:
@@ -211,6 +212,15 @@ class RigidBody:
         self.material = "default"  # The material this rigid body is made up of.
         self.bvh = None  # k-DOP_bvh encapsulating the entire body.
 
+    def __str__(self):
+        return f"{self.name}"
+
+    # def __eq__(self, o):
+    #     if self.idx == o.idx:
+    #         return int(1)
+    #     else:
+    #         return int(0)
+
 
 class ContactPoint:
     """
@@ -250,6 +260,18 @@ class ContactPoint:
         self.p = position
         self.n = normal
         self.g = gap
+    
+    def __eq__(self, o):
+        bools = [self.bodyA.name == self.bodyA.name,
+                 self.bodyB.name == self.bodyB.name,
+                 (self.p == o.p).all(),
+                 (self.n == o.n).all(),
+                 self.g     == o.g]
+        return np.array(bools).all()
+    
+    def __str__(self):
+        return f"{self.bodyA} {self.bodyB} {self.p} {self.n}, {self.g}"
+            
 
 
 class Parameters:

@@ -21,6 +21,7 @@ set_target_properties(
 	isl_tetgen
 	PROPERTIES
 	PUBLIC_HEADER "${ISL_TETGEN_HEADERS}"
+	POSITION_INDEPENDENT_CODE ON
 	)
 
 target_compile_definitions(

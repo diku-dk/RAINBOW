@@ -5,6 +5,7 @@
 // STL includes
 #include <cassert>
 #include <iostream>
+#include <cstring>
 
 
 isl::geometry::tetgen::ReturnVectors1 isl::geometry::tetgen::error_res1()
