@@ -466,10 +466,10 @@ def get_largest_gap_error(engine) -> float:
     return -gap
 
 
-def stepper_dcd(dt: float, engine, debug_on: bool) -> dict:
+def solve_dynamics(dt: float, engine, debug_on: bool) -> dict:
     """
     This is the main simulation method that is responsible for stepping time
-     forward to the next time-step.
+    forward to the next time-step.
 
     :param dt:        The time-step to step time forward in the engine.
     :param engine:    The engine that holds all the rigid bodies.
@@ -478,7 +478,7 @@ def stepper_dcd(dt: float, engine, debug_on: bool) -> dict:
     """
     timer = None
     if debug_on:
-        timer = Timer('Stepper')
+        timer = Timer('Solve Dynamics')
         timer.start()
     stats = {}
 
@@ -542,21 +542,21 @@ def stepper_dcd(dt: float, engine, debug_on: bool) -> dict:
     return stats
 
 def stepper(dt: float, engine, debug_on: bool) -> dict:
-    # timer = None
-    # if debug_on:
-    #     timer = Timer('Stepper CCD')
-    #     timer.start()
+    timer = None
+    if debug_on:
+        timer = Timer('Stepper')
+        timer.start()
     stats = {}
 
     dti = dt
-    while (dti > 0):
-        stats, toi = CD.run_collision_detection(dti, engine, stats, debug_on)
-        print(f"{toi=}")
-        stats = stepper_dcd(toi, engine, debug_on)
-        dti -= toi
+    # while (dti > 0):
+    stats, toi = CD.run_collision_detection(dti, engine, stats, debug_on)
+    print(f"{toi=}")
+    stats = solve_dynamics(toi, engine, debug_on)
+    dti -= toi
 
-    # if debug_on:
-    #     timer.end()
-    #     stats['stepper_time'] = timer.elapsed
-    #     stats['dt'] = dt
+    if debug_on:
+        timer.end()
+        stats['stepper_time'] = timer.elapsed
+        stats['dt'] = dt
     return stats

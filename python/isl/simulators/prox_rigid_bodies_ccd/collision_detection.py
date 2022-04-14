@@ -200,23 +200,23 @@ def _compute_contacts_dcd(engine, stats, bodyA, bodyB, trianglesA, debug_on):
 
 
 class Interval():
-    def __init__(self, l, r):
-        self.L = l
-        self.R = r
+    def __init__(self, lower, upper):
+        self.lower = lower
+        self.upper = upper
 
     def __add__(self, other):
-        a, b, c, d = self.L, self.R, other.L, other.R
+        a, b, c, d = self.lower, self.upper, other.lower, other.upper
         return Interval(a + c, b + d)
 
     def __sub__(self, other):
-        a, b, c, d = self.L, self.R, other.L, other.R
+        a, b, c, d = self.lower, self.upper, other.lower, other.upper
         return Interval(a - d, b - c)
 
     def __mul__(self, other):
         if isinstance(other, float):
-            return Interval(self.L * other, self.R * other)
+            return Interval(self.lower * other, self.upper * other)
 
-        a, b, c, d = self.L, self.R, other.L, other.R
+        a, b, c, d = self.lower, self.upper, other.lower, other.upper
         if isinstance(other, Interval3):
             return Interval3(a * c, b * d)
 
@@ -225,7 +225,7 @@ class Interval():
                             max(a*c, a*d, b*c, b*d))
 
     def __div__(self, other):
-        a, b, c, d = self.L, self.R, other.L, other.R
+        a, b, c, d = self.lower, self.upper, other.lower, other.upper
         # [c,d] cannot contain zero:
         if c*d <= 0:
             raise ValueError(f"Interval {other} cannot be denominator because it contains zero")
@@ -233,13 +233,13 @@ class Interval():
                         max(a/c, a/d, b/c, b/d))
 
     def __contains__(self, key):
-        return self.L <= key and key <= self.R
+        return self.lower <= key and key <= self.upper
 
     def w(self):
-        return self.R - self.L
+        return self.upper - self.lower
 
     def __str__(self):
-        return f"[{self.L}, {self.R}]"
+        return f"[{self.lower}, {self.upper}]"
 
 
 class Interval3():
@@ -289,9 +289,9 @@ class VertexFace():
 
     def inclusion(self, I: Interval3):
         res = []
-        for t in [I.t.L, I.t.R]:
-            for u in [I.u.L, I.u.R]:
-                for v in [I.v.L, I.v.R]:
+        for t in [I.t.lower, I.t.upper]:
+            for u in [I.u.lower, I.u.upper]:
+                for v in [I.v.lower, I.v.upper]:
                     res.append(self.mapping(t, u, v))
         x_max = max(res, key=lambda v: v[0])[0]
         y_max = max(res, key=lambda v: v[1])[1]
@@ -318,26 +318,32 @@ class EdgeEdge():
         self.p4_t0 = p4_t0
         self.p4_v = p4_t1 - p4_t0
 
-    def P1(self, t):
+    def p1(self, t):
         return self.p1_t0 + t*self.p1_v
 
     def p2(self, t):
         return self.p2_t0 + t*self.p2_v
 
     def p3(self, t):
-        return self.p2_t0 + t*self.p3_v
+        return self.p3_t0 + t*self.p3_v
 
     def p4(self, t):
         return self.p4_t0 + t*self.p4_v
+
+    def N(self, t):
+        return np.cross(self.p2(t) - self.p1(t), self.p4(t) - self.p3(t))
+
+    def P(self, t, v):
+        return (1 - v)*self.p3(t) + v*self.p4(t)
 
     def mapping(self, t, u, v):
         return ((1 - u)*self.p1(t) + u*self.p2(t)) - ((1 - v)*self.p3(t) + v*self.p4(t)) 
 
     def inclusion(self, I: Interval3):
         res = []
-        for t in [I.t.L, I.t.R]:
-            for u in [I.u.L, I.u.R]:
-                for v in [I.v.L, I.v.R]:
+        for t in [I.t.lower, I.t.upper]:
+            for u in [I.u.lower, I.u.upper]:
+                for v in [I.v.lower, I.v.upper]:
                     res.append(self.mapping(t, u, v))
         x_max = max(res, key=lambda v: v[0])[0]
         y_max = max(res, key=lambda v: v[1])[1]
@@ -351,12 +357,12 @@ class EdgeEdge():
 
 
 def split_interval(I: Interval3):
-    t_m = (I.t.L + I.t.R) / 2
-    u_m = (I.u.L + I.u.R) / 2
-    v_m = (I.v.L + I.v.R) / 2
-    t_1, t_2 = Interval(I.t.L, t_m), Interval(t_m, I.t.R)
-    u_1, u_2 = Interval(I.u.L, u_m), Interval(u_m, I.u.R)
-    v_1, v_2 = Interval(I.v.L, v_m), Interval(v_m, I.v.R)
+    t_m = (I.t.lower + I.t.upper) / 2
+    u_m = (I.u.lower + I.u.upper) / 2
+    v_m = (I.v.lower + I.v.upper) / 2
+    t_1, t_2 = Interval(I.t.lower, t_m), Interval(t_m, I.t.upper)
+    u_1, u_2 = Interval(I.u.lower, u_m), Interval(u_m, I.u.upper)
+    v_1, v_2 = Interval(I.v.lower, v_m), Interval(v_m, I.v.upper)
 
     return [
                 Interval3(t_1, u_1, v_1),
@@ -378,41 +384,69 @@ def solve_interval(I_0: Interval3, g, sigma):
     q.put(I_0)
 
     while q.qsize() != 0:
+        # print(f"{q.qsize()=}")
         I = q.get()
         I_g = g.inclusion(I)
         if I_g:
-            # print(I.w())
+            # print(f"{q.qsize()=}", f"{I.w()=}")
             if I.w() < sigma:
+                return I
                 res.append(I)
             else:
                 Is = split_interval(I)
                 for i in Is:
                     q.put(i)
         l = l + 1
+        if l > 100000: return None
 
-    min_res = min(res, key=lambda tuv: tuv.t.L) if len(res) > 0 else None
+    min_res = min(res, key=lambda tuv: tuv.t.lower) if len(res) > 0 else None
     return min_res
-    # return min(res, key=lambda tuv: tuv.t.L) if len(res) > 0 else None
+    # return min(res, key=lambda tuv: tuv.t.lower) if len(res) > 0 else None
 
+
+def solve_interval_dfs(I_0: Interval3, g, sigma):
+    res = []
+    l = 0
+
+    q = queue.LifoQueue()
+    q.put(I_0)
+
+    while q.qsize() != 0:
+        I = q.get()
+        I_g = g.inclusion(I)
+        if I_g:
+            # print(f"{q.qsize()=}", f"{I.w()=}")
+            if I.w() < sigma:
+                return I
+            else:
+                Is = split_interval(I)
+                for i in Is:
+                    q.put(i)
+        l = l + 1
+        if l > 1000000: return None
+
+    min_res = min(res, key=lambda tuv: tuv.t.lower) if len(res) > 0 else None
+    return min_res
 
 def _compute_vertex_face_ccd(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
-                             v_t1, f_v0_t1, f_v1_t1, f_v2_t1):
+                             v_t1, f_v0_t1, f_v1_t1, f_v2_t1, sigma=0.000001):
 
     vf = VertexFace(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
                     v_t1, f_v0_t1, f_v1_t1, f_v2_t1)
 
-    res = solve_interval(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), vf, 0.000001)
-    if res is not None:
-        return [res.t.L, vf.P(res.t.L), vf.N(res.t.L), 0]
-    return None
+    res = solve_interval(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), vf, sigma)
+
+    return [res.t.lower, vf.P(res.t.lower), vf.N(res.t.lower)] if res is not None else None
 
 def _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
-                           p1_t1, p2_t1, p3_t1, p4_t1):
+                           p1_t1, p2_t1, p3_t1, p4_t1, sigma=0.000001):
 
     ee = EdgeEdge(p1_t0, p2_t0, p3_t0, p4_t0,
                   p1_t1, p2_t1, p3_t1, p4_t1)
 
-    return solve_interval(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), ee, 0.000001)
+    res = solve_interval(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), ee, sigma)
+
+    return [res.t.lower, ee.P(res.t.lower, res.v.lower), ee.N(res.t.lower)] if res is not None else None
 
 
 def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
@@ -428,53 +462,49 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            Nothing.
     """
-    # Make BVH traversel return start and end points instead
-    # toi = Interval(np.Infinity, np.Infinity)
-    mesh_A_0 = Q.rotate_array(bodyA.q, bodyA.shape.mesh.V) + bodyA.r
-    mesh_B_0 = Q.rotate_array(bodyB.q, bodyB.shape.mesh.V) + bodyB.r
-    mesh_A_1 = Q.rotate_array(Q.unit(bodyA.q + (Q.prod(Q.from_vector3(bodyA.w), bodyA.q) * dt * 0.5)), bodyA.shape.mesh.V) + bodyA.r + bodyA.v * dt
-    mesh_B_1 = Q.rotate_array(Q.unit(bodyB.q + (Q.prod(Q.from_vector3(bodyB.w), bodyB.q) * dt * 0.5)), bodyB.shape.mesh.V) + bodyB.r + bodyB.v * dt
+    # TODO: Make BVH traversel return start and end points instead?
+    V_a_t0 = Q.rotate_array(bodyA.q, bodyA.shape.mesh.V) + bodyA.r
+    V_b_t0 = Q.rotate_array(bodyB.q, bodyB.shape.mesh.V) + bodyB.r
+    V_a_t1 = Q.rotate_array(Q.unit(bodyA.q + (Q.prod(Q.from_vector3(bodyA.w), bodyA.q) * dt * 0.5)), bodyA.shape.mesh.V) + bodyA.r + bodyA.v * dt
+    V_b_t1 = Q.rotate_array(Q.unit(bodyB.q + (Q.prod(Q.from_vector3(bodyB.w), bodyB.q) * dt * 0.5)), bodyB.shape.mesh.V) + bodyB.r + bodyB.v * dt
     toi = np.Infinity
     for triangleA, triangleB in triangles:
-        f_a_t0 = mesh_A_0[bodyA.shape.mesh.T[triangleA]]
-        f_a_t1 = mesh_A_1[bodyA.shape.mesh.T[triangleA]]
-        f_b_t0 = mesh_B_0[bodyB.shape.mesh.T[triangleB]]
-        f_b_t1 = mesh_B_1[bodyB.shape.mesh.T[triangleB]]
-        # print("A", f_a_t0, f_a_t1)
-        # print("B", f_b_t0, f_b_t1)
+        f_a_t0 = V_a_t0[bodyA.shape.mesh.T[triangleA]]
+        f_b_t0 = V_b_t0[bodyB.shape.mesh.T[triangleB]]
+        f_a_t1 = V_a_t1[bodyA.shape.mesh.T[triangleA]]
+        f_b_t1 = V_b_t1[bodyB.shape.mesh.T[triangleB]]
         for i in range(3):
             v_a_t0 = f_a_t0[i]
             v_a_t1 = f_a_t1[i]
             v_b_t0 = f_b_t0[i]
             v_b_t1 = f_b_t1[i]
             a_vf = _compute_vertex_face_ccd(v_a_t0, f_b_t0[0], f_b_t0[1], f_b_t0[2], v_a_t1, f_b_t1[0], f_b_t1[1], f_b_t1[2])
-            b_vf = _compute_vertex_face_ccd(v_b_t0, f_a_t0[0], f_a_t0[1], f_a_t0[2], v_b_t1, f_a_t1[0], f_a_t1[1], f_a_t1[2])
             if a_vf is not None:
                 toi = min(toi, a_vf[0])
                 if a_vf[0] == 0:
-                    cp = ContactPoint(bodyA, bodyB, a_vf[1], V3.unit(a_vf[2]), a_vf[3])
+                    cp = ContactPoint(bodyA, bodyB, a_vf[1], V3.unit(a_vf[2]))
                     engine.contact_points.append(cp)
+
+            b_vf = _compute_vertex_face_ccd(v_b_t0, f_a_t0[0], f_a_t0[1], f_a_t0[2], v_b_t1, f_a_t1[0], f_a_t1[1], f_a_t1[2])
             if b_vf is not None:
                 toi = min(toi, b_vf[0])
                 if b_vf[0] == 0:
-                    cp = ContactPoint(bodyA, bodyB, b_vf[1], V3.unit(b_vf[2]), b_vf[3])
+                    cp = ContactPoint(bodyA, bodyB, b_vf[1], V3.unit(b_vf[2])) # Reverse bodyB <> bodyA?
                     engine.contact_points.append(cp)
-            # print(f"{toi_a=}, {toi_b=}")
-            # toi = min(toi, toi_a_vf)
-            # toi = min(toi, toi_b_vf)
-            # _compute_edge_edge_ccd()
-        # for i in range(3):
-        #     for j in range(3):
-        #         p1_t0, p2_t0 = f_a_t0[i], f_a_t0[(i+1) % 3]
-        #         p3_t0, p4_t0 = f_b_t0[j], f_b_t0[(j+1) % 3]
-        #         p1_t1, p2_t1 = f_a_t1[i], f_a_t1[(i+1) % 3]
-        #         p3_t1, p4_t1 = f_b_t1[j], f_b_t1[(j+1) % 3]
-        #         ee = _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
-        #                                     p1_t1, p2_t1, p3_t1, p4_t1)
-                # if ee is not None:
-                #     # res.append(ee)
 
-    # print("final", toi)
+            for j in range(3):
+                p1_t0, p2_t0 = f_a_t0[i], f_a_t0[(i+1) % 3]
+                p3_t0, p4_t0 = f_b_t0[j], f_b_t0[(j+1) % 3]
+                p1_t1, p2_t1 = f_a_t1[i], f_a_t1[(i+1) % 3]
+                p3_t1, p4_t1 = f_b_t1[j], f_b_t1[(j+1) % 3]
+                ee = _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
+                                            p1_t1, p2_t1, p3_t1, p4_t1)
+                if ee is not None:
+                    toi = min(toi, ee[0])
+                    if ee[0] == 0:
+                        cp = ContactPoint(bodyA, bodyB, ee[1], V3.unit(ee[2]))
+                        engine.contact_points.append(cp)
+
     return toi*dt
 
 def _contact_determination(dt, overlaps, engine, stats, debug_on):
@@ -498,13 +528,13 @@ def _contact_determination(dt, overlaps, engine, stats, debug_on):
     toi = dt
     for key, results in overlaps.items():
         dti = _compute_contacts(engine,
-                            stats,
-                            dt,
-                            key[0],  # Body A
-                            key[1],  # Body B
-                            results, # All triangles from A and B that may collide
-                            debug_on
-                            )
+                                stats,
+                                dt,
+                                key[0],  # Body A
+                                key[1],  # Body B
+                                results, # All triangles from A and B that may collide
+                                debug_on
+                                )
         toi = min(toi, dti)
 
     if debug_on:
