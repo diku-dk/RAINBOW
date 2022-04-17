@@ -376,32 +376,34 @@ def split_interval(I: Interval3):
             ]
 
 
-def solve_interval(I_0: Interval3, g, sigma):
-    res = []
-    l = 0
-
+def solve_interval(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
+    m_I = 10000
+    n = 0
     q = queue.Queue()
-    q.put(I_0)
-
+    q.put((I_0, 0))
+    l_p = -1
+    I_f = None
     while q.qsize() != 0:
-        # print(f"{q.qsize()=}")
-        I = q.get()
+        I, l = q.get()
         I_g = g.inclusion(I)
+        n = n + 1
         if I_g:
-            # print(f"{q.qsize()=}", f"{I.w()=}")
+
+            if l != l_p:
+                I_f = I
+
+            if n >= m_I:
+                return I_f
+
             if I.w() < sigma:
+                #if l != l_p:
                 return I
-                res.append(I)
             else:
                 Is = split_interval(I)
                 for i in Is:
-                    q.put(i)
-        l = l + 1
-        if l > 100000: return None
-
-    min_res = min(res, key=lambda tuv: tuv.t.lower) if len(res) > 0 else None
-    return min_res
-    # return min(res, key=lambda tuv: tuv.t.lower) if len(res) > 0 else None
+                    q.put((i, l+1))
+        l_p = l
+    return None
 
 
 def solve_interval_dfs(I_0: Interval3, g, sigma):
@@ -417,37 +419,51 @@ def solve_interval_dfs(I_0: Interval3, g, sigma):
         if I_g:
             # print(f"{q.qsize()=}", f"{I.w()=}")
             if I.w() < sigma:
-                return I
+                return I.t.lower
             else:
                 Is = split_interval(I)
                 for i in Is:
                     q.put(i)
         l = l + 1
-        if l > 1000000: return None
+        if l > 1000000: break
 
-    min_res = min(res, key=lambda tuv: tuv.t.lower) if len(res) > 0 else None
-    return min_res
+    return np.Infinity
 
 def _compute_vertex_face_ccd(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
-                             v_t1, f_v0_t1, f_v1_t1, f_v2_t1, sigma=0.000001):
+                             v_t1, f_v0_t1, f_v1_t1, f_v2_t1):
 
     vf = VertexFace(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
                     v_t1, f_v0_t1, f_v1_t1, f_v2_t1)
 
-    res = solve_interval(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), vf, sigma)
+    I = solve_interval(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), vf)
 
-    return [res.t.lower, vf.P(res.t.lower), vf.N(res.t.lower)] if res is not None else None
+    if I is None:
+        return np.Infinity, None
+
+    toi = I.t.lower
+    if toi == 0:
+        contact = [vf.P(0), vf.N(0)]
+        return np.Infinity, contact
+
+    return toi, None
 
 def _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
-                           p1_t1, p2_t1, p3_t1, p4_t1, sigma=0.000001):
+                           p1_t1, p2_t1, p3_t1, p4_t1):
 
     ee = EdgeEdge(p1_t0, p2_t0, p3_t0, p4_t0,
                   p1_t1, p2_t1, p3_t1, p4_t1)
 
-    res = solve_interval(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), ee, sigma)
+    I = solve_interval(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), ee)
 
-    return [res.t.lower, ee.P(res.t.lower, res.v.lower), ee.N(res.t.lower)] if res is not None else None
+    if I is None:
+        return np.Infinity, None
 
+    toi = I.t.lower
+    if toi == 0:
+        contact = [ee.P(0, I.v.lower), ee.N(0)]
+        return np.Infinity, contact
+
+    return toi, None
 
 def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
     """
@@ -474,36 +490,32 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
         f_a_t1 = V_a_t1[bodyA.shape.mesh.T[triangleA]]
         f_b_t1 = V_b_t1[bodyB.shape.mesh.T[triangleB]]
         for i in range(3):
-            v_a_t0 = f_a_t0[i]
-            v_a_t1 = f_a_t1[i]
-            v_b_t0 = f_b_t0[i]
-            v_b_t1 = f_b_t1[i]
-            a_vf = _compute_vertex_face_ccd(v_a_t0, f_b_t0[0], f_b_t0[1], f_b_t0[2], v_a_t1, f_b_t1[0], f_b_t1[1], f_b_t1[2])
-            if a_vf is not None:
-                toi = min(toi, a_vf[0])
-                if a_vf[0] == 0:
-                    cp = ContactPoint(bodyA, bodyB, a_vf[1], V3.unit(a_vf[2]))
-                    engine.contact_points.append(cp)
+            a_vf_toi, a_vf_contact = _compute_vertex_face_ccd(f_a_t0[i], f_b_t0[0], f_b_t0[1], f_b_t0[2],
+                                                              f_a_t1[i], f_b_t1[0], f_b_t1[1], f_b_t1[2])
+            toi = min(toi, a_vf_toi)
+            if a_vf_contact is not None:
+                cp = ContactPoint(bodyA, bodyB, a_vf_contact[0], V3.unit(a_vf_contact[1]))
+                engine.contact_points.append(cp)
 
-            b_vf = _compute_vertex_face_ccd(v_b_t0, f_a_t0[0], f_a_t0[1], f_a_t0[2], v_b_t1, f_a_t1[0], f_a_t1[1], f_a_t1[2])
-            if b_vf is not None:
-                toi = min(toi, b_vf[0])
-                if b_vf[0] == 0:
-                    cp = ContactPoint(bodyA, bodyB, b_vf[1], V3.unit(b_vf[2])) # Reverse bodyB <> bodyA?
-                    engine.contact_points.append(cp)
+            b_vf_toi, b_vf_contact = _compute_vertex_face_ccd(f_b_t0[i], f_a_t0[0], f_a_t0[1], f_a_t0[2],
+                                                              f_b_t1[i], f_a_t1[0], f_a_t1[1], f_a_t1[2])
+            toi = min(toi, b_vf_toi)
+            if b_vf_contact is not None:
+                cp = ContactPoint(bodyA, bodyB, b_vf_contact[0], V3.unit(b_vf_contact[1])) # Reverse bodyB <> bodyA?
+                engine.contact_points.append(cp)
 
+        for i in range(3):
             for j in range(3):
                 p1_t0, p2_t0 = f_a_t0[i], f_a_t0[(i+1) % 3]
                 p3_t0, p4_t0 = f_b_t0[j], f_b_t0[(j+1) % 3]
                 p1_t1, p2_t1 = f_a_t1[i], f_a_t1[(i+1) % 3]
                 p3_t1, p4_t1 = f_b_t1[j], f_b_t1[(j+1) % 3]
-                ee = _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
-                                            p1_t1, p2_t1, p3_t1, p4_t1)
-                if ee is not None:
-                    toi = min(toi, ee[0])
-                    if ee[0] == 0:
-                        cp = ContactPoint(bodyA, bodyB, ee[1], V3.unit(ee[2]))
-                        engine.contact_points.append(cp)
+                ee_toi, ee_contact = _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
+                                                            p1_t1, p2_t1, p3_t1, p4_t1)
+                toi = min(toi, ee_toi)
+                if ee_contact is not None and np.all(ee_contact[1]): # Prevent zero vectors, TODO: Fix edge-edge normals
+                    cp = ContactPoint(bodyA, bodyB, ee_contact[0], V3.unit(ee_contact[1]))
+                    engine.contact_points.append(cp)
 
     return toi*dt
 
