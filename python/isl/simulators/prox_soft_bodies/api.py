@@ -62,13 +62,19 @@ def create_soft_body(engine, body_name, V, T) -> None:
     # Create bounding volume hierarchy data-structure (BVH), this will always be updated to live in
     # spatial coordinates and is tested against the signed distance field (who lives in constant material space) to
     # generate contact points.
-    body.bvh = BVH.make_bvh(
-        body.x,
-        body.surface,
-        engine.params.K,
-        engine.params.bvh_chunk_size,
-        engine.params.envelope,
-    )
+
+    #Stefans Change
+    # body.bvh = BVH.make_bvh(
+    #     body.x,
+    #     body.surface,
+    #     engine.params.K,
+    #     engine.params.bvh_chunk_size,
+    #     engine.params.envelope,
+    # )
+
+    body.bvh = BVH.make_bvh(body.surface,
+                            engine.params.bvh_chunk_size
+                            )    
 
     # To have proper global indexing into assembled matrices and vectors we need to know this body nodel
     # index offset into this global space.

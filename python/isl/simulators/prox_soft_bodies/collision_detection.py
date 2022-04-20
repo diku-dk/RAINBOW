@@ -5,8 +5,40 @@ from isl.simulators.prox_soft_bodies.types import *
 from isl.util.timer import Timer
 import numpy as np
 from itertools import combinations
+from isl.ti.TightInclusionWrap import edgeEdgeCCD,vertexFaceCCD
 
 
+# def _update_bvh(engine, stats, debug_on):
+#     """
+#     This function updates the bounding volume hierarchies of the soft bodies to reflect the current
+#     world space geometry of the bodies. This is necessary to make sure that we later in the narrow phase
+#     collision detection function will be working on the geometry where it is actually correctly placed
+#     in the world.
+
+#     :param engine:      The current engine instance we are working with.
+#     :param stats:       A dictionary where to add more profiling and timing measurements.
+#     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
+#     :return:            A dictionary with profiling and timing measurements.
+#     """
+#     update_bvh_timer = None
+#     if debug_on:
+#         update_bvh_timer = Timer("update_bvh")
+#         update_bvh_timer.start()
+#     for body in engine.bodies.values():
+#         # Bounding volume hierarchy (BVH) traversal testing is done
+#         # in world space. Hence, before we refit the bounding volumes (BVs) of
+#         # the BVH trees we need to update the "geometry" that the BVH bounds to
+#         # reflect its current world space position. That is we used the current
+#         # spatial coordinates of the soft bodies to refit the BVs in the BVH tree.
+#         BVH.refit_bvh(
+#             body.x, body.surface, body.bvh, engine.params.K, engine.params.envelope
+#         )
+#     if debug_on:
+#         update_bvh_timer.end()
+#         stats["update_bvh"] = update_bvh_timer.elapsed
+#     return stats
+
+## Stefans Addition
 def _update_bvh(engine, stats, debug_on):
     """
     This function updates the bounding volume hierarchies of the soft bodies to reflect the current
@@ -21,7 +53,7 @@ def _update_bvh(engine, stats, debug_on):
     """
     update_bvh_timer = None
     if debug_on:
-        update_bvh_timer = Timer("update_bvh")
+        update_bvh_timer = Timer('update_bvh')
         update_bvh_timer.start()
     for body in engine.bodies.values():
         # Bounding volume hierarchy (BVH) traversal testing is done
@@ -30,13 +62,18 @@ def _update_bvh(engine, stats, debug_on):
         # reflect its current world space position. That is we used the current
         # spatial coordinates of the soft bodies to refit the BVs in the BVH tree.
         BVH.refit_bvh(
-            body.x, body.surface, body.bvh, engine.params.K, engine.params.envelope
-        )
+            body.x,
+            body.surface,
+            body.c,
+            body.bvh,
+            engine.params.K,
+            engine.params.envelope
+            )
     if debug_on:
         update_bvh_timer.end()
-        stats["update_bvh"] = update_bvh_timer.elapsed
+        stats['update_bvh'] = update_bvh_timer.elapsed
     return stats
-
+## 
 
 def _narrow_phase(engine, stats, debug_on):
     """
@@ -237,43 +274,43 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
     return stats
 
 
-def _contact_determination(overlaps, engine, stats, debug_on):
-    """
+# def _contact_determination(overlaps, engine, stats, debug_on):
+#     """
 
-    :param overlaps:    A dictionary of triangles from one body that overlaps another body.
-    :param engine:      The current engine instance we are working with.
-    :param stats:       A dictionary where to add more profiling and timing measurements.
-    :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
-    :return:            A dictionary with profiling and timing measurements.
-    """
-    contact_determination_timer = None
-    if debug_on:
-        contact_determination_timer = Timer("contact_determination", 8)
-        contact_determination_timer.start()
-    engine.contact_points = []
-    for key, results in overlaps.items():
-        # TODO 2022-12-31 Kenny: The code currently computes a lot of redundant contacts due
-        #  to BVH traversal may return a triangle as part of several pairs. We only need
-        #  the triangle pair information to warp a triangle from local space of one body
-        #  into the local SDF space of the other body. However, we just need one pair where
-        #  a specific triangle is part of, not all pairs where the triangle is part of.
-        _compute_contacts(
-            engine, stats, key[0], key[1], results, debug_on  # Body A  # Body B
-        )
-        _compute_contacts(
-            engine,
-            stats,
-            key[1],  # Body B
-            key[0],  # Body A
-            results[
-                :, [1, 0]
-            ],  # Observe we swap columns because role of body A and body B is swapped.
-            debug_on,
-        )
-    if debug_on:
-        contact_determination_timer.end()
-        stats["contact_determination"] = contact_determination_timer.elapsed
-    return stats
+#     :param overlaps:    A dictionary of triangles from one body that overlaps another body.
+#     :param engine:      The current engine instance we are working with.
+#     :param stats:       A dictionary where to add more profiling and timing measurements.
+#     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
+#     :return:            A dictionary with profiling and timing measurements.
+#     """
+#     contact_determination_timer = None
+#     if debug_on:
+#         contact_determination_timer = Timer("contact_determination", 8)
+#         contact_determination_timer.start()
+#     engine.contact_points = []
+#     for key, results in overlaps.items():
+#         # TODO 2022-12-31 Kenny: The code currently computes a lot of redundant contacts due
+#         #  to BVH traversal may return a triangle as part of several pairs. We only need
+#         #  the triangle pair information to warp a triangle from local space of one body
+#         #  into the local SDF space of the other body. However, we just need one pair where
+#         #  a specific triangle is part of, not all pairs where the triangle is part of.
+#         _compute_contacts(
+#             engine, stats, key[0], key[1], results, debug_on  # Body A  # Body B
+#         )
+#         _compute_contacts(
+#             engine,
+#             stats,
+#             key[1],  # Body B
+#             key[0],  # Body A
+#             results[
+#                 :, [1, 0]
+#             ],  # Observe we swap columns because role of body A and body B is swapped.
+#             debug_on,
+#         )
+#     if debug_on:
+#         contact_determination_timer.end()
+#         stats["contact_determination"] = contact_determination_timer.elapsed
+#     return stats
 
 
 def _contact_reduction(engine, stats, debug_on):
@@ -314,7 +351,196 @@ def _contact_reduction(engine, stats, debug_on):
     return stats
 
 
-def run_collision_detection(engine, stats, debug_on):
+# def run_collision_detection(engine, stats, debug_on):
+#     """
+#     This function invokes the whole collision detection pipeline on all the bodies
+#     currently active in the provided engine instance.
+
+#     It is assumed that state information of all bodies have been correctly updated to reflect the
+#     instant-of-time position where one wish to perform the collision detection at.
+
+#     :param engine:      The current engine instance we are working with.
+#     :param stats:       A dictionary where to add more profiling and timing measurements.
+#     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
+#     :return:            A dictionary with profiling and timing measurements.
+#     """
+#     # 2022-03-27 Kenny TODO: Interface should be reworked to take as input the global position and velocity
+#     #                    vectors, x, u of all bodies as input, as well as a look-ahead time-step. Further, the
+#     #                    method should return the contact point information as a return value, as well as a
+#     #                    next-safe time-step value. Using these changes will allow the collision detection module to
+#     #                    support continuous collision detection as well as discrete collision detection too.
+#     collision_detection_timer = None
+#     if debug_on:
+#         collision_detection_timer = Timer("collision_detection")
+#         collision_detection_timer.start()
+#     stats = _update_bvh(engine, stats, debug_on)
+#     overlaps, stats = _narrow_phase(engine, stats, debug_on)
+#     stats = _contact_determination(overlaps, engine, stats, debug_on)
+#     stats = _contact_reduction(engine, stats, debug_on)
+#     if debug_on:
+#         collision_detection_timer.end()
+#         stats["collision_detection_time"] = collision_detection_timer.elapsed
+#     return stats
+
+
+##Stefans Additions
+def _compute_contacts(engine, dt, stats, bodyA, bodyB, results, debug_on):
+    """
+    :param engine:      The current engine instance we are working with.
+    :param stats:       A dictionary where to add more profiling and timing measurements.
+    :param bodyA:
+    :param bodyB:
+    :param results:     Triangle pairs. First column triangle idx from body A, second column is idx from body B.
+    :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
+    :return:            A dictionary with profiling and timing measurements.
+    """
+
+    DT = dt
+
+    contact_point_generation_timer = None
+    if debug_on:
+        contact_point_generation_timer = Timer('contact_point_generation')
+
+    for k in range(len(results)):
+        idx_triA, idx_triB = results[k]    # Get the triangle face indices
+        TAs = bodyA.x[idx_triA, :]    # Triangle face A vertices in world space
+        TBs = bodyB.x[idx_triB, :]    # Triangle face B vertices in world space
+
+        TAe = bodyA.c[idx_triA, :]    # Triangle candidate face A vertices in world space
+        TBe = bodyB.c[idx_triB, :]    # Triangle candidate face B vertices in world space
+
+        print(TAs)
+
+        VFInputs = np.array([[TAs[0],TBs[0],TBs[1],TBs[2],TAe[0],TBe[0],TBe[1],TBe[2]],
+        [TAs[1],TBs[0],TBs[1],TBs[2],TAe[1],TBe[0],TBe[1],TBe[2]],
+        [TAs[2],TBs[0],TBs[1],TBs[2],TAe[2],TBe[0],TBe[1],TBe[2]],
+        [TBs[0],TAs[0],TAs[1],TAs[2],TBe[0],TAe[0],TAe[1],TAe[2]],
+        [TBs[0],TAs[0],TAs[1],TAs[2],TBe[0],TAe[0],TAe[1],TAe[2]],
+        [TBs[1],TAs[0],TAs[1],TAs[2],TBe[1],TAe[0],TAe[1],TAe[2]],
+        [TBs[2],TAs[0],TAs[1],TAs[2],TBe[2],TAe[0],TAe[1],TAe[2]]])
+
+        EEInputs = np.array([[TAs[0],TAs[1],TBs[0],TBs[1],TAe[0],TAe[1],TBe[0],TBe[1]],
+        [TAs[1],TAs[2],TBs[0],TBs[1],TAe[1],TAe[2],TBe[0],TBe[1]],
+        [TAs[2],TAs[0],TBs[0],TBs[1],TAe[2],TAe[0],TBe[0],TBe[1]],
+        [TAs[0],TAs[1],TBs[1],TBs[2],TAe[0],TAe[1],TBe[1],TBe[2]],
+        [TAs[1],TAs[2],TBs[1],TBs[2],TAe[1],TAe[2],TBe[1],TBe[2]],
+        [TAs[2],TAs[0],TBs[1],TBs[2],TAe[2],TAe[0],TBe[1],TBe[2]],
+        [TAs[0],TAs[1],TBs[2],TBs[0],TAe[0],TAe[1],TBe[2],TBe[0]],
+        [TAs[1],TAs[2],TBs[2],TBs[0],TAe[1],TAe[2],TBs[2],TBe[0]],
+        [TAs[2],TAs[0],TBs[2],TBs[0],TAe[2],TAe[0],TBe[2],TBe[0]]])
+
+        collisions = np.zeros(15, dtype=bool)
+        collisiontime = np.zeros(15)
+
+        for i in range(6):
+            TIeval = vertexFaceCCD(VFInputs[i,0],VFInputs[i,1],VFInputs[i,2],VFInputs[i,3],VFInputs[i,4],VFInputs[i,5],VFInputs[i,6],VFInputs[i,7])
+            collisions[i] = TIeval[0]
+            collisiontime[i] = TIeval[1]*dt
+        
+        for i in range(6,15):
+            j = i-6
+            TIeval = edgeEdgeCCD(EEInputs[j,0],EEInputs[j,1],EEInputs[j,2],EEInputs[j,3],EEInputs[j,4],EEInputs[j,5],EEInputs[j,6],EEInputs[j,7])
+            collisions[i] = TIeval[0]
+            collisiontime[i] = TIeval[1]*dt
+        
+        #If there is no collision, continue
+        if (not np.all(collisions)):
+            continue
+
+        #Will need to be higher than this, probably
+        epsilon = 0
+
+        boolmask = np.nonzero(collisiontime <= epsilon)
+
+        idx_tetA = bodyA.owner[idx_triA]   # Get index of tetrahedron that f_a comes from
+        idx_tetB = bodyB.owner[idx_triB]   # Get index of tetrahedron that f_b comes from
+        XA = bodyA.x[idx_tetB, :]    # Tetrahedron A vertices in world space
+        XB = bodyB.x[idx_tetB, :]    # Tetrahedron B vertices in world space
+
+        #Location for the vertice and triangles at DT.   vDT = vs*DT+ve*(1-DT)
+
+     
+
+
+        for index in boolmask:
+            v0 = VFInputs[index,0]
+            v1 = VFInputs[index,1]
+            v2 = VFInputs[index,2]
+            v3 = VFInputs[index,3]
+            if(index <6):#If it is a Vertexface
+                p = v0
+                A = v2-v1
+                B = v3-v1
+                n = np.cross(A,B) #Validation?
+                omegaA = BC.compute_barycentric_tetrahedron(XA[0], XA[1], XA[2], XA[3], p)
+                omegaB = BC.compute_barycentric_tetrahedron(XB[0], XB[1], XB[2], XB[3], p)
+                cp = ContactPoint(bodyB, bodyA, idx_tetB, idx_tetA, omegaB, omegaA, p, n,0) #Need to find value for the gab
+                engine.contact_points.append(cp)
+            else: #Else it is an edge-edge
+                p,_,gab,n = BC.closestDistanceBetweenLines(v0,v1,v2,v3,clampAll=True)
+                cp = ContactPoint(bodyB, bodyA, idx_tetB, idx_tetA, omegaB, omegaA, p, n,gab)
+                engine.contact_points.append(cp)
+
+
+
+        collisiontime[boolmask] = np.inf
+
+        # minindex = np.argmin(collisiontime)
+        # lowest_col_time = collisiontime[minindex]
+
+        lowest_col_time = np.min(collisiontime)
+
+        # If we already got a collision with an earlier DT, move on.
+        if (DT<lowest_col_time):
+            continue
+        if(DT>lowest_col_time):
+            DT = lowest_col_time
+
+    return DT, stats            
+
+
+
+
+        
+    
+    
+    
+
+def _contact_determination(overlaps, engine, dt, stats, debug_on):
+    """
+
+    :param overlaps:    A dictionary of triangles from one body that overlaps another body.
+    :param engine:      The current engine instance we are working with.
+    :param stats:       A dictionary where to add more profiling and timing measurements.
+    :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
+    :return:            A dictionary with profiling and timing measurements.
+    """
+    contact_determination_timer = None
+    if debug_on:
+        contact_determination_timer = Timer('contact_determination', 8)
+        contact_determination_timer.start()
+    engine.contact_points = []
+    DT=dt
+    for key, results in overlaps.items():
+        # TODO 2022-12-31 Kenny: The code currently computes a lot of redundant contacts due
+        #  to BVH traversal may return a triangle as part of several pairs. We only need
+        #  the triangle pair information to warp a triangle from local space of one body
+        #  into the local SDF space of the other body. However, we just need one pair where
+        #  a specific triangle is part of, not all pairs where the triangle is part of.
+        DT,stats = _compute_contacts(engine,
+                          stats,
+                          dt,
+                          key[0],  # Body A
+                          key[1],  # Body B
+                          results,
+                          debug_on
+                          )
+    if debug_on:
+        contact_determination_timer.end()
+        stats['contact_determination'] = contact_determination_timer.elapsed
+    return DT,stats
+
+def run_collision_detection(engine, dt, stats, debug_on):
     """
     This function invokes the whole collision detection pipeline on all the bodies
     currently active in the provided engine instance.
@@ -327,20 +553,17 @@ def run_collision_detection(engine, stats, debug_on):
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            A dictionary with profiling and timing measurements.
     """
-    # 2022-03-27 Kenny TODO: Interface should be reworked to take as input the global position and velocity
-    #                    vectors, x, u of all bodies as input, as well as a look-ahead time-step. Further, the
-    #                    method should return the contact point information as a return value, as well as a
-    #                    next-safe time-step value. Using these changes will allow the collision detection module to
-    #                    support continuous collision detection as well as discrete collision detection too.
     collision_detection_timer = None
     if debug_on:
-        collision_detection_timer = Timer("collision_detection")
+        collision_detection_timer = Timer('collision_detection')
         collision_detection_timer.start()
     stats = _update_bvh(engine, stats, debug_on)
     overlaps, stats = _narrow_phase(engine, stats, debug_on)
-    stats = _contact_determination(overlaps, engine, stats, debug_on)
+    DT,stats = _contact_determination(overlaps, engine, dt, stats, debug_on)
     stats = _contact_reduction(engine, stats, debug_on)
     if debug_on:
         collision_detection_timer.end()
-        stats["collision_detection_time"] = collision_detection_timer.elapsed
-    return stats
+        stats['collision_detection_time'] = collision_detection_timer.elapsed
+    return DT, stats
+
+##

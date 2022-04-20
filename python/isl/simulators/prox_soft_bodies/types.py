@@ -150,6 +150,7 @@ class SoftBody:
         self.C_array = None  # Precomputed damping element array.
         self.x = None  # The spatial (deformed) vertex coordinates of the soft body (N-by-3 array).
         self.u = None  # The spatial velocity of each vertex.  This is an N-by-3 array.
+        self.c = None # Stefans additions: The spatial candidate coordinates of each vertex. This is an N-by-3 array.
         self.Fe = None  # The spatial elastic nodal forces. This is an N-by-3 array.
         self.Ft = None  # The traction nodal forces. This is an N-by-3 array.
         self.Fd = None  # The damping nodal forces. This is an N-by-3 array.

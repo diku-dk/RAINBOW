@@ -614,6 +614,18 @@ def set_position_vector(x, engine) -> None:
     for body in engine.bodies.values():
         body.x = x[body.offset : body.offset + len(body.x)]
 
+##Stefans Addition
+def set_candidate_vector(c, engine) -> None:
+    """
+
+    :param c:         The candidate position that should be set.
+    :param engine:    The current engine instance we are working with.
+    :return:          Nothing.
+
+    """
+    for body in engine.bodies.values():
+        body.c = c[body.offset:body.offset + len(body.x)]
+##
 
 def get_position_vector(engine):
     """
@@ -1143,3 +1155,113 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
         stats["max_penetration"] = get_largest_penetration_error(engine)
 
     return stats
+
+
+
+##Stefans Additions
+
+
+def substepper(dt: float, engine, stats, debug_on: bool) -> dict:
+
+    timer = None
+    if debug_on:
+        timer = Timer('Stepper')
+        timer.start()
+
+    x = get_position_vector(engine)
+    u = get_velocity_vector(engine)
+    Fe = compute_elastic_forces(x, engine, stats, debug_on)
+    Ft = compute_traction_forces(x, engine, stats, debug_on)
+    Fd = compute_damping_forces(u, engine, stats, debug_on)
+    Fext = compute_external_forces(engine, stats, debug_on)
+    F_tot = Fext - Fe - Ft - Fd
+
+    # --- Convert from N-by-3 into 3N-by-1 vector format ------------------
+    u = np.reshape(u, (-1))
+    F_tot = np.reshape(F_tot, (-1))
+    # ---------------------------------------------------------------------
+
+    W = compute_inverse_mass_matrix(engine, stats, debug_on)
+    u_prime = u + dt * W.dot(F_tot)
+
+
+    #Need a way better solution for the shape of u_prime.
+    c = x + np.reshape(u_prime, (-1, 3)) * dt
+
+    set_candidate_vector(c, engine)
+
+    # Stefan: Capital DT refers to the time until collision
+    DT, stats = CD.run_collision_detection(engine, dt, stats, debug_on)
+
+
+    # Calculate contact forces
+
+    J = None
+    WJT = None
+    WPc = np.zeros(u_prime.shape, dtype=np.float64)
+    if len(engine.contact_points) > 0:
+
+        J = compute_jacobian_matrix(engine, stats, debug_on)
+        WJT = W.dot(J.T)
+
+        if engine.params.use_pre_stabilization:
+            raise ValueError("Pre-stabilization has not been implemented")
+
+        mu = get_friction_coefficient_vector(engine)
+        b = J.dot(u_prime)
+        sol, stats = GS.solve(J, WJT, b, mu, GS.prox_sphere, engine, stats, debug_on, "gauss_seidel_")
+        WPc = WJT.dot(sol)
+
+    # --- Convert from 3N-by-1 into N-by-3 vector format -----------------
+    u_prime = np.reshape(u_prime, (-1, 3))
+    WPc = np.reshape(WPc, (-1, 3))
+    # ---------------------------------------------------------------------
+
+    # Semi-implicit time integration
+    u = u_prime + WPc
+    set_velocity_vector(u, engine)
+
+
+
+    x += u * DT
+    set_position_vector(x, engine)
+
+    if engine.params.use_post_stabilization:
+        if len(engine.contact_points) > 0:
+            # TODO 2021-12-07 Kenny: Here we re-use the contact Jacobian information we retried from the collision
+            #  detection query earlier on. Again the interface here might not be generic enough for fitting into
+            #  other time-stepping schemes. One could "build" the post stabilization routine as a specialized
+            #  stepper in its own right. This might be cool for pre-processing of simulations to make sure
+            #  no penetrations are initially present.
+            stats = apply_post_stabilization(J, WJT, engine, stats, debug_on)
+
+    if debug_on:
+        timer.end()
+        stats['stepper_time'] = timer.elapsed
+        stats['dt'] = dt
+        stats['contact_points'] = len(engine.contact_points)
+        stats['kinetic_energy'] = compute_kinetic_energy(engine, stats, debug_on)
+        stats['potential_energy'] = compute_potential_energy(engine, stats, debug_on)
+        stats['elastic_energy'] = compute_elastic_energy(engine, stats, debug_on)
+        stats['max_penetration'] = get_largest_penetration_error(engine)
+
+    return DT
+
+
+    
+def stepper(dt: float, engine, debug_on: bool) -> dict:
+    """
+    This function advances time in the world modelled by the engine by the time-step size dt.
+
+    :param dt:          The time-step size to advance the world state by.
+    :param engine:      The current engine instance we are working with.
+    :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
+    :return:            A dictionary with profiling and timing measurements.
+    """
+    stats = {}
+
+    while(dt>0):
+        dt-=substepper(dt, engine, stats, debug_on)
+    return stats
+
+##

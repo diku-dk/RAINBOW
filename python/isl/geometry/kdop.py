@@ -92,3 +92,21 @@ def union(A, B):
         kdop.slabs[k].lower = min(A.slabs[k].lower, B.slabs[k].lower)
         kdop.slabs[k].upper = max(A.slabs[k].upper, B.slabs[k].upper)
     return kdop
+
+
+## Stefans Additions:
+
+def makedual(K, V1, V2, envelope=0.0):
+    """
+    Just like the make KDOP above, this has the purpose to make a KDOP bounding a set of vertices.
+    The difference is that this has to account for the velocity of the vertices
+    such that not only the entire area is covered but every area it would move to.
+    In practice this is done by making 2 kdops, one for the current position and one
+    for the future, then merging them together
+    """
+
+    kdop1 = make(K, V1, envelope)
+    kdop2 = make(K, V2, envelope)
+    kdopdual = union(kdop1,kdop2)
+    return kdopdual
+## 
