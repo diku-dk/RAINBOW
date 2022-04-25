@@ -158,120 +158,120 @@ def _xform_contact_to_world(p, n, XA, XB, X0B):
     return p, n, omegaA, omegaB
 
 
-def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
-    """
+# def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
+#     """
 
-    :param engine:      The current engine instance we are working with.
-    :param stats:       A dictionary where to add more profiling and timing measurements.
-    :param bodyA:
-    :param bodyB:
-    :param results:     Triangle pairs. First column triangle idx from body A, second column is idx from body B.
-    :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
-    :return:            A dictionary with profiling and timing measurements.
-    """
-    contact_optimization_timer = None
-    model_space_update_timer = None
-    contact_point_generation_timer = None
-    if debug_on:
-        model_space_update_timer = Timer("model_space_update")
-        contact_optimization_timer = Timer("contact_optimization")
-        contact_point_generation_timer = Timer("contact_point_generation")
+#     :param engine:      The current engine instance we are working with.
+#     :param stats:       A dictionary where to add more profiling and timing measurements.
+#     :param bodyA:
+#     :param bodyB:
+#     :param results:     Triangle pairs. First column triangle idx from body A, second column is idx from body B.
+#     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
+#     :return:            A dictionary with profiling and timing measurements.
+#     """
+#     contact_optimization_timer = None
+#     model_space_update_timer = None
+#     contact_point_generation_timer = None
+#     if debug_on:
+#         model_space_update_timer = Timer("model_space_update")
+#         contact_optimization_timer = Timer("contact_optimization")
+#         contact_point_generation_timer = Timer("contact_point_generation")
 
-    # Loop over all triangles from body A that are colliding with body B
-    for k in range(len(results)):
-        idx_triA, idx_triB = results[k]  # Get the triangle face indices
-        idx_tetA = bodyA.owners[idx_triA]  # Get index of tetrahedron that f_a comes from
-        idx_tetB = bodyB.owners[idx_triB]  # Get index of tetrahedron that f_b comes from
+#     # Loop over all triangles from body A that are colliding with body B
+#     for k in range(len(results)):
+#         idx_triA, idx_triB = results[k]  # Get the triangle face indices
+#         idx_tetA = bodyA.owners[idx_triA]  # Get index of tetrahedron that f_a comes from
+#         idx_tetB = bodyB.owners[idx_triB]  # Get index of tetrahedron that f_b comes from
 
-        if debug_on:
-            contact_optimization_timer.start()
-            model_space_update_timer.start()
+#         if debug_on:
+#             contact_optimization_timer.start()
+#             model_space_update_timer.start()
 
-        # Transform triangle A into model coordinates of body B.
-        P = bodyA.x[idx_triA, :]  # Triangle face A vertices in world space
-        XB = bodyB.x[idx_tetB, :]  # Tetrahedron B vertices in world space
-        X0B = bodyB.x0[idx_tetB, :]  # Tetrahedron B vertices in material space
-        P0 = _xform_triangle_to_model_space(
-            P, XB, X0B
-        )  # Vertices of triangle A in the body space of body B.
+#         # Transform triangle A into model coordinates of body B.
+#         P = bodyA.x[idx_triA, :]  # Triangle face A vertices in world space
+#         XB = bodyB.x[idx_tetB, :]  # Tetrahedron B vertices in world space
+#         X0B = bodyB.x0[idx_tetB, :]  # Tetrahedron B vertices in material space
+#         P0 = _xform_triangle_to_model_space(
+#             P, XB, X0B
+#         )  # Vertices of triangle A in the body space of body B.
 
-        if debug_on:
-            model_space_update_timer.end()
+#         if debug_on:
+#             model_space_update_timer.end()
 
-        # We perform a Frank-Wolfe optimization algorithm, https://en.wikipedia.org/wiki/Frank%E2%80%93Wolfe_algorithm
-        # This was shown to be very efficient in this paper: https://dl.acm.org/doi/10.1145/3384538
-        #
-        # First we initialize our optimization method for searching for deepest penetrating
-        # point on the triangle from body A. This is done by first extracting the three
-        # corner vertices of body A's triangle then we compute the norm of the gradients at
-        # corner points of the triangle, and lastly we pick the corner point with the smallest
-        # gradient norm.
-        gradients = np.linalg.norm(
-            [GRID.get_gradient(bodyB.grid, p_b) for p_b in P0], axis=1
-        )
-        x_i = P0[np.argmin(gradients)]
+#         # We perform a Frank-Wolfe optimization algorithm, https://en.wikipedia.org/wiki/Frank%E2%80%93Wolfe_algorithm
+#         # This was shown to be very efficient in this paper: https://dl.acm.org/doi/10.1145/3384538
+#         #
+#         # First we initialize our optimization method for searching for deepest penetrating
+#         # point on the triangle from body A. This is done by first extracting the three
+#         # corner vertices of body A's triangle then we compute the norm of the gradients at
+#         # corner points of the triangle, and lastly we pick the corner point with the smallest
+#         # gradient norm.
+#         gradients = np.linalg.norm(
+#             [GRID.get_gradient(bodyB.grid, p_b) for p_b in P0], axis=1
+#         )
+#         x_i = P0[np.argmin(gradients)]
 
-        # Next we are ready for performing the actual optimization, and we set up
-        # a loop running for a maximum allowed number of iterations.
-        for i in range(engine.params.contact_optimization_max_iterations):
-            # TODO 2022-01-02 Kenny: The computation of the objectives repeats the same gradient computation three
-            #  times. This could be optimized by simply storing the value of the norm of the gradient
-            #  of x_i in a local variable.
-            # Pick the triangle vertex 's_i' which minimizes the dot product with
-            # the current gradient at 'x_i'. That is the vertex with "largest" descent.
-            objectives = [np.dot(s_i, GRID.get_gradient(bodyB.grid, x_i)) for s_i in P0]
-            vertex = np.argmin(objectives)
-            s_i = P0[vertex]
-            # Knowing that 's_i' has a "better" descent direction we update 'x_i' by "dragging" it
-            # in the direction of 's_i'. The step-size that we update 'x_i' with is given by alpha.
-            # We decrease the value of alpha as we iterate to ensure we do not overstep our minimizer.
-            alpha = 2 / (i + 2)
-            x_i = x_i + alpha * (s_i - x_i)
-            # Before continuing to the next iterate we check for convergence to see if we can make
-            # an early exit. We use a simple tolerance test. Note that our "objective" is more like the directional
-            # derivative. Hence, if the smallest directional derivative gets slightly positive then it means we will
-            # move away from the "minimizer" and we can not find any other corner point with a better descent direction.
-            if objectives[vertex] > engine.params.contact_optimization_tolerance:
-                break
-        if debug_on:
-            contact_optimization_timer.end()
-            contact_point_generation_timer.start()
-        # We have now optimized for the deepest penetrating point on the triangle, and now we can use this
-        # point and the SDF from body B to generate a contact point between body A and body B. First we test
-        # if our triangle point is even inside axis aligned bounding box (AABB) around the SDF of body B.
-        if GRID.is_inside(bodyB.grid, x_i):
-            # If we are inside the AABB then we look up the actual SDF value at the point. If the SDF value
-            # is non-positive then we know we have a "true" contact point.
-            phi = GRID.get_value(bodyB.grid, x_i)
-            if phi <= engine.params.envelope:
-                # In which case we can generate the contact point information. We use the SDF value as an
-                # estimate of the penetration depth, and we take the gradient from the SDF at the contact
-                # point as the normal value. However, we must remember that the whole optimization problem
-                # was solved in the local body frame of body B. Hence, we must warp back the
-                # contact point information into world space before we can report back the new contact point.
-                gap = phi
-                n = GRID.get_gradient(bodyB.grid, x_i)
-                if V3.norm(n) > 0:
-                    XA = bodyB.x[idx_tetA, :]  # Tetrahedron A vertices in world space
-                    p, n, omegaA, omegaB = _xform_contact_to_world(x_i, n, XA, XB, X0B)
-                    cp = ContactPoint(
-                        bodyB, bodyA, idx_tetB, idx_tetA, omegaB, omegaA, p, n, gap
-                    )
-                    engine.contact_points.append(cp)
-        if debug_on:
-            contact_point_generation_timer.end()
-    # Before we exit we just make sure we collect any stats and timings.
-    if debug_on:
-        if "model_space_update" not in stats:
-            stats["model_space_update"] = 0
-        stats["model_space_update"] += model_space_update_timer.total
-        if "contact_optimization" not in stats:
-            stats["contact_optimization"] = 0
-        stats["contact_optimization"] += contact_optimization_timer.total
-        if "contact_point_generation" not in stats:
-            stats["contact_point_generation"] = 0
-        stats["contact_point_generation"] += contact_point_generation_timer.total
-    return stats
+#         # Next we are ready for performing the actual optimization, and we set up
+#         # a loop running for a maximum allowed number of iterations.
+#         for i in range(engine.params.contact_optimization_max_iterations):
+#             # TODO 2022-01-02 Kenny: The computation of the objectives repeats the same gradient computation three
+#             #  times. This could be optimized by simply storing the value of the norm of the gradient
+#             #  of x_i in a local variable.
+#             # Pick the triangle vertex 's_i' which minimizes the dot product with
+#             # the current gradient at 'x_i'. That is the vertex with "largest" descent.
+#             objectives = [np.dot(s_i, GRID.get_gradient(bodyB.grid, x_i)) for s_i in P0]
+#             vertex = np.argmin(objectives)
+#             s_i = P0[vertex]
+#             # Knowing that 's_i' has a "better" descent direction we update 'x_i' by "dragging" it
+#             # in the direction of 's_i'. The step-size that we update 'x_i' with is given by alpha.
+#             # We decrease the value of alpha as we iterate to ensure we do not overstep our minimizer.
+#             alpha = 2 / (i + 2)
+#             x_i = x_i + alpha * (s_i - x_i)
+#             # Before continuing to the next iterate we check for convergence to see if we can make
+#             # an early exit. We use a simple tolerance test. Note that our "objective" is more like the directional
+#             # derivative. Hence, if the smallest directional derivative gets slightly positive then it means we will
+#             # move away from the "minimizer" and we can not find any other corner point with a better descent direction.
+#             if objectives[vertex] > engine.params.contact_optimization_tolerance:
+#                 break
+#         if debug_on:
+#             contact_optimization_timer.end()
+#             contact_point_generation_timer.start()
+#         # We have now optimized for the deepest penetrating point on the triangle, and now we can use this
+#         # point and the SDF from body B to generate a contact point between body A and body B. First we test
+#         # if our triangle point is even inside axis aligned bounding box (AABB) around the SDF of body B.
+#         if GRID.is_inside(bodyB.grid, x_i):
+#             # If we are inside the AABB then we look up the actual SDF value at the point. If the SDF value
+#             # is non-positive then we know we have a "true" contact point.
+#             phi = GRID.get_value(bodyB.grid, x_i)
+#             if phi <= engine.params.envelope:
+#                 # In which case we can generate the contact point information. We use the SDF value as an
+#                 # estimate of the penetration depth, and we take the gradient from the SDF at the contact
+#                 # point as the normal value. However, we must remember that the whole optimization problem
+#                 # was solved in the local body frame of body B. Hence, we must warp back the
+#                 # contact point information into world space before we can report back the new contact point.
+#                 gap = phi
+#                 n = GRID.get_gradient(bodyB.grid, x_i)
+#                 if V3.norm(n) > 0:
+#                     XA = bodyB.x[idx_tetA, :]  # Tetrahedron A vertices in world space
+#                     p, n, omegaA, omegaB = _xform_contact_to_world(x_i, n, XA, XB, X0B)
+#                     cp = ContactPoint(
+#                         bodyB, bodyA, idx_tetB, idx_tetA, omegaB, omegaA, p, n, gap
+#                     )
+#                     engine.contact_points.append(cp)
+#         if debug_on:
+#             contact_point_generation_timer.end()
+#     # Before we exit we just make sure we collect any stats and timings.
+#     if debug_on:
+#         if "model_space_update" not in stats:
+#             stats["model_space_update"] = 0
+#         stats["model_space_update"] += model_space_update_timer.total
+#         if "contact_optimization" not in stats:
+#             stats["contact_optimization"] = 0
+#         stats["contact_optimization"] += contact_optimization_timer.total
+#         if "contact_point_generation" not in stats:
+#             stats["contact_point_generation"] = 0
+#         stats["contact_point_generation"] += contact_point_generation_timer.total
+#     return stats
 
 
 # def _contact_determination(overlaps, engine, stats, debug_on):
@@ -384,7 +384,7 @@ def _contact_reduction(engine, stats, debug_on):
 
 
 ##Stefans Additions
-def _compute_contacts(engine, dt, stats, bodyA, bodyB, results, debug_on):
+def _compute_contacts(engine, stats, dt, bodyA, bodyB, results, debug_on):
     """
     :param engine:      The current engine instance we are working with.
     :param stats:       A dictionary where to add more profiling and timing measurements.
@@ -403,13 +403,11 @@ def _compute_contacts(engine, dt, stats, bodyA, bodyB, results, debug_on):
 
     for k in range(len(results)):
         idx_triA, idx_triB = results[k]    # Get the triangle face indices
-        TAs = bodyA.x[idx_triA, :]    # Triangle face A vertices in world space
-        TBs = bodyB.x[idx_triB, :]    # Triangle face B vertices in world space
+        TAs = bodyA.x[bodyA.surface[idx_triA], :]    # Triangle face A vertices in world space
+        TBs = bodyB.x[bodyB.surface[idx_triB], :]    # Triangle face B vertices in world space
 
-        TAe = bodyA.c[idx_triA, :]    # Triangle candidate face A vertices in world space
-        TBe = bodyB.c[idx_triB, :]    # Triangle candidate face B vertices in world space
-
-        print(TAs)
+        TAe = bodyA.c[bodyA.surface[idx_triA], :]    # Triangle candidate face A vertices in world space
+        TBe = bodyB.c[bodyB.surface[idx_triB], :]    # Triangle candidate face B vertices in world space
 
         VFInputs = np.array([[TAs[0],TBs[0],TBs[1],TBs[2],TAe[0],TBe[0],TBe[1],TBe[2]],
         [TAs[1],TBs[0],TBs[1],TBs[2],TAe[1],TBe[0],TBe[1],TBe[2]],
@@ -433,18 +431,21 @@ def _compute_contacts(engine, dt, stats, bodyA, bodyB, results, debug_on):
         collisiontime = np.zeros(15)
 
         for i in range(6):
-            TIeval = vertexFaceCCD(VFInputs[i,0],VFInputs[i,1],VFInputs[i,2],VFInputs[i,3],VFInputs[i,4],VFInputs[i,5],VFInputs[i,6],VFInputs[i,7])
-            collisions[i] = TIeval[0]
-            collisiontime[i] = TIeval[1]*dt
+            (impactbool,toi) = vertexFaceCCD(VFInputs[i,0],VFInputs[i,1],VFInputs[i,2],VFInputs[i,3],VFInputs[i,4],VFInputs[i,5],VFInputs[i,6],VFInputs[i,7])
+            collisions[i] = impactbool
+            collisiontime[i] = toi*dt
         
         for i in range(6,15):
             j = i-6
-            TIeval = edgeEdgeCCD(EEInputs[j,0],EEInputs[j,1],EEInputs[j,2],EEInputs[j,3],EEInputs[j,4],EEInputs[j,5],EEInputs[j,6],EEInputs[j,7])
-            collisions[i] = TIeval[0]
-            collisiontime[i] = TIeval[1]*dt
-        
+            (impactbool,toi) = edgeEdgeCCD(EEInputs[j,0],EEInputs[j,1],EEInputs[j,2],EEInputs[j,3],EEInputs[j,4],EEInputs[j,5],EEInputs[j,6],EEInputs[j,7])
+            collisions[i] = impactbool
+            collisiontime[i] = toi*dt
+
+
+
+
         #If there is no collision, continue
-        if (not np.all(collisions)):
+        if (not np.any(collisions)):
             continue
 
         #Will need to be higher than this, probably
@@ -452,22 +453,22 @@ def _compute_contacts(engine, dt, stats, bodyA, bodyB, results, debug_on):
 
         boolmask = np.nonzero(collisiontime <= epsilon)
 
-        idx_tetA = bodyA.owner[idx_triA]   # Get index of tetrahedron that f_a comes from
-        idx_tetB = bodyB.owner[idx_triB]   # Get index of tetrahedron that f_b comes from
-        XA = bodyA.x[idx_tetB, :]    # Tetrahedron A vertices in world space
-        XB = bodyB.x[idx_tetB, :]    # Tetrahedron B vertices in world space
+        idx_tetA = bodyA.owners[idx_triA][0]   # Get index of tetrahedron that f_a comes from
+        idx_tetB = bodyB.owners[idx_triB][0]   # Get index of tetrahedron that f_b comes from
 
-        #Location for the vertice and triangles at DT.   vDT = vs*DT+ve*(1-DT)
-
-     
+        XA = bodyA.x[bodyA.T[idx_tetA], :]    # Tetrahedron A vertices in world space
+        XB = bodyB.x[bodyA.T[idx_tetB], :]    # Tetrahedron B vertices in world space
 
 
-        for index in boolmask:
-            v0 = VFInputs[index,0]
-            v1 = VFInputs[index,1]
-            v2 = VFInputs[index,2]
-            v3 = VFInputs[index,3]
+        assert XA.shape == (4, 3)
+
+        for index in boolmask[0]:
+
             if(index <6):#If it is a Vertexface
+                v0 = VFInputs[index,0]
+                v1 = VFInputs[index,1]
+                v2 = VFInputs[index,2]
+                v3 = VFInputs[index,3]
                 p = v0
                 A = v2-v1
                 B = v3-v1
@@ -477,6 +478,11 @@ def _compute_contacts(engine, dt, stats, bodyA, bodyB, results, debug_on):
                 cp = ContactPoint(bodyB, bodyA, idx_tetB, idx_tetA, omegaB, omegaA, p, n,0) #Need to find value for the gab
                 engine.contact_points.append(cp)
             else: #Else it is an edge-edge
+                eeidx = index-6
+                v0 = EEInputs[eeidx,0]
+                v1 = EEInputs[eeidx,1]
+                v2 = EEInputs[eeidx,2]
+                v3 = EEInputs[eeidx,3]                
                 p,_,gab,n = BC.closestDistanceBetweenLines(v0,v1,v2,v3,clampAll=True)
                 cp = ContactPoint(bodyB, bodyA, idx_tetB, idx_tetA, omegaB, omegaA, p, n,gab)
                 engine.contact_points.append(cp)
@@ -490,9 +496,7 @@ def _compute_contacts(engine, dt, stats, bodyA, bodyB, results, debug_on):
 
         lowest_col_time = np.min(collisiontime)
 
-        # If we already got a collision with an earlier DT, move on.
-        if (DT<lowest_col_time):
-            continue
+        # Update the DT, if it is the lowest so far
         if(DT>lowest_col_time):
             DT = lowest_col_time
 
