@@ -143,17 +143,19 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
     # Loop over all triangles from body A that are colliding with body B
     for k in range(len(results)):
         idx_triA, idx_triB = results[k]  # Get the triangle face indices
-        idx_tetA = bodyA.owners[idx_triA]  # Get index of tetrahedron that f_a comes from
-        idx_tetB = bodyB.owners[idx_triB]  # Get index of tetrahedron that f_b comes from
+        idx_tetA = bodyA.owners[idx_triA][0]   # Get index of tetrahedron that f_a comes from
+        idx_tetB = bodyB.owners[idx_triB][0]   # Get index of tetrahedron that f_b comes from
+
+
 
         if debug_on:
             contact_optimization_timer.start()
             model_space_update_timer.start()
 
         # Transform triangle A into model coordinates of body B.
-        P = bodyA.x[idx_triA, :]  # Triangle face A vertices in world space
-        XB = bodyB.x[idx_tetB, :]  # Tetrahedron B vertices in world space
-        X0B = bodyB.x0[idx_tetB, :]  # Tetrahedron B vertices in material space
+        P = bodyA.x[bodyA.surface[idx_triA], :]  # Triangle face A vertices in world space
+        XB = bodyB.x[bodyB.T[idx_tetB], :]    # Tetrahedron B vertices in world space
+        X0B = bodyB.x0[bodyB.T[idx_tetB], :]  # Tetrahedron B vertices in material space
         P0 = _xform_triangle_to_model_space(
             P, XB, X0B
         )  # Vertices of triangle A in the body space of body B.
