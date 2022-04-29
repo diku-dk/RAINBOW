@@ -1,6 +1,7 @@
 import isl.math.quaternion as Q
 import isl.geometry.grid3 as GRID
 import isl.geometry.kdop_bvh as BVH
+import isl.geometry.surface_mesh as MESH
 from isl.simulators.prox_rigid_bodies_ccd.types import *
 from itertools import combinations
 from isl.util.timer import Timer
@@ -35,11 +36,11 @@ def _update_bvh(dt, engine, stats, debug_on):
         # After we have updated the triangle mesh nodes we can invoke the refit
         # sub-routine from the BVH module.
         BVH.refit_bvh(V_world,
-                      U_world,
                       body.shape.mesh.T,
                       body.bvh,
                       engine.params.K,
-                      engine.params.envelope
+                      engine.params.envelope,
+                      U_world
                       )
     if debug_on:
         update_bvh_timer.end()
@@ -247,12 +248,20 @@ class Interval3():
         self.t = t
         self.u = u
         self.v = v
+        self.l = -1
 
     def w(self):
         return max(self.t.w(), self.u.w(), self.v.w())
 
     def __str__(self):
         return f"[t: {self.t}, u: {self.u}, v: {self.v}]"
+
+    def __lt__(self, other):
+        if self.l == other.l:
+            return self.t.lower < other.t.lower
+        else:
+            return self.l < other.l
+
 
 
 class VertexFace():
@@ -375,9 +384,70 @@ def split_interval(I: Interval3):
                 Interval3(t_2, u_2, v_2)
             ]
 
+def split(I: Interval3, g):
+    k_t = 3 * max(np.linalg.norm(g.mapping(0, I.u.lower, I.v.lower) - g.mapping(1, I.u.lower, I.v.lower)),
+                 np.linalg.norm(g.mapping(0, I.u.lower, I.v.upper) - g.mapping(1, I.u.lower, I.v.upper)),
+                 np.linalg.norm(g.mapping(0, I.u.upper, I.v.lower) - g.mapping(1, I.u.upper, I.v.lower)),
+                 np.linalg.norm(g.mapping(0, I.u.upper, I.v.upper) - g.mapping(1, I.u.upper, I.v.upper)))
+
+    k_u = 3 * max(np.linalg.norm(g.mapping(I.t.lower, 0, I.v.lower) - g.mapping(I.t.lower, 1, I.v.lower)),
+                np.linalg.norm(g.mapping(I.t.lower, 0, I.v.upper) - g.mapping(I.t.lower, 1, I.v.upper)),
+                np.linalg.norm(g.mapping(I.t.upper, 0, I.v.lower) - g.mapping(I.t.upper, 1, I.v.lower)),
+                np.linalg.norm(g.mapping(I.t.upper, 0, I.v.upper) - g.mapping(I.t.upper, 1, I.v.upper)))
+
+    k_v = 3 * max(np.linalg.norm(g.mapping(I.t.lower, I.u.lower, 0) - g.mapping(I.t.lower, I.u.lower, 1)),
+                 np.linalg.norm(g.mapping(I.t.lower, I.u.upper, 0) - g.mapping(I.t.lower, I.u.upper, 1)),
+                 np.linalg.norm(g.mapping(I.t.upper, I.u.lower, 0) - g.mapping(I.t.upper, I.u.lower, 1)),
+                 np.linalg.norm(g.mapping(I.t.upper, I.u.upper, 0) - g.mapping(I.t.upper, I.u.upper, 1)))
+
+    c_t = I.t.w()*k_t
+    c_u = I.u.w()*k_u
+    c_v = I.v.w()*k_v
+    c = max(c_t, c_u, c_v)
+    if (c_t == c):
+        m = (I.t.lower + I.t.upper) / 2
+        return [Interval3(Interval(I.t.lower, m), I.u, I.v), Interval3(Interval(m, I.t.upper), I.u, I.v)]
+    elif (c_t == c):
+        m = (I.u.lower + I.u.upper) / 2
+        return [Interval3(I.t, Interval(I.u.lower, m), I.v), Interval3(I.t, Interval(m, I.u.upper), I.v)]
+    else:
+        m = (I.v.lower + I.v.upper) / 2
+        return [Interval3(I.t, I.u, Interval(I.v.lower, m)), Interval3(I.t, I.u, Interval(m, I.v.upper))]
 
 def solve_interval(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
-    m_I = 10000
+    n = 0
+    q = queue.PriorityQueue()
+    q.put(I_0)
+    l_p = -1
+    I_f = None
+    while q.qsize() != 0:
+        I = q.get()
+        l = I.l
+        I_g = g.inclusion(I)
+        n = n + 1
+        if I_g:
+
+            if l != l_p:
+                I_f = I
+
+            if n >= m_I:
+                return I
+                return I_f
+
+            if I.w() < sigma:
+                return I
+                if l != l_p:
+                    print(I_f.t.lower)
+                    return I_f
+            else:
+                Is = split_interval(I)
+                for i in Is:
+                    i.l = l+1
+                    q.put(i)
+        l_p = l
+    return None
+
+def solve_interval_bfs(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
     n = 0
     q = queue.Queue()
     q.put((I_0, 0))
@@ -392,11 +462,14 @@ def solve_interval(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
             if l != l_p:
                 I_f = I
 
-            if n >= m_I:
+            if n >= m_I: # TODO: Seems like we are getting false positive contact points from this with edge-edge
+                # if I_f.t.lower == 0:
+                #     return None
                 return I_f
 
             if I.w() < sigma:
                 #if l != l_p:
+                # print(I.t.lower)
                 return I
             else:
                 Is = split_interval(I)
@@ -406,28 +479,22 @@ def solve_interval(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
     return None
 
 
-def solve_interval_dfs(I_0: Interval3, g, sigma):
-    res = []
-    l = 0
+def solve_interval_dfs(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
+    s = queue.LifoQueue()
+    s.put((I_0, 0))
 
-    q = queue.LifoQueue()
-    q.put(I_0)
-
-    while q.qsize() != 0:
-        I = q.get()
+    while s.qsize() != 0:
+        I, l = s.get()
         I_g = g.inclusion(I)
         if I_g:
-            # print(f"{q.qsize()=}", f"{I.w()=}")
             if I.w() < sigma:
-                return I.t.lower
+                return I
             else:
                 Is = split_interval(I)
                 for i in Is:
-                    q.put(i)
-        l = l + 1
-        if l > 1000000: break
+                    s.put((i, l+1))
 
-    return np.Infinity
+    return None
 
 def _compute_vertex_face_ccd(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
                              v_t1, f_v0_t1, f_v1_t1, f_v2_t1):
@@ -435,7 +502,7 @@ def _compute_vertex_face_ccd(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
     vf = VertexFace(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
                     v_t1, f_v0_t1, f_v1_t1, f_v2_t1)
 
-    I = solve_interval(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), vf)
+    I = solve_interval_bfs(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), vf)
 
     if I is None:
         return np.Infinity, None
@@ -453,7 +520,7 @@ def _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
     ee = EdgeEdge(p1_t0, p2_t0, p3_t0, p4_t0,
                   p1_t1, p2_t1, p3_t1, p4_t1)
 
-    I = solve_interval(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), ee)
+    I = solve_interval_dfs(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), ee)
 
     if I is None:
         return np.Infinity, None
@@ -501,7 +568,7 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
                                                               f_b_t1[i], f_a_t1[0], f_a_t1[1], f_a_t1[2])
             toi = min(toi, b_vf_toi)
             if b_vf_contact is not None:
-                cp = ContactPoint(bodyA, bodyB, b_vf_contact[0], V3.unit(b_vf_contact[1])) # Reverse bodyB <> bodyA?
+                cp = ContactPoint(bodyB, bodyA, b_vf_contact[0], V3.unit(b_vf_contact[1]))
                 engine.contact_points.append(cp)
 
         for i in range(3):
@@ -513,8 +580,21 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
                 ee_toi, ee_contact = _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
                                                             p1_t1, p2_t1, p3_t1, p4_t1)
                 toi = min(toi, ee_toi)
-                if ee_contact is not None and np.all(ee_contact[1]): # Prevent zero vectors, TODO: Fix edge-edge normals
-                    cp = ContactPoint(bodyA, bodyB, ee_contact[0], V3.unit(ee_contact[1]))
+                if ee_contact is not None and V3.norm(ee_contact[1]) != 0: # Prevent zero vectors, TODO: Fix edge-edge normals
+                    #TODO: Finish this
+                    res = MESH.compute_neighbors(bodyA.shape.mesh.T,
+                                                 bodyA.shape.mesh.T[triangleA][i],
+                                                 bodyA.shape.mesh.T[triangleA][(i+1) % 3])
+                    T_L, T_R = res[0], res[1]
+                    f_L, f_R = V_a_t0[T_L], V_a_t0[T_R]
+                    n_L = np.cross(f_L[1] - f_L[0], f_L[2] - f_L[0])
+                    n_R = np.cross(f_R[1] - f_R[0], f_R[2] - f_R[0])
+                    A = p2_t0 - p1_t0
+                    m_L, m_R = V3.unit(np.cross(A, n_L)), V3.unit(np.cross(n_R, A))
+                    n = V3.unit(ee_contact[1])
+                    if np.dot(n, m_L) < 0 and np.dot(n, m_R) < 0:
+                        n = -n
+                    cp = ContactPoint(bodyA, bodyB, ee_contact[0], n)
                     engine.contact_points.append(cp)
 
     return toi*dt
@@ -552,10 +632,10 @@ def _contact_determination(dt, overlaps, engine, stats, debug_on):
     if debug_on:
         contact_determination_timer.end()
         stats['contact_determination'] = contact_determination_timer.elapsed
-    return stats, toi
+    return toi, stats
 
 
-def _contact_reduction(toi, engine, stats, debug_on):
+def _contact_reduction(engine, stats, debug_on):
     """
     During contact point computation it may happen that different colliding triangles of one body results
     in the same contact point locations wrt to the other signed distance field of the other body. Imagine a spiky
@@ -612,9 +692,9 @@ def run_collision_detection(dt, engine, stats, debug_on):
         collision_detection_timer.start()
     stats = _update_bvh(dt, engine, stats, debug_on)
     overlaps, stats = _narrow_phase(engine, stats, debug_on)
-    stats, toi = _contact_determination(dt, overlaps, engine, stats, debug_on)
-    stats = _contact_reduction(toi, engine, stats, debug_on)
+    toi, stats = _contact_determination(dt, overlaps, engine, stats, debug_on)
+    stats = _contact_reduction(engine, stats, debug_on)
     if debug_on:
         collision_detection_timer.end()
         stats['collision_detection_time'] = collision_detection_timer.elapsed
-    return stats, toi
+    return toi, stats

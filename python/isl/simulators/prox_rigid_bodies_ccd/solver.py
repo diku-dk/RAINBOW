@@ -550,7 +550,7 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
 
     dti = dt
     # while (dti > 0):
-    stats, toi = CD.run_collision_detection(dti, engine, stats, debug_on)
+    toi, stats = CD.run_collision_detection(dti, engine, stats, debug_on)
     print(f"{toi=}")
     stats = solve_dynamics(toi, engine, debug_on)
     dti -= toi

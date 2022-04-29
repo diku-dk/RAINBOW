@@ -81,6 +81,12 @@ def axis_sort(mesh, axis):
     new2old = sorted(range(len(mesh.T)), key=lambda k: triangle_mean[k])
     mesh.T = mesh.T[new2old]
 
+def compute_neighbors(T, E1, E2):
+    res = []
+    for t in T:
+        if E1 in t and E2 in t:
+            res.append(t)
+    return res
 
 def profile_sweep(profile, slices):
     N = len(profile)
