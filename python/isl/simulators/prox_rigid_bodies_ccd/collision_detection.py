@@ -7,6 +7,8 @@ from itertools import combinations
 from isl.util.timer import Timer
 import numpy as np
 import queue
+import heapq
+from collections import deque
 
 def _update_bvh(dt, engine, stats, debug_on):
     """
@@ -281,33 +283,65 @@ class VertexFace():
     def P(self, t):
         return self.P_t0 + t*self.V_p
 
-    def v1(self, t):
+    def A(self, t):
         return self.A_t0 + t*self.V_a
 
-    def v2(self, t):
+    def B(self, t):
         return self.B_t0 + t*self.V_b
 
-    def v3(self, t):
+    def C(self, t):
         return self.C_t0 + t*self.V_c
 
     def N(self, t):
-        return np.cross(self.v2(t) - self.v1(t), self.v3(t) - self.v1(t))
+        return np.cross(self.B(t) - self.A(t), self.C(t) - self.A(t))
+
+    def mapping_2(self, t, u, v):
+        return self.P(t) - ((1 - u - v)*self.A(t) + u*self.B(t) + v*self.C(t))
 
     def mapping(self, t, u, v):
-        return self.P(t) - ((1 - u - v)*self.v1(t) + u*self.v2(t) + v*self.v3(t))
+        return (self.P_t0 + t*self.V_p) - ((1 - u - v)*(self.A_t0 + t*self.V_a) + u*(self.B_t0 + t*self.V_b) + v*(self.C_t0 + t*self.V_c))
 
-    def inclusion(self, I: Interval3):
+    def inclusion_2(self, I: Interval3):
         res = []
         for t in [I.t.lower, I.t.upper]:
             for u in [I.u.lower, I.u.upper]:
                 for v in [I.v.lower, I.v.upper]:
                     res.append(self.mapping(t, u, v))
+
         x_max = max(res, key=lambda v: v[0])[0]
         y_max = max(res, key=lambda v: v[1])[1]
         z_max = max(res, key=lambda v: v[2])[2]
         x_min = min(res, key=lambda v: v[0])[0]
         y_min = min(res, key=lambda v: v[1])[1]
         z_min = min(res, key=lambda v: v[2])[2]
+
+        return ((0 >= x_min and 0 <= x_max)
+            and (0 >= y_min and 0 <= y_max)
+            and (0 >= z_min and 0 <= z_max))
+
+    def inclusion(self, I: Interval3):
+        P = [self.P_t0 + I.t.lower*self.V_p, self.P_t0 + I.t.upper*self.V_p]
+        A = [self.A_t0 + I.t.lower*self.V_a, self.A_t0 + I.t.upper*self.V_a]
+        B = [self.B_t0 + I.t.lower*self.V_b, self.B_t0 + I.t.upper*self.V_b]
+        C = [self.C_t0 + I.t.lower*self.V_c, self.C_t0 + I.t.upper*self.V_c]
+
+        p1 = P[0] - ((1 - I.u.lower - I.v.lower)*A[0] + I.u.lower*B[0] + I.v.lower*C[0])
+        p2 = P[0] - ((1 - I.u.lower - I.v.upper)*A[0] + I.u.lower*B[0] + I.v.upper*C[0])
+        p3 = P[0] - ((1 - I.u.upper - I.v.lower)*A[0] + I.u.upper*B[0] + I.v.lower*C[0])
+        p4 = P[0] - ((1 - I.u.upper - I.v.upper)*A[0] + I.u.upper*B[0] + I.v.upper*C[0])
+        p5 = P[1] - ((1 - I.u.lower - I.v.lower)*A[1] + I.u.lower*B[1] + I.v.lower*C[1])
+        p6 = P[1] - ((1 - I.u.lower - I.v.upper)*A[1] + I.u.lower*B[1] + I.v.upper*C[1])
+        p7 = P[1] - ((1 - I.u.upper - I.v.lower)*A[1] + I.u.upper*B[1] + I.v.lower*C[1])
+        p8 = P[1] - ((1 - I.u.upper - I.v.upper)*A[1] + I.u.upper*B[1] + I.v.upper*C[1])
+
+        x = [p1[0], p2[0], p3[0], p4[0], p5[0], p6[0], p7[0], p8[0]]
+        y = [p1[1], p2[1], p3[1], p4[1], p5[1], p6[1], p7[1], p8[1]]
+        z = [p1[2], p2[2], p3[2], p4[2], p5[2], p6[2], p7[2], p8[2]]
+
+        x_min, x_max = min(x), max(x)
+        y_min, y_max = min(y), max(y)
+        z_min, z_max = min(z), max(z)
+
         return ((0 >= x_min and 0 <= x_max)
             and (0 >= y_min and 0 <= y_max)
             and (0 >= z_min and 0 <= z_max))
@@ -345,21 +379,54 @@ class EdgeEdge():
     def P(self, t, v):
         return (1 - v)*self.p3(t) + v*self.p4(t)
 
-    def mapping(self, t, u, v):
+    def mapping_2(self, t, u, v):
         return ((1 - u)*self.p1(t) + u*self.p2(t)) - ((1 - v)*self.p3(t) + v*self.p4(t)) 
 
-    def inclusion(self, I: Interval3):
+    def mapping(self, t, u, v):
+        return ((1 - u)*(self.p1_t0 + t*self.p1_v) + u*(self.p2_t0 + t*self.p2_v)) - ((1 - v)*(self.p3_t0 + t*self.p3_v) + v*(self.p4_t0 + t*self.p4_v))
+
+    def inclusion_2(self, I: Interval3):
         res = []
         for t in [I.t.lower, I.t.upper]:
             for u in [I.u.lower, I.u.upper]:
                 for v in [I.v.lower, I.v.upper]:
                     res.append(self.mapping(t, u, v))
+
         x_max = max(res, key=lambda v: v[0])[0]
         y_max = max(res, key=lambda v: v[1])[1]
         z_max = max(res, key=lambda v: v[2])[2]
         x_min = min(res, key=lambda v: v[0])[0]
         y_min = min(res, key=lambda v: v[1])[1]
         z_min = min(res, key=lambda v: v[2])[2]
+
+        return ((0 >= x_min and 0 <= x_max)
+            and (0 >= y_min and 0 <= y_max)
+            and (0 >= z_min and 0 <= z_max))
+
+
+    def inclusion(self, I: Interval3):
+        A = [self.p1_t0 + I.t.lower*self.p1_v, self.p1_t0 + I.t.upper*self.p1_v]
+        B = [self.p2_t0 + I.t.lower*self.p2_v, self.p2_t0 + I.t.upper*self.p2_v]
+        C = [self.p3_t0 + I.t.lower*self.p3_v, self.p3_t0 + I.t.upper*self.p3_v]
+        D = [self.p4_t0 + I.t.lower*self.p4_v, self.p4_t0 + I.t.upper*self.p4_v]
+
+        p1 = ((1 - I.u.lower)*A[0] + I.u.lower*B[0]) - ((1 - I.v.lower)*C[0] + I.v.lower*D[0])
+        p2 = ((1 - I.u.lower)*A[0] + I.u.lower*B[0]) - ((1 - I.v.upper)*C[0] + I.v.upper*D[0])
+        p3 = ((1 - I.u.upper)*A[0] + I.u.upper*B[0]) - ((1 - I.v.lower)*C[0] + I.v.lower*D[0])
+        p4 = ((1 - I.u.upper)*A[0] + I.u.upper*B[0]) - ((1 - I.v.upper)*C[0] + I.v.upper*D[0])
+        p5 = ((1 - I.u.lower)*A[1] + I.u.lower*B[1]) - ((1 - I.v.lower)*C[1] + I.v.lower*D[1])
+        p6 = ((1 - I.u.lower)*A[1] + I.u.lower*B[1]) - ((1 - I.v.upper)*C[1] + I.v.upper*D[1])
+        p7 = ((1 - I.u.upper)*A[1] + I.u.upper*B[1]) - ((1 - I.v.lower)*C[1] + I.v.lower*D[1])
+        p8 = ((1 - I.u.upper)*A[1] + I.u.upper*B[1]) - ((1 - I.v.upper)*C[1] + I.v.upper*D[1])
+
+        x = [p1[0], p2[0], p3[0], p4[0], p5[0], p6[0], p7[0], p8[0]]
+        y = [p1[1], p2[1], p3[1], p4[1], p5[1], p6[1], p7[1], p8[1]]
+        z = [p1[2], p2[2], p3[2], p4[2], p5[2], p6[2], p7[2], p8[2]]
+
+        x_min, x_max = min(x), max(x)
+        y_min, y_max = min(y), max(y)
+        z_min, z_max = min(z), max(z)
+
         return ((0 >= x_min and 0 <= x_max)
             and (0 >= y_min and 0 <= y_max)
             and (0 >= z_min and 0 <= z_max))
@@ -416,13 +483,17 @@ def split(I: Interval3, g):
 
 def solve_interval(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
     n = 0
-    q = queue.PriorityQueue()
-    q.put(I_0)
+    # q = queue.PriorityQueue()
+    # q.put(I_0)
+    q = []
     l_p = -1
+    heapq.heappush(q, [l_p, I_0.t.lower, I_0])
     I_f = None
-    while q.qsize() != 0:
-        I = q.get()
-        l = I.l
+    # while q.qsize() != 0:
+    while len(q) > 0:
+        # I = q.get()
+        l, _, I = heapq.heappop(q)
+        # l = I.l
         I_g = g.inclusion(I)
         n = n + 1
         if I_g:
@@ -431,30 +502,34 @@ def solve_interval(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
                 I_f = I
 
             if n >= m_I:
-                return I
+                # return I
                 return I_f
 
             if I.w() < sigma:
-                return I
+                # return I
                 if l != l_p:
-                    print(I_f.t.lower)
                     return I_f
             else:
                 Is = split_interval(I)
                 for i in Is:
-                    i.l = l+1
-                    q.put(i)
+                    # i.l = l+1
+                    # q.put(i)
+                    heapq.heappush(q, [l+1, i.t.lower, i])
         l_p = l
     return None
 
 def solve_interval_bfs(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
     n = 0
-    q = queue.Queue()
-    q.put((I_0, 0))
+    # q = queue.Queue()
+    # q.put((I_0, 0))
+    q = deque()
+    q.append((I_0, -1))
     l_p = -1
     I_f = None
-    while q.qsize() != 0:
-        I, l = q.get()
+    # while q.qsize() != 0:
+    while len(q) > 0:
+        # I, l = q.get()
+        I, l = q.popleft()
         I_g = g.inclusion(I)
         n = n + 1
         if I_g:
@@ -474,17 +549,22 @@ def solve_interval_bfs(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
             else:
                 Is = split_interval(I)
                 for i in Is:
-                    q.put((i, l+1))
+                    # q.put((i, l+1))
+                    q.append((i, l+1))
         l_p = l
     return None
 
 
 def solve_interval_dfs(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
-    s = queue.LifoQueue()
-    s.put((I_0, 0))
+    # s = queue.LifoQueue()
+    # s.put((I_0, 0))
+    s = []
+    s.append(I_0)
 
-    while s.qsize() != 0:
-        I, l = s.get()
+    # while s.qsize() != 0:
+    while len(s) > 0:
+        # I, l = s.get()
+        I = s.pop()
         I_g = g.inclusion(I)
         if I_g:
             if I.w() < sigma:
@@ -492,7 +572,8 @@ def solve_interval_dfs(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
             else:
                 Is = split_interval(I)
                 for i in Is:
-                    s.put((i, l+1))
+                    # s.put((i, l+1))
+                    s.append(i)
 
     return None
 
@@ -502,7 +583,7 @@ def _compute_vertex_face_ccd(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
     vf = VertexFace(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
                     v_t1, f_v0_t1, f_v1_t1, f_v2_t1)
 
-    I = solve_interval_bfs(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), vf)
+    I = solve_interval(Interval3(Interval(0, 1), Interval(0, 1), Interval(0, 1)), vf)
 
     if I is None:
         return np.Infinity, None
@@ -568,7 +649,7 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
                                                               f_b_t1[i], f_a_t1[0], f_a_t1[1], f_a_t1[2])
             toi = min(toi, b_vf_toi)
             if b_vf_contact is not None:
-                cp = ContactPoint(bodyB, bodyA, b_vf_contact[0], V3.unit(b_vf_contact[1]))
+                cp = ContactPoint(bodyB, bodyA, b_vf_contact[0], V3.unit(b_vf_contact[1])) # TODO: Should this be BodyA, BodyB with -n?
                 engine.contact_points.append(cp)
 
         for i in range(3):
@@ -582,17 +663,19 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
                 toi = min(toi, ee_toi)
                 if ee_contact is not None and V3.norm(ee_contact[1]) != 0: # Prevent zero vectors, TODO: Fix edge-edge normals
                     #TODO: Finish this
-                    res = MESH.compute_neighbors(bodyA.shape.mesh.T,
-                                                 bodyA.shape.mesh.T[triangleA][i],
-                                                 bodyA.shape.mesh.T[triangleA][(i+1) % 3])
-                    T_L, T_R = res[0], res[1]
-                    f_L, f_R = V_a_t0[T_L], V_a_t0[T_R]
-                    n_L = np.cross(f_L[1] - f_L[0], f_L[2] - f_L[0])
-                    n_R = np.cross(f_R[1] - f_R[0], f_R[2] - f_R[0])
-                    A = p2_t0 - p1_t0
-                    m_L, m_R = V3.unit(np.cross(A, n_L)), V3.unit(np.cross(n_R, A))
+                    # res = MESH.compute_neighbors(bodyA.shape.mesh.T,
+                    #                              bodyA.shape.mesh.T[triangleA][i],
+                    #                              bodyA.shape.mesh.T[triangleA][(i+1) % 3])
+                    # T_L, T_R = res[0], res[1]
+                    # f_L, f_R = V_a_t0[T_L], V_a_t0[T_R]
+                    # n_L = np.cross(f_L[1] - f_L[0], f_L[2] - f_L[0])
+                    # n_R = np.cross(f_R[1] - f_R[0], f_R[2] - f_R[0])
+                    p1, p2 = bodyA.shape.mesh.T[triangleA][i], bodyA.shape.mesh.T[triangleA][(i+1) % 3]
+                    m_L, m_R = Q.rotate_array(bodyA.q, bodyA.voronoi_regions[(p1, p2)])
+                    # A = p2_t0 - p1_t0
+                    # m_L, m_R = V3.unit(np.cross(A, n_L)), V3.unit(np.cross(n_R, A))
                     n = V3.unit(ee_contact[1])
-                    if np.dot(n, m_L) < 0 and np.dot(n, m_R) < 0:
+                    if np.dot(n, m_L) < 0 or np.dot(n, m_R) < 0: # TODO: and or or?
                         n = -n
                     cp = ContactPoint(bodyA, bodyB, ee_contact[0], n)
                     engine.contact_points.append(cp)

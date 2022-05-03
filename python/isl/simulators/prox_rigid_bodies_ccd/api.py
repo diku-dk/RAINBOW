@@ -120,6 +120,23 @@ def connect_shape(engine, body_name: str, shape_name: str) -> None:
                             engine.params.envelope
                             )
 
+    # Compute voronoi regions for given shape
+    for t in shape.mesh.T:
+        for i, j in [(t[0], t[1]), (t[1], t[2]), (t[2], t[1])]:
+            res = MESH.compute_neighbors(shape.mesh.T, i, j)
+            if (i == res[0][0] and j == res[0][1]) or (i == res[0][1] and j == res[0][2]) or (i == res[0][2] and j == res[0][0]):
+                T_L = res[0]
+                T_R = res[1]
+            else:
+                T_L = res[1]
+                T_R = res[0]
+
+            f_L, f_R = shape.mesh.V[T_L], shape.mesh.V[T_R]
+            n_L = np.cross(f_L[1] - f_L[0], f_L[2] - f_L[0])
+            n_R = np.cross(f_R[1] - f_R[0], f_R[2] - f_R[0])
+            A, B = shape.mesh.V[j] - shape.mesh.V[i], shape.mesh.V[i] - shape.mesh.V[j]
+            body.voronoi_regions[(i, j)] = [V3.unit(np.cross(A, n_L)), V3.unit(np.cross(n_R, A))]
+            body.voronoi_regions[(j, i)] = [V3.unit(np.cross(B, n_R)), V3.unit(np.cross(n_L, B))]
 
 def create_gravity_force(engine, force_name: str, g: float, up) -> None:
     """

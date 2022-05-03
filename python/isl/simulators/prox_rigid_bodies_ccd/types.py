@@ -203,6 +203,7 @@ class RigidBody:
         self.forces = []  # External forces (like gravity and damping) acting on this body.
         self.material = 'default'  # The material this rigid body is made up of.
         self.bvh = None  # k-DOP_bvh encapsulating the entire body.
+        self.voronoi_regions = {} # Voronoi regions for each edge in the body shape
 
 
 class ContactPoint:
