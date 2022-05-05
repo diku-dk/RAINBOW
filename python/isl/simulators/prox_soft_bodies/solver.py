@@ -453,7 +453,7 @@ class Native:
             #  for setting values like this. We might have
             #  to use a different sparse matrix format for this?
             A[idx : idx + 3, :] = 0
-            A[idx : idx + 3, idx : idx + 3] = np.identity(3)
+            A[idx : idx + 3, idx: idx + 3] = np.identity(3)
 
 
 def get_friction_coefficient_vector(engine):
@@ -469,8 +469,8 @@ def get_friction_coefficient_vector(engine):
     mu = np.zeros(K, dtype=np.float64)
     for k in range(K):
         cp = engine.contact_points[k]
-        interaction = engine.materials_interactions.get_interaction(
-            cp.bodyA.material.name, cp.bodyB.material.name
+        interaction = engine.surfaces_interactions.get_interaction(
+            cp.bodyA.material_description.name, cp.bodyB.material_description.name
         )
         mu[k] = interaction.mu[0]
     return mu

@@ -136,7 +136,7 @@ class SoftBody:
         self.offset = 0  # Starting global index used to access body information stored in arrays
         self.T = None  # Array of tetrahedral elements (K-by-4 array).
         self.surface = None  # Array of triangle surface elements (H-by-3 array).
-        self.owners = None  # Surface triangle tetrahedral owner information.
+        self.owners = None  # Surface triangle owner information, owners[triangle] -> (tetrahedron, opposing vertex)
         self.neighbors = None  # Tetrahedron neighbor information
         self.bvh = None  # A kDOP bvh hierarchy of surface elements.
         self.grid = None  # A signed distance field of the surface mesh.

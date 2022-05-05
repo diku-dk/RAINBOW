@@ -175,7 +175,7 @@ def sweep(K, J, WJT, b, mu, r, x, friction_solver, engine):
 
         # Solve:         x_f = prox_C( x_f - r (A x_f + b))
         x_b[1], x_b[2], x_b[3] = friction_solver(
-            engine, z_b[1], z_b[2], z_b[3], mu_k, mu_k, mu_k, x_b[0]
+            engine, z_b[1], z_b[2], z_b[3], mu_k, x_b[0]
         )
         # Put updated contact forces back into solution vector
         x[block] = x_b
