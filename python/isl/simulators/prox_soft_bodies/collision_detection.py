@@ -215,7 +215,7 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
                 gap = phi
                 n = GRID.get_gradient(bodyB.grid, x_i)
                 if V3.norm(n) > 0:
-                    XA = bodyB.x[idx_tetA, :]  # Tetrahedron A vertices in world space
+                    XA = bodyA.x[bodyA.T[idx_tetA], :]  # Tetrahedron A vertices in world space
                     p, n, omegaA, omegaB = _xform_contact_to_world(x_i, n, XA, XB, X0B)
                     cp = ContactPoint(
                         bodyB, bodyA, idx_tetB, idx_tetA, omegaB, omegaA, p, n, gap
