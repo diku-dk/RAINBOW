@@ -218,7 +218,10 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
                     XA = bodyA.x[bodyA.T[idx_tetA], :]  # Tetrahedron A vertices in world space
                     p, n, omegaA, omegaB = _xform_contact_to_world(x_i, n, XA, XB, X0B)
                     cp = ContactPoint(
-                        bodyB, bodyA, idx_tetB, idx_tetA, omegaB, omegaA, p, n, gap
+                        bodyB, bodyA,
+                        idx_tetB, idx_tetA,
+                        omegaB, omegaA,
+                        p, V3.unit(n), gap
                     )
                     engine.contact_points.append(cp)
         if debug_on:
@@ -258,7 +261,12 @@ def _contact_determination(overlaps, engine, stats, debug_on):
         #  into the local SDF space of the other body. However, we just need one pair where
         #  a specific triangle is part of, not all pairs where the triangle is part of.
         _compute_contacts(
-            engine, stats, key[0], key[1], results, debug_on  # Body A  # Body B
+            engine,
+            stats,
+            key[0],  # Body A
+            key[1],  # Body B
+            results,
+            debug_on
         )
         _compute_contacts(
             engine,
