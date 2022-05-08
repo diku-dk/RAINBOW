@@ -248,7 +248,7 @@ def compute_neighbors(T):
     """
     This function computes adjacent tetrahedral information. The result is returned in a Neihbor lookup array, N.
 
-    The N-array works such that if n = N[e,v] then tetrahedron n is adajacent to tetrahedorn e. The tetrahedron
+    The N-array works such that if n = N[e,v] then tetrahedron n is adjacent to tetrahedron e. The tetrahedron
     n is sharing the face opposite node v of tetrahedron e.
 
     Concretely if T[e,:] = [i,j,k,m] and say v = 3 then it will be the triangle face i,j,k that are

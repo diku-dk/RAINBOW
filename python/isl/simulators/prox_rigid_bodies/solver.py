@@ -517,7 +517,7 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
         mu = get_friction_coefficient_vector(engine)
         b = np.multiply(1 + e, v) + J.dot(du_ext) + g
         sol, stats = GS.solve(
-            J, WJT, b, mu, GS.prox_ellipsoid, engine, stats, debug_on, ""
+            J, WJT, b, mu, GS.prox_sphere, engine, stats, debug_on, ""
         )
         du_contact = WJT.dot(sol)
 

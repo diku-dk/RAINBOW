@@ -143,9 +143,8 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
     # Loop over all triangles from body A that are colliding with body B
     for k in range(len(results)):
         idx_triA, idx_triB = results[k]  # Get the triangle face indices
-        # 2022-04-21 Kenny: TODO Fix lookup in owner data structure
-        idx_tetA = bodyA.owners[idx_triA]  # Get index of tetrahedron that f_a comes from
-        idx_tetB = bodyB.owners[idx_triB]  # Get index of tetrahedron that f_b comes from
+        idx_tetA = bodyA.owners[idx_triA][0]  # Get index of tetrahedron that f_a comes from
+        idx_tetB = bodyB.owners[idx_triB][0]  # Get index of tetrahedron that f_b comes from
 
         if debug_on:
             contact_optimization_timer.start()
@@ -216,10 +215,13 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
                 gap = phi
                 n = GRID.get_gradient(bodyB.grid, x_i)
                 if V3.norm(n) > 0:
-                    XA = bodyB.x[idx_tetA, :]  # Tetrahedron A vertices in world space
+                    XA = bodyA.x[bodyA.T[idx_tetA], :]  # Tetrahedron A vertices in world space
                     p, n, omegaA, omegaB = _xform_contact_to_world(x_i, n, XA, XB, X0B)
                     cp = ContactPoint(
-                        bodyB, bodyA, idx_tetB, idx_tetA, omegaB, omegaA, p, n, gap
+                        bodyB, bodyA,
+                        idx_tetB, idx_tetA,
+                        omegaB, omegaA,
+                        p, V3.unit(n), gap
                     )
                     engine.contact_points.append(cp)
         if debug_on:
@@ -259,7 +261,12 @@ def _contact_determination(overlaps, engine, stats, debug_on):
         #  into the local SDF space of the other body. However, we just need one pair where
         #  a specific triangle is part of, not all pairs where the triangle is part of.
         _compute_contacts(
-            engine, stats, key[0], key[1], results, debug_on  # Body A  # Body B
+            engine,
+            stats,
+            key[0],  # Body A
+            key[1],  # Body B
+            results,
+            debug_on
         )
         _compute_contacts(
             engine,

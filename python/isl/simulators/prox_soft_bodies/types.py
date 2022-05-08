@@ -27,18 +27,30 @@ class SurfacesInteractionLibrary:
         ] = SurfacesInteraction()  # Default surface interaction.
 
     def get_interaction(self, A, B):
+        """
+        This method retrieves the surface interaction description
+        between the given material names.
+        """
         key = (A, B) if A < B else (B, A)
         if key in self.storage:
             return self.storage[key]
         return None
 
     def exist_interaction(self, A, B):
+        """
+        This method tests if a surface interaction has been described
+        between the two materials given by the names A and B.
+        """
         key = (A, B) if A < B else (B, A)
         if key in self.storage:
             return True
         return False
 
     def exist_material(self, name):
+        """
+        This method tests if the given material name exist in the
+        current storage.
+        """
         for key in self.storage:
             if name in key:
                 return True
@@ -46,6 +58,10 @@ class SurfacesInteractionLibrary:
 
 
 class ContactPoint:
+    """
+    This is a contact point data type.
+    """
+
     def __init__(
         self, bodyA, bodyB, idx_tetA, idx_tetB, omegaA, omegaB, position, normal, gap
     ):
@@ -82,6 +98,10 @@ class ContactPoint:
 
 
 class DirichletCondition:
+    """
+    This data type represent a single Dirichlet condition on one variable.
+    """
+
     def __init__(self, idx, value):
         """
         This initializer creates an instance that describes a nodal Dirichlet boundary condition.
@@ -94,6 +114,10 @@ class DirichletCondition:
 
 
 class TractionCondition:
+    """
+    This data type represent a constant traction on a triangle, that is a constant load on the triangle.
+    """
+
     def __init__(self, i, j, k, load):
         """
         This initializer creates an instance the keep relevant information for computing the constant per triangle
@@ -113,6 +137,10 @@ class TractionCondition:
 
 
 class MaterialDescription:
+    """
+    A material description consists of all parameter that describes in internal/bulk of the material.
+    """
+
     def __init__(self):
         self.constitutive_model = COR  # The constitutive model used for this material.
         self.c = 0  # The damping coefficient
@@ -123,6 +151,10 @@ class MaterialDescription:
 
 
 class SoftBody:
+    """
+    This class contains all data needed for a single soft body.
+    """
+
     def __init__(self, name):
         """
         Initializing a soft body. This creates a default instance of a soft body without any mesh or materials
@@ -136,7 +168,7 @@ class SoftBody:
         self.offset = 0  # Starting global index used to access body information stored in arrays
         self.T = None  # Array of tetrahedral elements (K-by-4 array).
         self.surface = None  # Array of triangle surface elements (H-by-3 array).
-        self.owners = None  # Surface triangle tetrahedral owner information.
+        self.owners = None  # Surface triangle owner information, owners[triangle] -> (tetrahedron, opposing vertex)
         self.neighbors = None  # Tetrahedron neighbor information
         self.bvh = None  # A kDOP bvh hierarchy of surface elements.
         self.grid = None  # A signed distance field of the surface mesh.
@@ -161,6 +193,10 @@ class SoftBody:
 
 
 class Parameters:
+    """
+    This call contains all parameter values that control the simulator.
+    """
+
     def __init__(self):
         """
         This initializes a default instance of our parameter class. The parameter class controls the behavior of all
@@ -220,6 +256,9 @@ class Parameters:
 
 
 class Engine:
+    """
+    This class holds all data that describes the world that we are currently simulating.
+    """
     # 2022-03-27 Kenny TODO: The word engine may be a little misplaced. Perhaps we should rename this to
     #                   "World" and then keep Parameters as a separate argument for our interfaces? This would create
     #                   a nicer API interface too. Like API.create_world and API.create_body(..,world,..)

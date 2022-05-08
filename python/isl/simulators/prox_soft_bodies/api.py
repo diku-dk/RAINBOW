@@ -206,6 +206,7 @@ def create_surfaces_interaction(engine, material_A, material_B, mu) -> None:
     :param mu:          The value of the coefficient of friction between the two materials given.
     :return:            Nothing.
     """
+    # 2022-05-05 Kenny TODO add test that mu is a non-negative real number.
     if material_A not in engine.materials:
         raise ValueError("Engine did not have material with name ", material_A)
     if material_B not in engine.materials:
@@ -220,7 +221,7 @@ def create_surfaces_interaction(engine, material_A, material_B, mu) -> None:
         else (material_B, material_A)
     )
     interaction = SurfacesInteraction()
-    interaction.mu = mu
+    interaction.mu[0] = mu
     engine.surfaces_interactions.storage[key] = interaction
 
 
