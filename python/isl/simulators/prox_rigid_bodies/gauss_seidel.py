@@ -23,24 +23,24 @@ def prox_sphere(z_s, z_t, z_tau, mu, x_n):
     return z_s * scale, z_t * scale, z_tau * scale
 
 
-def prox_origin(engine, z_s, z_t, z_tau, mu_s, mu_t, mu_tau, x_n):
+def prox_origin(z_s, z_t, z_tau, mu, x_n):
     """
     Proximal point of z to the origin.
 
-    :param engine:
-    :param z_s:
-    :param z_t:
-    :param z_tau:
-    :param mu_s:
-    :param mu_t:
-    :param mu_tau:
-    :param x_n:
-    :return:
+    :param z_s:       s-component of current z-point.
+    :param z_t:       t-component of current z-point.
+    :param z_tau:     tau-component of current z-point.
+    :param mu:        The coefficient of friction.
+    :param x_n:       The current normal force magnitude.
+    :return:          The new z-point which will be the closest point to the sphere with radius my*x_n.
     """
     return 0.0, 0.0, 0.0
 
 
 def prox_ellipsoid(engine, z_s, z_t, z_tau, mu_s, mu_t, mu_tau, x_n):
+    # 2022-05-09 Kenny TODO: This interface is currently not compatible with
+    #                   the friction_solver interface that we assume in the
+    #                   sweep function.
     """
 
     :param engine:
@@ -58,7 +58,7 @@ def prox_ellipsoid(engine, z_s, z_t, z_tau, mu_s, mu_t, mu_tau, x_n):
 
     # If surface friction is frictionless, just return prox origin
     if mu_s == 0 and mu_t == 0 and mu_tau == 0:
-        return prox_origin(z_s, z_t, z_tau, mu_s, mu_t, mu_tau, x_n)
+        return prox_origin(z_s, z_t, z_tau, mu_s, x_n)
 
     if mu_s == mu_t and mu_s == mu_tau:
         return prox_sphere(z_s, z_t, z_tau, mu_s, x_n)
