@@ -203,9 +203,8 @@ class Parameters:
         numerical methods and solver specific settings as well as toggling on/off different modeling terms. It does
         not describe any material/mesh like settings. Those are defined individually for each soft body.
         """
-        self.total_time = 10.0  # The total allowed simulation time.
         self.time_step = (
-            0.001  # The time step to use when taking one simulation solver step.
+            0.001  # The desired time step to use when taking one simulation solver step.
         )
         self.max_iterations = 200  # Maximum number of Gauss-Seidel iterations.
         self.use_pre_stabilization = (
@@ -284,4 +283,4 @@ class Engine:
             []
         )  # All contact points in last call of collision detection system.
         self.number_of_nodes = 0  # The total number of nodes in the world.
-        self.current_time = 0.0  # The current simulation time.
+        self.stepper = None  # A reference to the time-stepper used to simulator forward.
