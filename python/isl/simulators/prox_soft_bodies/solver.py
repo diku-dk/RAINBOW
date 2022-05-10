@@ -1045,7 +1045,7 @@ class SemiImplicitStepper:
         :param dt:          The time-step size to advance the world state by.
         :param engine:      The current engine instance we are working with.
         :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
-        :return:            A dictionary with profiling and timing measurements.
+        :return:            None.
         """
         # 2022-03-27 Kenny TODO: This function should be redesigned to "semi_implicit_stepper" and
         #                   one should feed in the contact states, x and u vectors that it should work

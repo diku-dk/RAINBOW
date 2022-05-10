@@ -1,4 +1,7 @@
+from typing import Tuple
+
 import scipy.sparse as sparse
+from isl.simulators.prox_soft_bodies.types import Engine
 import isl.math.matrix3 as M3
 import isl.geometry.surface_mesh as MESH
 import isl.simulators.prox_rigid_bodies.mass as MASS
@@ -427,7 +430,7 @@ def apply_post_stabilization(J, WJT, x, engine, stats: dict, debug_on) -> dict:
     return stats
 
 
-def get_total_energy(engine) -> tuple[float, float]:
+def get_total_energy(engine) -> Tuple[float, float]:
     """
     Compute the total kinetic and potential energy of the whole system in the engine. This function is
     used to monitor energies during simulation which is a very useful debug and analysis tool. The energies are
@@ -473,79 +476,85 @@ def get_largest_gap_error(engine) -> float:
     return -gap
 
 
-def stepper(dt: float, engine, debug_on: bool) -> dict:
+class SemiImplicitStepper:
     """
-    This is the main simulation method that is responsible for stepping time
-     forward to the next time-step.
-
-    :param dt:        The time-step to step time forward in the engine.
-    :param engine:    The engine that holds all the rigid bodies.
-    :param debug_on:  A boolean flag to toggle debug mode.
-    :return:          A dictionary with collected statistics and performance measurements.
+    This class implements a semi-implicit first order Euler time-stepper.
     """
-    timer = None
-    if debug_on:
-        timer = Timer("Stepper")
-        timer.start()
-    stats = {}
+    def __init__(self, engine: Engine) -> None:
+        self.log = []
+        x = get_position_vector(engine)
+        self.W = compute_inverse_mass_matrix(x, engine)
 
-    x = get_position_vector(engine)
-    u = get_velocity_vector(engine)
-    f_ext = compute_total_external_forces(x, u, engine)
-    W = compute_inverse_mass_matrix(x, engine)
-    du_contact = np.zeros(u.shape, dtype=np.float64)
-    du_ext = W.dot(dt * f_ext)
+    def step(self, dt: float, engine: Engine, debug_on: bool) -> None:
+        """
+        This is the main simulation method that is responsible for stepping time
+        forward to the next time-step.
 
-    stats = CD.run_collision_detection(engine, stats, debug_on)
+        :param dt:        The time-step to step time forward in the engine.
+        :param engine:    The engine that holds all the rigid bodies.
+        :param debug_on:  A boolean flag to toggle debug mode.
+        :return:          None
+        """
+        timer = None
+        if debug_on:
+            timer = Timer("Stepper")
+            timer.start()
+        stats = {}
 
-    J = None
-    WJT = None
-    if len(engine.contact_points) > 0:
-        J = compute_jacobian_matrix(engine)
-        WJT = W.dot(J.T)
-        v = J.dot(u)
-        if engine.params.use_pre_stabilization:
-            g = get_pre_stabilization_vector(dt, v, engine)
-        else:
-            g = np.zeros(v.shape, dtype=np.float64)
+        x = get_position_vector(engine)
+        u = get_velocity_vector(engine)
+        f_ext = compute_total_external_forces(x, u, engine)
+        du_contact = np.zeros(u.shape, dtype=np.float64)
+        du_ext = self.W.dot(dt * f_ext)
 
-        if engine.params.use_bounce:
-            e = get_restitution_vector(engine)
-        else:
-            e = np.zeros(v.shape, dtype=np.float64)
+        stats = CD.run_collision_detection(engine, stats, debug_on)
 
-        mu = get_friction_coefficient_vector(engine)
-        b = np.multiply(1 + e, v) + J.dot(du_ext) + g
-        sol, stats = GS.solve(
-            J, WJT, b, mu, GS.prox_sphere, engine, stats, debug_on, ""
-        )
-        du_contact = WJT.dot(sol)
-
-    du_total = du_ext + du_contact
-    u += du_total
-    position_update(x, u, dt, engine)
-    set_position_vector(x, engine)
-    set_velocity_vector(u, engine)
-    engine.params.current_time += dt
-
-    if engine.params.use_post_stabilization:
+        J = None
+        WJT = None
         if len(engine.contact_points) > 0:
-            stats = apply_post_stabilization(J, WJT, x, engine, stats, debug_on)
+            J = compute_jacobian_matrix(engine)
+            WJT = self.W.dot(J.T)
+            v = J.dot(u)
+            if engine.params.use_pre_stabilization:
+                g = get_pre_stabilization_vector(dt, v, engine)
+            else:
+                g = np.zeros(v.shape, dtype=np.float64)
 
-    if debug_on:
-        timer.end()
-        stats["stepper_time"] = timer.elapsed
-        stats["dt"] = dt
-        stats["contact_points"] = len(engine.contact_points)
-        stats["contact_forces"] = du_contact
-        stats["total_forces"] = du_total
-        stats["positions"] = x
-        stats["external_forces"] = du_ext
-        stats["velocity"] = u
-        stats["body_names"] = list(engine.bodies)
-        kinetic_energy, potential_energy = get_total_energy(engine)
-        stats["kinetic_energy"] = kinetic_energy
-        stats["potential_energy"] = potential_energy
-        stats["max_gap"] = get_largest_gap_error(engine)
+            if engine.params.use_bounce:
+                e = get_restitution_vector(engine)
+            else:
+                e = np.zeros(v.shape, dtype=np.float64)
 
-    return stats
+            mu = get_friction_coefficient_vector(engine)
+            b = np.multiply(1 + e, v) + J.dot(du_ext) + g
+            sol, stats = GS.solve(
+                J, WJT, b, mu, GS.prox_sphere, engine, stats, debug_on, ""
+            )
+            du_contact = WJT.dot(sol)
+
+        du_total = du_ext + du_contact
+        u += du_total
+        position_update(x, u, dt, engine)
+        set_position_vector(x, engine)
+        set_velocity_vector(u, engine)
+
+        if engine.params.use_post_stabilization:
+            if len(engine.contact_points) > 0:
+                stats = apply_post_stabilization(J, WJT, x, engine, stats, debug_on)
+
+        if debug_on:
+            timer.end()
+            stats["stepper_time"] = timer.elapsed
+            stats["dt"] = dt
+            stats["contact_points"] = len(engine.contact_points)
+            stats["contact_forces"] = du_contact
+            stats["total_forces"] = du_total
+            stats["positions"] = x
+            stats["external_forces"] = du_ext
+            stats["velocity"] = u
+            stats["body_names"] = list(engine.bodies)
+            kinetic_energy, potential_energy = get_total_energy(engine)
+            stats["kinetic_energy"] = kinetic_energy
+            stats["potential_energy"] = potential_energy
+            stats["max_gap"] = get_largest_gap_error(engine)
+            self.log.append(stats)
