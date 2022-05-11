@@ -482,8 +482,6 @@ class SemiImplicitStepper:
     """
     def __init__(self, engine: Engine) -> None:
         self.log = []
-        x = get_position_vector(engine)
-        self.W = compute_inverse_mass_matrix(x, engine)
 
     def step(self, dt: float, engine: Engine, debug_on: bool) -> None:
         """
@@ -505,7 +503,8 @@ class SemiImplicitStepper:
         u = get_velocity_vector(engine)
         f_ext = compute_total_external_forces(x, u, engine)
         du_contact = np.zeros(u.shape, dtype=np.float64)
-        du_ext = self.W.dot(dt * f_ext)
+        W = compute_inverse_mass_matrix(x, engine)
+        du_ext = W.dot(dt * f_ext)
 
         stats = CD.run_collision_detection(engine, stats, debug_on)
 
@@ -513,7 +512,7 @@ class SemiImplicitStepper:
         WJT = None
         if len(engine.contact_points) > 0:
             J = compute_jacobian_matrix(engine)
-            WJT = self.W.dot(J.T)
+            WJT = W.dot(J.T)
             v = J.dot(u)
             if engine.params.use_pre_stabilization:
                 g = get_pre_stabilization_vector(dt, v, engine)
