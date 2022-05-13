@@ -489,7 +489,14 @@ def solve_dynamics(dt: float, engine, debug_on: bool) -> dict:
     du_contact = np.zeros(u.shape, dtype=np.float64)
     du_ext = W.dot(dt * f_ext)
 
-    # stats = CD.run_collision_detection(dt, engine, stats, debug_on)
+    # set_velocity_vector(u + du_ext, engine)
+
+    # toi, stats = CD.run_collision_detection(dt, engine, stats, debug_on)
+    # print(f"{toi=}")
+
+    # dt = toi
+    # du_ext = W.dot(dt * f_ext)
+    # set_velocity_vector(u, engine)
 
     J = None
     WJT = None
@@ -552,6 +559,8 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
     # while (dti > 0):
     toi, stats = CD.run_collision_detection(dti, engine, stats, debug_on)
     print(f"{toi=}")
+        # if toi < 1.0e-5:
+        #     toi = dti
     stats = solve_dynamics(toi, engine, debug_on)
     dti -= toi
 

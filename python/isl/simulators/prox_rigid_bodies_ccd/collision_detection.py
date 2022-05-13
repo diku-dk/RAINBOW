@@ -346,6 +346,33 @@ class VertexFace():
             and (0 >= y_min and 0 <= y_max)
             and (0 >= z_min and 0 <= z_max))
 
+    def inclusion_box(self, I: Interval3):
+        P = [self.P_t0 + I.t.lower*self.V_p, self.P_t0 + I.t.upper*self.V_p]
+        A = [self.A_t0 + I.t.lower*self.V_a, self.A_t0 + I.t.upper*self.V_a]
+        B = [self.B_t0 + I.t.lower*self.V_b, self.B_t0 + I.t.upper*self.V_b]
+        C = [self.C_t0 + I.t.lower*self.V_c, self.C_t0 + I.t.upper*self.V_c]
+
+        p1 = P[0] - ((1 - I.u.lower - I.v.lower)*A[0] + I.u.lower*B[0] + I.v.lower*C[0])
+        p2 = P[0] - ((1 - I.u.lower - I.v.upper)*A[0] + I.u.lower*B[0] + I.v.upper*C[0])
+        p3 = P[0] - ((1 - I.u.upper - I.v.lower)*A[0] + I.u.upper*B[0] + I.v.lower*C[0])
+        p4 = P[0] - ((1 - I.u.upper - I.v.upper)*A[0] + I.u.upper*B[0] + I.v.upper*C[0])
+        p5 = P[1] - ((1 - I.u.lower - I.v.lower)*A[1] + I.u.lower*B[1] + I.v.lower*C[1])
+        p6 = P[1] - ((1 - I.u.lower - I.v.upper)*A[1] + I.u.lower*B[1] + I.v.upper*C[1])
+        p7 = P[1] - ((1 - I.u.upper - I.v.lower)*A[1] + I.u.upper*B[1] + I.v.lower*C[1])
+        p8 = P[1] - ((1 - I.u.upper - I.v.upper)*A[1] + I.u.upper*B[1] + I.v.upper*C[1])
+
+        x = [p1[0], p2[0], p3[0], p4[0], p5[0], p6[0], p7[0], p8[0]]
+        y = [p1[1], p2[1], p3[1], p4[1], p5[1], p6[1], p7[1], p8[1]]
+        z = [p1[2], p2[2], p3[2], p4[2], p5[2], p6[2], p7[2], p8[2]]
+
+        x_min, x_max = min(x), max(x)
+        y_min, y_max = min(y), max(y)
+        z_min, z_max = min(z), max(z)
+
+        return ((0 >= x_min and 0 <= x_max)
+            and (0 >= y_min and 0 <= y_max)
+            and (0 >= z_min and 0 <= z_max)), max(x_max - x_min, y_max - y_min, z_max - z_min)
+
 
 class EdgeEdge():
     def __init__(self,
@@ -431,6 +458,33 @@ class EdgeEdge():
             and (0 >= y_min and 0 <= y_max)
             and (0 >= z_min and 0 <= z_max))
 
+    def inclusion_box(self, I: Interval3):
+        A = [self.p1_t0 + I.t.lower*self.p1_v, self.p1_t0 + I.t.upper*self.p1_v]
+        B = [self.p2_t0 + I.t.lower*self.p2_v, self.p2_t0 + I.t.upper*self.p2_v]
+        C = [self.p3_t0 + I.t.lower*self.p3_v, self.p3_t0 + I.t.upper*self.p3_v]
+        D = [self.p4_t0 + I.t.lower*self.p4_v, self.p4_t0 + I.t.upper*self.p4_v]
+
+        p1 = ((1 - I.u.lower)*A[0] + I.u.lower*B[0]) - ((1 - I.v.lower)*C[0] + I.v.lower*D[0])
+        p2 = ((1 - I.u.lower)*A[0] + I.u.lower*B[0]) - ((1 - I.v.upper)*C[0] + I.v.upper*D[0])
+        p3 = ((1 - I.u.upper)*A[0] + I.u.upper*B[0]) - ((1 - I.v.lower)*C[0] + I.v.lower*D[0])
+        p4 = ((1 - I.u.upper)*A[0] + I.u.upper*B[0]) - ((1 - I.v.upper)*C[0] + I.v.upper*D[0])
+        p5 = ((1 - I.u.lower)*A[1] + I.u.lower*B[1]) - ((1 - I.v.lower)*C[1] + I.v.lower*D[1])
+        p6 = ((1 - I.u.lower)*A[1] + I.u.lower*B[1]) - ((1 - I.v.upper)*C[1] + I.v.upper*D[1])
+        p7 = ((1 - I.u.upper)*A[1] + I.u.upper*B[1]) - ((1 - I.v.lower)*C[1] + I.v.lower*D[1])
+        p8 = ((1 - I.u.upper)*A[1] + I.u.upper*B[1]) - ((1 - I.v.upper)*C[1] + I.v.upper*D[1])
+
+        x = [p1[0], p2[0], p3[0], p4[0], p5[0], p6[0], p7[0], p8[0]]
+        y = [p1[1], p2[1], p3[1], p4[1], p5[1], p6[1], p7[1], p8[1]]
+        z = [p1[2], p2[2], p3[2], p4[2], p5[2], p6[2], p7[2], p8[2]]
+
+        x_min, x_max = min(x), max(x)
+        y_min, y_max = min(y), max(y)
+        z_min, z_max = min(z), max(z)
+
+        return ((0 >= x_min and 0 <= x_max)
+            and (0 >= y_min and 0 <= y_max)
+            and (0 >= z_min and 0 <= z_max)), max(x_max - x_min, y_max - y_min, z_max - z_min)
+
 
 def split_interval(I: Interval3):
     t_m = (I.t.lower + I.t.upper) / 2
@@ -450,6 +504,22 @@ def split_interval(I: Interval3):
                 Interval3(t_2, u_1, v_2),
                 Interval3(t_2, u_2, v_2)
             ]
+
+def split_interval2(I: Interval3):
+    idx = np.argmin([I.t.w(), I.u.w(), I.v.w()])
+
+    if 1 == idx:
+        t_m = (I.t.lower + I.t.upper) / 2
+        t_1, t_2 = Interval(I.t.lower, t_m), Interval(t_m, I.t.upper)
+        return [Interval3(t_1, I.u, I.v), Interval3(t_2, I.u, I.v)]
+    elif 2 == idx:
+        u_m = (I.u.lower + I.u.upper) / 2
+        u_1, u_2 = Interval(I.u.lower, u_m), Interval(u_m, I.u.upper)
+        return [Interval3(I.t, u_1, I.v), Interval3(I.t, u_2, I.v)]
+    else:
+        v_m = (I.v.lower + I.v.upper) / 2
+        v_1, v_2 = Interval(I.v.lower, v_m), Interval(v_m, I.v.upper)
+        return [Interval3(I.t, I.u, v_1), Interval3(I.t, I.u, v_2)]
 
 def split(I: Interval3, g):
     k_t = 3 * max(np.linalg.norm(g.mapping(0, I.u.lower, I.v.lower) - g.mapping(1, I.u.lower, I.v.lower)),
@@ -481,7 +551,7 @@ def split(I: Interval3, g):
         m = (I.v.lower + I.v.upper) / 2
         return [Interval3(I.t, I.u, Interval(I.v.lower, m)), Interval3(I.t, I.u, Interval(m, I.v.upper))]
 
-def solve_interval(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
+def solve_interval(I_0: Interval3, f, delta=0.000001, m_I=1000000):
     n = 0
     # q = queue.PriorityQueue()
     # q.put(I_0)
@@ -494,9 +564,10 @@ def solve_interval(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
         # I = q.get()
         l, _, I = heapq.heappop(q)
         # l = I.l
-        I_g = g.inclusion(I)
+        # B = f.inclusion(I)
+        B, B_w = f.inclusion_box(I)
         n = n + 1
-        if I_g:
+        if B:
 
             if l != l_p:
                 I_f = I
@@ -505,20 +576,21 @@ def solve_interval(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
                 # return I
                 return I_f
 
-            if I.w() < sigma:
+            # if I.w() < delta:
+            if B_w < delta:
                 # return I
                 if l != l_p:
                     return I_f
             else:
-                Is = split_interval(I)
+                Is = split_interval2(I)
                 for i in Is:
-                    # i.l = l+1
+                    i.l = l+1
                     # q.put(i)
                     heapq.heappush(q, [l+1, i.t.lower, i])
         l_p = l
     return None
 
-def solve_interval_bfs(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
+def solve_interval_bfs(I_0: Interval3, g, delta=0.000001, m_I=1000000):
     n = 0
     # q = queue.Queue()
     # q.put((I_0, 0))
@@ -542,7 +614,7 @@ def solve_interval_bfs(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
                 #     return None
                 return I_f
 
-            if I.w() < sigma:
+            if I.w() < delta:
                 #if l != l_p:
                 # print(I.t.lower)
                 return I
@@ -555,7 +627,7 @@ def solve_interval_bfs(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
     return None
 
 
-def solve_interval_dfs(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
+def solve_interval_dfs(I_0: Interval3, g, delta=0.000001, m_I=1000000):
     # s = queue.LifoQueue()
     # s.put((I_0, 0))
     s = []
@@ -567,7 +639,7 @@ def solve_interval_dfs(I_0: Interval3, g, sigma=0.000001, m_I=1000000):
         I = s.pop()
         I_g = g.inclusion(I)
         if I_g:
-            if I.w() < sigma:
+            if I.w() < delta:
                 return I
             else:
                 Is = split_interval(I)
@@ -589,7 +661,7 @@ def _compute_vertex_face_ccd(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
         return np.Infinity, None
 
     toi = I.t.lower
-    if toi == 0:
+    if toi < 0.0001: # toi == 0:
         contact = [vf.P(0), vf.N(0)]
         return np.Infinity, contact
 
@@ -607,7 +679,7 @@ def _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
         return np.Infinity, None
 
     toi = I.t.lower
-    if toi == 0:
+    if toi < 0.0001: # toi == 0:
         contact = [ee.P(0, I.v.lower), ee.N(0)]
         return np.Infinity, contact
 
@@ -640,6 +712,7 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
         for i in range(3):
             a_vf_toi, a_vf_contact = _compute_vertex_face_ccd(f_a_t0[i], f_b_t0[0], f_b_t0[1], f_b_t0[2],
                                                               f_a_t1[i], f_b_t1[0], f_b_t1[1], f_b_t1[2])
+
             toi = min(toi, a_vf_toi)
             if a_vf_contact is not None:
                 cp = ContactPoint(bodyA, bodyB, a_vf_contact[0], V3.unit(a_vf_contact[1]))
@@ -647,6 +720,7 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
 
             b_vf_toi, b_vf_contact = _compute_vertex_face_ccd(f_b_t0[i], f_a_t0[0], f_a_t0[1], f_a_t0[2],
                                                               f_b_t1[i], f_a_t1[0], f_a_t1[1], f_a_t1[2])
+
             toi = min(toi, b_vf_toi)
             if b_vf_contact is not None:
                 cp = ContactPoint(bodyB, bodyA, b_vf_contact[0], V3.unit(b_vf_contact[1])) # TODO: Should this be BodyA, BodyB with -n?
@@ -660,20 +734,11 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
                 p3_t1, p4_t1 = f_b_t1[j], f_b_t1[(j+1) % 3]
                 ee_toi, ee_contact = _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
                                                             p1_t1, p2_t1, p3_t1, p4_t1)
+
                 toi = min(toi, ee_toi)
-                if ee_contact is not None and V3.norm(ee_contact[1]) != 0: # Prevent zero vectors, TODO: Fix edge-edge normals
-                    #TODO: Finish this
-                    # res = MESH.compute_neighbors(bodyA.shape.mesh.T,
-                    #                              bodyA.shape.mesh.T[triangleA][i],
-                    #                              bodyA.shape.mesh.T[triangleA][(i+1) % 3])
-                    # T_L, T_R = res[0], res[1]
-                    # f_L, f_R = V_a_t0[T_L], V_a_t0[T_R]
-                    # n_L = np.cross(f_L[1] - f_L[0], f_L[2] - f_L[0])
-                    # n_R = np.cross(f_R[1] - f_R[0], f_R[2] - f_R[0])
+                if ee_contact is not None and V3.norm(ee_contact[1]) != 0:
                     p1, p2 = bodyA.shape.mesh.T[triangleA][i], bodyA.shape.mesh.T[triangleA][(i+1) % 3]
                     m_L, m_R = Q.rotate_array(bodyA.q, bodyA.voronoi_regions[(p1, p2)])
-                    # A = p2_t0 - p1_t0
-                    # m_L, m_R = V3.unit(np.cross(A, n_L)), V3.unit(np.cross(n_R, A))
                     n = V3.unit(ee_contact[1])
                     if np.dot(n, m_L) < 0 or np.dot(n, m_R) < 0: # TODO: and or or?
                         n = -n
@@ -711,6 +776,23 @@ def _contact_determination(dt, overlaps, engine, stats, debug_on):
                                 debug_on
                                 )
         toi = min(toi, dti)
+
+    # engine.contact_points = []
+    for key, results in overlaps.items():
+        _compute_contacts_dcd(engine,
+                            stats,
+                            key[0],  # Body A
+                            key[1],  # Body B
+                            np.unique(results[:, 0]),  # 1st column will be all triangles from A that may collide with B
+                            debug_on
+                            )
+        _compute_contacts_dcd(engine,
+                            stats,
+                            key[1],  # Body B
+                            key[0],  # Body A
+                            np.unique(results[:, 1]),  # 2nd column will be all triangles from B that may collide with A
+                            debug_on
+                            )
 
     if debug_on:
         contact_determination_timer.end()
