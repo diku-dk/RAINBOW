@@ -16,8 +16,9 @@ def generate_unique_name(name: str) -> str:
     """
     import datetime
     import random
+
     n = random.random()
-    unique_name = name + '_' + str(n) + '_' + str(datetime.datetime.now())
+    unique_name = name + "_" + str(n) + "_" + str(datetime.datetime.now())
     return unique_name
 
 
@@ -30,7 +31,7 @@ def create_rigid_body(engine, body_name: str) -> None:
     :return:           Nothing.
     """
     if body_name in engine.bodies:
-        raise RuntimeError('connect() rigid body already exist with that name')
+        raise RuntimeError("connect() rigid body already exist with that name")
     body = RigidBody(body_name)
     body.idx = len(engine.bodies)
     engine.bodies[body_name] = body
@@ -74,17 +75,24 @@ def create_shape(engine, shape_name: str, mesh) -> None:
     :return:                 Nothing.
     """
     if shape_name in engine.shapes:
-        raise RuntimeError('create_shape_from_obj(): shape with that name already exist')
+        raise RuntimeError(
+            "create_shape_from_obj(): shape with that name already exist"
+        )
     shape = Shape(shape_name)
     shape.mesh = mesh
-    SOLVER.transform_shape_into_body_frame(shape)  # Note this computes mass and inertia of shape
-    max_length = (shape.mesh.V.max(axis=0)-shape.mesh.V.min(axis=0)).max()
-    boundary = max(max_length*0.1, engine.params.envelope*2)
-    shape.grid = GRID.create_signed_distance(shape.mesh.V, shape.mesh.T,
-                                             engine.params.resolution,
-                                             engine.params.resolution,
-                                             engine.params.resolution,
-                                             boundary)
+    SOLVER.transform_shape_into_body_frame(
+        shape
+    )  # Note this computes mass and inertia of shape
+    max_length = (shape.mesh.V.max(axis=0) - shape.mesh.V.min(axis=0)).max()
+    boundary = max(max_length * 0.1, engine.params.envelope * 2)
+    shape.grid = GRID.create_signed_distance(
+        shape.mesh.V,
+        shape.mesh.T,
+        engine.params.resolution,
+        engine.params.resolution,
+        engine.params.resolution,
+        boundary,
+    )
     engine.shapes[shape_name] = shape
 
 
@@ -104,21 +112,22 @@ def connect_shape(engine, body_name: str, shape_name: str) -> None:
     if body_name in engine.bodies:
         body = engine.bodies[body_name]
     else:
-        raise RuntimeError('connect() no such rigid body exist with that name')
+        raise RuntimeError("connect() no such rigid body exist with that name")
     if shape_name in engine.shapes:
         shape = engine.shapes[shape_name]
     else:
-        raise RuntimeError('connect() no such shape exist with that name')
+        raise RuntimeError("connect() no such shape exist with that name")
     body.shape = shape
     # k-DOP bounding volume hierarchies perform their collision tandem traversal in world space. Hence, their
     # bounding volumes live in world space and as bodies move around we constantly need to update the bounding
     # volumes of the BVHs. Therefore, the BVH data structure is stored in the rigid body and not the shape.
-    body.bvh = BVH.make_bvh(shape.mesh.V,
-                            shape.mesh.T,
-                            engine.params.K,
-                            engine.params.bvh_chunk_size,
-                            engine.params.envelope
-                            )
+    body.bvh = BVH.make_bvh(
+        shape.mesh.V,
+        shape.mesh.T,
+        engine.params.K,
+        engine.params.bvh_chunk_size,
+        engine.params.envelope,
+    )
 
     # Compute voronoi regions for given shape
     for t in shape.mesh.T:
@@ -153,9 +162,11 @@ def create_gravity_force(engine, force_name: str, g: float, up) -> None:
     :return:            Nothing.
     """
     if force_name in engine.forces:
-        raise RuntimeError('create_gravity(): Force already exist with that name')
+        raise RuntimeError("create_gravity(): Force already exist with that name")
     if g <= 0.0:
-        raise RuntimeError('create_gravity(): Illegal value for gravitational acceleration')
+        raise RuntimeError(
+            "create_gravity(): Illegal value for gravitational acceleration"
+        )
     gravity = Gravity(force_name)
     gravity.up = V3.unit(up)
     gravity.g = g
@@ -177,11 +188,11 @@ def create_damping_force(engine, force_name: str, alpha: float, beta: float) -> 
     :return:            Nothing.
     """
     if force_name in engine.forces:
-        raise RuntimeError('create_damping(): Force already exist with that name')
+        raise RuntimeError("create_damping(): Force already exist with that name")
     if alpha <= 0:
-        raise RuntimeError('create_damping(): Illegal value for alpha')
+        raise RuntimeError("create_damping(): Illegal value for alpha")
     if beta <= 0:
-        raise RuntimeError('create_damping(): Illegal value for beta')
+        raise RuntimeError("create_damping(): Illegal value for beta")
     damping = Damping(force_name)
     damping.alpha = alpha
     damping.beta = beta
@@ -200,13 +211,13 @@ def connect_force(engine, body_name: str, force_name: str) -> None:
     if body_name in engine.bodies:
         body = engine.bodies[body_name]
     else:
-        raise RuntimeError('connect_force() no such rigid body exist with that name')
+        raise RuntimeError("connect_force() no such rigid body exist with that name")
     if force_name in engine.forces:
         force = engine.forces[force_name]
     else:
-        raise RuntimeError('connect_force() no such force exist with that name')
+        raise RuntimeError("connect_force() no such force exist with that name")
     if force in body.forces:
-        raise RuntimeError('connect_force() force was already connected to body')
+        raise RuntimeError("connect_force() force was already connected to body")
     body.forces.append(force)
 
 
@@ -224,7 +235,7 @@ def set_position(engine, body_name: str, r, use_model_frame=False) -> None:
     if body_name in engine.bodies:
         body = engine.bodies[body_name]
     else:
-        raise RuntimeError('set_position() no such rigid body exist with that name')
+        raise RuntimeError("set_position() no such rigid body exist with that name")
     if use_model_frame:
 
         # r_bf2wcs = body.r # Not needed
@@ -282,7 +293,7 @@ def set_orientation(engine, body_name: str, q, use_model_frame=False) -> None:
     if body_name in engine.bodies:
         body = engine.bodies[body_name]
     else:
-        raise RuntimeError('set_position() no such rigid body exist with that name')
+        raise RuntimeError("set_position() no such rigid body exist with that name")
 
     if use_model_frame:
 
@@ -339,7 +350,7 @@ def set_velocity(engine, body_name: str, v) -> None:
     if body_name in engine.bodies:
         body = engine.bodies[body_name]
     else:
-        raise RuntimeError('set_velocity() no such rigid body exist with that name')
+        raise RuntimeError("set_velocity() no such rigid body exist with that name")
     body.v = np.copy(v)
 
 
@@ -355,7 +366,7 @@ def set_spin(engine, body_name: str, w) -> None:
     if body_name in engine.bodies:
         body = engine.bodies[body_name]
     else:
-        raise RuntimeError('set_spin() no such rigid body exist with that name')
+        raise RuntimeError("set_spin() no such rigid body exist with that name")
     body.w = np.copy(w)
 
 
@@ -371,11 +382,13 @@ def set_mass_properties(engine, body_name: str, density: float) -> None:
     if body_name in engine.bodies:
         body = engine.bodies[body_name]
     else:
-        raise RuntimeError('set_mass_properties() no such rigid body exist with that name')
+        raise RuntimeError(
+            "set_mass_properties() no such rigid body exist with that name"
+        )
     if body.shape is None:
-        raise RuntimeError('set_mass_properties() rigid body did not have a shape')
-    body.mass = body.shape.mass*density
-    body.inertia = body.shape.inertia*density
+        raise RuntimeError("set_mass_properties() rigid body did not have a shape")
+    body.mass = body.shape.mass * density
+    body.inertia = body.shape.inertia * density
 
 
 def set_body_type(engine, body_name: str, body_type: str) -> None:
@@ -388,14 +401,14 @@ def set_body_type(engine, body_name: str, body_type: str) -> None:
     :return:             Nothing.
     """
     if body_name not in engine.bodies:
-        raise RuntimeError('set_body_type() no such rigid body exist with that name')
+        raise RuntimeError("set_body_type() no such rigid body exist with that name")
     body = engine.bodies[body_name]
-    if body_type in ['fixed', 'Fixed', 'FIXED']:
+    if body_type in ["fixed", "Fixed", "FIXED"]:
         body.is_fixed = True
-    elif body_type in ['free', 'Free', 'FREE']:
+    elif body_type in ["free", "Free", "FREE"]:
         body.is_fixed = False
     else:
-        raise RuntimeError('set_body_type(): Unsupported body type found')
+        raise RuntimeError("set_body_type(): Unsupported body type found")
 
 
 def is_fixed_body(engine, body_name: str) -> bool:
@@ -407,7 +420,7 @@ def is_fixed_body(engine, body_name: str) -> bool:
     :return:            Boolean flag telling whether hte rigid body is fixed or nat.
     """
     if body_name not in engine.bodies:
-        raise RuntimeError('is_fixed_body() no such rigid body exist with that name')
+        raise RuntimeError("is_fixed_body() no such rigid body exist with that name")
     body = engine.bodies[body_name]
     return body.is_fixed
 
@@ -425,10 +438,12 @@ def set_body_material(engine, body_name: str, material_name: str) -> None:
     :return:               Nothing.
     """
     if body_name not in engine.bodies:
-        raise RuntimeError('set_body_material() no such rigid body exist with that name')
+        raise RuntimeError(
+            "set_body_material() no such rigid body exist with that name"
+        )
     body = engine.bodies[body_name]
     if not engine.surfaces_interactions.exist_material(material_name):
-        raise RuntimeError('set_body_material() no such material exist')
+        raise RuntimeError("set_body_material() no such material exist")
     body.material = material_name
 
 
@@ -444,15 +459,15 @@ def create_surfaces_interaction(engine, A: str, B: str, epsilon: float, mu) -> N
     :return:         Nothing.
     """
     if engine.surfaces_interactions.exist_interaction(A, B):
-        raise RuntimeError('create_surfaces_interaction() behaviour already exist')
+        raise RuntimeError("create_surfaces_interaction() behaviour already exist")
     if epsilon < 0.0:
-        raise RuntimeError('create_surfaces_interaction() illegal epsilon value')
+        raise RuntimeError("create_surfaces_interaction() illegal epsilon value")
     if mu[0] < 0.0:
-        raise RuntimeError('create_surfaces_interaction() illegal mu_x value')
+        raise RuntimeError("create_surfaces_interaction() illegal mu_x value")
     if mu[1] < 0.0:
-        raise RuntimeError('create_surfaces_interaction() illegal mu_y value')
+        raise RuntimeError("create_surfaces_interaction() illegal mu_y value")
     if mu[2] < 0.0:
-        raise RuntimeError('create_surfaces_interaction() illegal mu_z value')
+        raise RuntimeError("create_surfaces_interaction() illegal mu_z value")
     tmp = [A, B]
     tmp.sort()
     key = tuple(tmp)

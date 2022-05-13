@@ -54,8 +54,8 @@ def get_position_vector(engine):
     k = 0
     for body in engine.bodies.values():
         offset = 7 * k
-        x[offset:offset + 3] = body.r
-        x[offset + 3:offset + 7] = body.q
+        x[offset : offset + 3] = body.r
+        x[offset + 3 : offset + 7] = body.q
         k += 1
     return x
 
@@ -73,8 +73,8 @@ def set_position_vector(x, engine) -> None:
     k = 0
     for body in engine.bodies.values():
         offset = 7 * k
-        body.r = x[offset:offset + 3]
-        body.q = x[offset + 3:offset + 7]
+        body.r = x[offset : offset + 3]
+        body.q = x[offset + 3 : offset + 7]
         k += 1
 
 
@@ -94,8 +94,8 @@ def get_velocity_vector(engine):
     k = 0
     for body in engine.bodies.values():
         offset = 6 * k
-        u[offset:offset + 3] = body.v
-        u[offset + 3:offset + 6] = body.w
+        u[offset : offset + 3] = body.v
+        u[offset + 3 : offset + 6] = body.w
         k += 1
     return u
 
@@ -113,8 +113,8 @@ def set_velocity_vector(u, engine) -> None:
     k = 0
     for body in engine.bodies.values():
         offset = 6 * k
-        body.v = u[offset:offset + 3]
-        body.w = u[offset + 3:offset + 6]
+        body.v = u[offset : offset + 3]
+        body.w = u[offset + 3 : offset + 6]
         k += 1
 
 
@@ -146,19 +146,16 @@ def position_update(x, u, dt, engine) -> None:
         x_offset = 7 * k
         u_offset = 6 * k
 
-        r = x[x_offset:x_offset + 3]
-        q = x[x_offset + 3:x_offset + 7]
-        v = u[u_offset:u_offset + 3]
-        w = u[u_offset + 3:u_offset + 6]
+        r = x[x_offset : x_offset + 3]
+        q = x[x_offset + 3 : x_offset + 7]
+        v = u[u_offset : u_offset + 3]
+        w = u[u_offset + 3 : u_offset + 6]
 
         if not body.is_fixed:
             r += v * dt
-            q += Q.prod(
-                Q.from_vector3(w),
-                q
-            ) * dt * 0.5
-        x[x_offset:x_offset + 3] = r
-        x[x_offset + 3:x_offset + 7] = Q.unit(q)
+            q += Q.prod(Q.from_vector3(w), q) * dt * 0.5
+        x[x_offset : x_offset + 3] = r
+        x[x_offset + 3 : x_offset + 7] = Q.unit(q)
         k += 1
 
 
@@ -197,10 +194,10 @@ def compute_total_external_forces(x, u, engine):
         T = V3.zero()
 
         if not body.is_fixed:
-            r = x[x_offset:x_offset + 3]
-            q = x[x_offset + 3:x_offset + 7]
-            v = u[u_offset:u_offset + 3]
-            w = u[u_offset + 3:u_offset + 6]
+            r = x[x_offset : x_offset + 3]
+            q = x[x_offset + 3 : x_offset + 7]
+            v = u[u_offset : u_offset + 3]
+            w = u[u_offset + 3 : u_offset + 6]
             for force_type in body.forces:
                 (Fi, Ti) = force_type.compute(body, r, q, v, w)
                 F += Fi
@@ -209,8 +206,8 @@ def compute_total_external_forces(x, u, engine):
             I_wcs = MASS.update_inertia_tensor(R, body.inertia)
             T -= np.cross(w, np.dot(I_wcs, w), axis=0)
 
-        f_ext[u_offset:u_offset + 3] = F
-        f_ext[u_offset + 3:u_offset + 6] = T
+        f_ext[u_offset : u_offset + 3] = F
+        f_ext[u_offset + 3 : u_offset + 6] = T
 
         k += 1
     return f_ext
@@ -230,7 +227,7 @@ def compute_inverse_mass_matrix(x, engine):
     for body in engine.bodies.values():
         x_offset = 7 * k  # Position offset into x-array
         if not body.is_fixed:
-            q = x[x_offset + 3:x_offset + 7]  # Extract rotation part
+            q = x[x_offset + 3 : x_offset + 7]  # Extract rotation part
             R = Q.to_matrix(q)
             I_wcs = MASS.update_inertia_tensor(R, 1.0 / body.inertia)
             m = 1.0 / body.mass
@@ -274,10 +271,14 @@ def compute_jacobian_matrix(engine):
         vs, vt, vn = V3.make_orthonormal_vectors(cp.n)
         # Now compute the Jacobian matrix blocks, the essentially maps the body velocities into
         # a relative contact space velocity.
-        JA_v = - np.array([vn, vs, vt, V3.zero()], dtype=np.float64)
-        JA_w = - np.array([V3.cross(rA, vn), V3.cross(rA, vs), V3.cross(rA, vt), vn], dtype=np.float64)
+        JA_v = -np.array([vn, vs, vt, V3.zero()], dtype=np.float64)
+        JA_w = -np.array(
+            [V3.cross(rA, vn), V3.cross(rA, vs), V3.cross(rA, vt), vn], dtype=np.float64
+        )
         JB_v = np.array([vn, vs, vt, V3.zero()], dtype=np.float64)
-        JB_w = np.array([V3.cross(rB, vn), V3.cross(rB, vs), V3.cross(rB, vt), vn], dtype=np.float64)
+        JB_w = np.array(
+            [V3.cross(rB, vn), V3.cross(rB, vs), V3.cross(rB, vt), vn], dtype=np.float64
+        )
         # Now we have all the values we need. Next step is to fill the values into the global Jacobian
         # matrix in the right "entries". The for loops below is doing all the index bookkeeping for making
         # this mapping.
@@ -330,7 +331,9 @@ def get_friction_coefficient_vector(engine):
     mu = np.zeros(K, dtype=np.float64)
     for k in range(K):
         cp = engine.contact_points[k]
-        behavior = engine.surfaces_interactions.get_interaction(cp.bodyA.material, cp.bodyB.material)
+        behavior = engine.surfaces_interactions.get_interaction(
+            cp.bodyA.material, cp.bodyB.material
+        )
         mu[k] = behavior.mu[0]
     return mu
 
@@ -350,7 +353,9 @@ def get_restitution_vector(engine):
     e = np.zeros(4 * K, dtype=np.float64)
     for k in range(K):
         cp = engine.contact_points[k]
-        behavior = engine.surfaces_interactions.get_interaction(cp.bodyA.material, cp.bodyB.material)
+        behavior = engine.surfaces_interactions.get_interaction(
+            cp.bodyA.material, cp.bodyB.material
+        )
         e[4 * k + 0] = behavior.epsilon
         e[4 * k + 1] = 0.0
         e[4 * k + 2] = 0.0
@@ -378,8 +383,8 @@ def get_pre_stabilization_vector(dt, v, engine):
     K = len(engine.contact_points)
     g = np.zeros(4 * K, dtype=np.float64)
     rate = engine.params.gap_reduction / dt
-    upper = - engine.params.max_gap_value / dt
-    lower = - engine.params.min_gap_value
+    upper = -engine.params.max_gap_value / dt
+    lower = -engine.params.min_gap_value
     for k in range(K):
         cp = engine.contact_points[k]
         if cp.g < lower and v[4 * k] <= 0.0:
@@ -414,7 +419,9 @@ def apply_post_stabilization(J, WJT, x, engine, stats: dict, debug_on) -> dict:
     if not g.any():
         return stats
     mu = np.zeros(K, dtype=np.float64)
-    sol, stats = GS.solve(J, WJT, g, mu, GS.prox_origin, engine, stats, debug_on, "post_stabilization_")
+    sol, stats = GS.solve(
+        J, WJT, g, mu, GS.prox_origin, engine, stats, debug_on, "post_stabilization_"
+    )
     vector_positional_update = WJT.dot(sol)
     position_update(x, vector_positional_update, 1, engine)
     return stats
@@ -437,17 +444,17 @@ def get_total_energy(engine) -> tuple[float, float]:
             continue
         m = body.mass
         h = 0
-        if 'Gravity' in body.forces:
-            h = np.dot(engine.forces['Gravity'].up, body.r)
+        if "Gravity" in body.forces:
+            h = np.dot(engine.forces["Gravity"].up, body.r)
         v = np.linalg.norm(body.v)
         w = body.w
         I_bf = body.inertia
         R = Q.to_matrix(body.q)
         I_wcs = MASS.update_inertia_tensor(R, I_bf)
         wIw = np.dot(w, np.dot(I_wcs, w))
-        kinetic += 0.5*(m*v*v + wIw)
-        if 'Gravity' in body.forces:
-            potential += engine.forces['Gravity'].g * m * h
+        kinetic += 0.5 * (m * v * v + wIw)
+        if "Gravity" in body.forces:
+            potential += engine.forces["Gravity"].g * m * h
     return kinetic, potential
 
 
@@ -469,7 +476,7 @@ def get_largest_gap_error(engine) -> float:
 def solve_dynamics(dt: float, engine, debug_on: bool) -> dict:
     """
     This is the main simulation method that is responsible for stepping time
-    forward to the next time-step.
+     forward to the next time-step.
 
     :param dt:        The time-step to step time forward in the engine.
     :param engine:    The engine that holds all the rigid bodies.
@@ -478,7 +485,7 @@ def solve_dynamics(dt: float, engine, debug_on: bool) -> dict:
     """
     timer = None
     if debug_on:
-        timer = Timer('Solve Dynamics')
+        timer = Timer("Solve Dynamics")
         timer.start()
     stats = {}
 
@@ -516,7 +523,9 @@ def solve_dynamics(dt: float, engine, debug_on: bool) -> dict:
 
         mu = get_friction_coefficient_vector(engine)
         b = np.multiply(1 + e, v) + J.dot(du_ext) + g
-        sol, stats = GS.solve(J, WJT, b, mu, GS.prox_ellipsoid, engine, stats, debug_on, "")
+        sol, stats = GS.solve(
+            J, WJT, b, mu, GS.prox_sphere, engine, stats, debug_on, ""
+        )
         du_contact = WJT.dot(sol)
 
     du_total = du_ext + du_contact
@@ -532,19 +541,19 @@ def solve_dynamics(dt: float, engine, debug_on: bool) -> dict:
 
     if debug_on:
         timer.end()
-        stats['stepper_time'] = timer.elapsed
-        stats['dt'] = dt
-        stats['contact_points'] = len(engine.contact_points)
-        stats['contact_forces'] = du_contact
-        stats['total_forces'] = du_total
-        stats['positions'] = x
-        stats['external_forces'] = du_ext
-        stats['velocity'] = u
-        stats['body_names'] = list(engine.bodies)
+        stats["stepper_time"] = timer.elapsed
+        stats["dt"] = dt
+        stats["contact_points"] = len(engine.contact_points)
+        stats["contact_forces"] = du_contact
+        stats["total_forces"] = du_total
+        stats["positions"] = x
+        stats["external_forces"] = du_ext
+        stats["velocity"] = u
+        stats["body_names"] = list(engine.bodies)
         kinetic_energy, potential_energy = get_total_energy(engine)
-        stats['kinetic_energy'] = kinetic_energy
-        stats['potential_energy'] = potential_energy
-        stats['max_gap'] = get_largest_gap_error(engine)
+        stats["kinetic_energy"] = kinetic_energy
+        stats["potential_energy"] = potential_energy
+        stats["max_gap"] = get_largest_gap_error(engine)
 
     return stats
 
