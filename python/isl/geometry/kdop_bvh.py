@@ -49,28 +49,28 @@ def _is_undefined(node):
     )
 
 
-def _refit_sub_tree(V, T, sub_tree, K, envelope=0.0) -> None:
-    """
-    This function refits a subtree by iterating through every node in a bottom up
-    approach. Each node will then be updated based on its children.
+# def _refit_sub_tree(V, T, sub_tree, K, envelope=0.0) -> None:
+#     """
+#     This function refits a subtree by iterating through every node in a bottom up
+#     approach. Each node will then be updated based on its children.
 
-    :param V:             The current coordinates of the object
-    :param T:             The elements (triangles/tetrahedrons) of the object
-    :param sub_tree:      The BVH subtree
-    :param K:             The number of intervals for the KDOPs
-    :param envelope:      The size of the envelope used to enlarge the volume. If a tight fit is wanted
-                          one should use the value zero.
-    """
-    for node in reversed(sub_tree.nodes):
-        if _is_undefined(node):
-            continue
-        if _is_leaf(node):
-            vertices = V[T[node.start]]
-            node.volume = KDOP.make(K, vertices, envelope)
-        else:
-            left_child = sub_tree.nodes[node.start]
-            right_child = sub_tree.nodes[node.end]
-            node.volume = KDOP.union(left_child.volume, right_child.volume)
+#     :param V:             The current coordinates of the object
+#     :param T:             The elements (triangles/tetrahedrons) of the object
+#     :param sub_tree:      The BVH subtree
+#     :param K:             The number of intervals for the KDOPs
+#     :param envelope:      The size of the envelope used to enlarge the volume. If a tight fit is wanted
+#                           one should use the value zero.
+#     """
+#     for node in reversed(sub_tree.nodes):
+#         if _is_undefined(node):
+#             continue
+#         if _is_leaf(node):
+#             vertices = V[T[node.start]]
+#             node.volume = KDOP.make(K, vertices, envelope)
+#         else:
+#             left_child = sub_tree.nodes[node.start]
+#             right_child = sub_tree.nodes[node.end]
+#             node.volume = KDOP.union(left_child.volume, right_child.volume)
 
 
 def _make_sub_tree(parent_idx, free_idx, first, last, sub_tree):
@@ -178,6 +178,124 @@ def _iterative_sub_tree_traversal(sub_tree_A, sub_tree_B, results) -> None:
                 Q.append(child_B)
 
 
+# def make_bvh(X, T, K, N, envelope=0.0):
+#     """
+#     This function creates a bvh tree bounding an object
+
+#     :param X:             The spatial nodes of the object
+#     :param T:             The elements (triangles/tetrahedrons) of the object
+#     :param K:             The number of intervals to be created for the KDOPs
+#     :param N:             The size of each subtree
+#     :param envelope:      The size of the envelope used to enlarge the volume. If a tight fit is wanted
+#                           one should use the value zero.
+#     :return:              A KDOP BVH datastructure
+#     """
+#     tree = Tree()
+#     L = int((N + 1) / 2)  # Number of leaves in a balanced binary tree with N nodes
+#     M = len(T)  # Number of data elements in the mesh
+#     C = math.ceil(M / L)  # Number of chunks to divide the mesh into
+
+#     for c in range(C):
+#         sub_tree = SubTree(N)
+#         # Compute the range of data elements in the mesh that is covered by this subtree
+#         first = c * L
+#         last = min(first + L - 1, M - 1)
+#         # Next generate the subtree
+#         root_idx = 0
+#         free_idx = 1
+#         sub_tree.height = _make_sub_tree(root_idx, free_idx, first, last, sub_tree)
+#         # Finally store the sub-tree
+#         tree.chunks.append(sub_tree)
+
+#     refit_bvh(X, T, tree, K, envelope)
+
+#     return tree
+
+
+# def refit_bvh(V, T, tree, K, envelope=0.0) -> None:
+#     """
+#     This function refits a BVH tree such that all nodes are updated to the current
+#     coordinates of the object it encompasses.
+
+#     :param V:                 The current coordinates of the object
+#     :param T:                 The elements of the object
+#     :param tree:              The BVH tree
+#     :param K:                 The number of intervals for the KDOPs
+#     :param envelope:          The size of the envelope used to enlarge the volume. If a tight fit is wanted
+#                               one should use the value zero.
+#     """
+#     for subtree in tree.chunks:
+#         _refit_sub_tree(V, T, subtree, K, envelope)
+#     tree.root = KDOP.KDOP(K)
+#     for subtree in tree.chunks:
+#         tree.root = KDOP.union(tree.root, subtree.nodes[0].volume)
+
+
+def traversal(tree_A, tree_B):
+    """
+    This function iterates through each combination of subtree pairs between two
+    BVH trees to test for overlaps.
+
+    :param tree_A:        The first BVH tree
+    :param tree_B:        The second BVH tree
+    :return:              An instance of the Overlaps class containing information about
+                          overlaps between the given BVH trees. The results of the
+                          traversal will be stored here.
+    """
+    results = []
+    if not KDOP.overlap(tree_A.root, tree_B.root):
+        return results
+    for sub_tree_A in tree_A.chunks:
+        for sub_tree_B in tree_B.chunks:
+            _iterative_sub_tree_traversal(sub_tree_A, sub_tree_B, results)
+    return results
+
+
+##Stefans addition, predictive refitting functions
+def _refit_sub_tree(V, T, C, sub_tree, K, envelope=0.0) -> None:
+    """
+    This function refits a subtree by iterating through every node in a bottom up
+    approach. Each node will then be updated based on its children.
+
+    :param V:             The current coordinates of the object
+    :param T:             The elements (triangles/tetrahedrons) of the object
+    :param C:             The Candidate Coordinates for the object
+    :param sub_tree:      The BVH subtree
+    :param K:             The number of intervals for the KDOPs
+    :param envelope:      The size of the envelope used to enlarge the volume. If a tight fit is wanted
+                          one should use the value zero.
+    """
+    for node in reversed(sub_tree.nodes):
+        if _is_undefined(node):
+            continue
+        if _is_leaf(node):
+            vertices = V[T[node.start]]
+            candidates = C[T[node.start]]
+            node.volume = KDOP.makedual(K, vertices, candidates, envelope)
+        else:
+            left_child = sub_tree.nodes[node.start]
+            right_child = sub_tree.nodes[node.end]
+            node.volume = KDOP.union(left_child.volume, right_child.volume)
+
+def refit_bvh(V, T, C, tree, K, envelope=0.0) -> None:
+    """
+    This function refits a BVH tree such that all nodes are updated to the current
+    coordinates of the object it encompasses.
+
+    :param V:                 The current coordinates of the object
+    :param T:                 The elements of the object
+    :param tree:              The BVH tree
+    :param K:                 The number of intervals for the KDOPs
+    :param envelope:          The size of the envelope used to enlarge the volume. If a tight fit is wanted
+                              one should use the value zero.
+    """
+    for subtree in tree.chunks:
+        _refit_sub_tree(V, T, C, subtree, K, envelope)
+    tree.root = KDOP.KDOP(K)
+    for subtree in tree.chunks:
+        tree.root = KDOP.union(tree.root, subtree.nodes[0].volume)
+
+
 def make_bvh(X, T, K, N, envelope=0.0):
     """
     This function creates a bvh tree bounding an object
@@ -207,45 +325,6 @@ def make_bvh(X, T, K, N, envelope=0.0):
         # Finally store the sub-tree
         tree.chunks.append(sub_tree)
 
-    refit_bvh(X, T, tree, K, envelope)
+    refit_bvh(X, T, T, tree, K, envelope)
 
     return tree
-
-
-def refit_bvh(V, T, tree, K, envelope=0.0) -> None:
-    """
-    This function refits a BVH tree such that all nodes are updated to the current
-    coordinates of the object it encompasses.
-
-    :param V:                 The current coordinates of the object
-    :param T:                 The elements of the object
-    :param tree:              The BVH tree
-    :param K:                 The number of intervals for the KDOPs
-    :param envelope:          The size of the envelope used to enlarge the volume. If a tight fit is wanted
-                              one should use the value zero.
-    """
-    for subtree in tree.chunks:
-        _refit_sub_tree(V, T, subtree, K, envelope)
-    tree.root = KDOP.KDOP(K)
-    for subtree in tree.chunks:
-        tree.root = KDOP.union(tree.root, subtree.nodes[0].volume)
-
-
-def traversal(tree_A, tree_B):
-    """
-    This function iterates through each combination of subtree pairs between two
-    BVH trees to test for overlaps.
-
-    :param tree_A:        The first BVH tree
-    :param tree_B:        The second BVH tree
-    :return:              An instance of the Overlaps class containing information about
-                          overlaps between the given BVH trees. The results of the
-                          traversal will be stored here.
-    """
-    results = []
-    if not KDOP.overlap(tree_A.root, tree_B.root):
-        return results
-    for sub_tree_A in tree_A.chunks:
-        for sub_tree_B in tree_B.chunks:
-            _iterative_sub_tree_traversal(sub_tree_A, sub_tree_B, results)
-    return results
