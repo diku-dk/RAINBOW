@@ -546,14 +546,8 @@ class SemiImplicitStepper:
             stats["stepper_time"] = timer.elapsed
             stats["dt"] = dt
             stats["contact_points"] = len(engine.contact_points)
-            stats["contact_forces"] = du_contact
-            stats["total_forces"] = du_total
-            stats["positions"] = x
-            stats["external_forces"] = du_ext
-            stats["velocity"] = u
-            stats["body_names"] = list(engine.bodies)
             kinetic_energy, potential_energy = get_total_energy(engine)
             stats["kinetic_energy"] = kinetic_energy
             stats["potential_energy"] = potential_energy
-            stats["max_gap"] = get_largest_gap_error(engine)
+            stats["max_penetration"] = get_largest_gap_error(engine)
             self.log.append(stats)
