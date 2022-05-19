@@ -13,32 +13,59 @@
     {% include head-custom.html %}
   </head>
   <body>
+    <script>
+      function openOS(evt, osName) {
+        // Declare all variables
+        var i, tabcontent, tablinks;
+
+        // Get all elements with class="tabcontent" and hide them
+        tabcontent = document.getElementsByClassName("tabcontent");
+        for (i = 0; i < tabcontent.length; i++) {
+          tabcontent[i].style.display = "none";
+        }
+
+        // Get all elements with class="tablinks" and remove the class "active"
+        tablinks = document.getElementsByClassName("tablinks");
+        for (i = 0; i < tablinks.length; i++) {
+          tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+
+        // Show the current tab, and add an "active" class to the link that opened the tab
+        document.getElementById(osName).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
+    </script>
     
 
     <header class="page-header" role="banner">
       <h1 class="project-name">{{ page.title | default: site.title | default: site.github.repository_name }}</h1>
-      <h2 class="project-tagline">{{ page.description | default: site.description | default: site.github.project_tagline }}</h2>
-      {% if site.github.is_project_page %}
-        <a href="{{ site.github.repository_url }}" class="btn">View on GitHub</a>
-      {% endif %}
-      {% if site.show_downloads %}
-        <a href="{{ site.github.zip_url }}" class="btn">Download .zip</a>
-        <a href="{{ site.github.tar_url }}" class="btn">Download .tar.gz</a>
-      {% endif %}
     </header>
     
-    <a href="{{ site.url }}{{ site.baseurl }}/"} class="tablink" onclick="openPage('Home', this, 'red')">Home</a>
+    <a href="{{ site.url }}{{ site.baseurl }}/" class="tablink" onclick="openPage('Home', this, 'red')">Home</a>
     <a href="{{ site.url }}{{ site.baseurl }}/installation_guide/" class="tablink" onclick="openPage('Installation', this, 'green')">Installation</a>
-    <a href="{{ site.url }}{{ site.baseurl }}/documentation/" class="tablink" onclick="openPage('Documentation', this, 'purple')">Documentation</a>
+    <a href="{{ site.url }}{{ site.baseurl }}/documentation/" class="tablink" onclick="openPage('Documentation', this, 'purle')">Documentation</a>
     <a href="{{ site.url }}{{ site.baseurl }}/contact/" class="tablink" onclick="openPage('Contact', this, 'blue')">Contact</a>
     <a href="{{ site.url }}{{ site.baseurl }}/help/" class="tablink" onclick="openPage('Help', this, 'orange')">Help</a>
-    
    
     <!-- <a id="skip-to-content" href="#content">Skip to the content.</a> -->
     <main id="content" class="main-content" role="main">
-      {{ content }} 
-      Updated 15:15 
-      {{ site.url }}
+      {{ content }}
+      <div class="tab">
+        {% for install_page in site.installation_pages %}
+          <button class="tablinks" onclick="openOS(event, '{{ install_page.os }}')">{{ install_page.os }}</button>
+        {% endfor %}
+      </div>
+
+      {% for install_page in site.installation_pages %}
+        <div id="{{ install_page.os }}" class="tabcontent">
+          <p> {{ install_page.content }} </p>
+        </div>
+      {% endfor %}
+
+      <script>
+        document.getElementById("Anaconda").style.display = "block";
+      </script> 
+
       <footer class="site-footer">
         {% if site.github.is_project_page %}
           <span class="site-footer-owner"><a href="{{ site.github.repository_url }}">{{ site.github.repository_name }}</a> is maintained by <a href="{{ site.github.owner_url }}">{{ site.github.owner_name }}</a>.</span>
