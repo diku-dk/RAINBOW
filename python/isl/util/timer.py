@@ -16,7 +16,7 @@ class Timer:
 
     def end(self):
         if self.tic is None:
-            raise RuntimeError("timer start must be invocved before end")
+            raise RuntimeError("timer start must be called before end")
         self.toc = time.perf_counter()
         self.value = self.toc - self.tic
         self.accumulated += self.value

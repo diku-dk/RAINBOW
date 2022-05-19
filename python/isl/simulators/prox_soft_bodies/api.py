@@ -1,3 +1,5 @@
+from typing import List, Dict
+
 import isl.geometry.grid3 as GRID
 import isl.geometry.kdop_bvh as BVH
 import isl.math.functions as FUNC
@@ -7,6 +9,15 @@ import isl.geometry.volume_mesh as MESH
 import isl.simulators.prox_soft_bodies.solver as SOLVER
 from isl.simulators.prox_soft_bodies.types import *
 import numpy as np
+
+
+def create_engine() -> Engine:
+    """
+    Create Engine.
+
+    :return: A new Engine instance containing the world to be simulated and the actual simulator to use.
+    """
+    return Engine()
 
 
 def create_soft_body(engine, body_name, V, T) -> None:
@@ -360,14 +371,36 @@ def set_gravity(engine, body_name, g) -> None:
     body = engine.bodies[body_name]
     body.gravity = V3.make(g[0], g[1], g[2])
 
-# 2022-03-27 Kenny TODO: We should add a simulate function to this API, such that end users do not need
-#                   to know that they should call the stepper function in the SOLVER module. Potentially,
-#                   we could also have more than one stepper function. Hence, the simulate function could
-#                   have the logic to switch between different simulation paradigms.
 
-# 2022-03-27 Kenny TODO: We should add a create_engine or create_world (depending on what we call the class) to
-#                   the API, such that end-users do not need to know about the TYPES module. This way we only
-#                   have to expose end-users to the API interface. We might need to have a create_params function too.
+def simulate(engine, T: float, debug_on: bool = False) -> None:
+    """
+    Simulate forward in time.
+
+    :param engine:    The engine holding the world to be simulated.
+    :param T:         The time to simulate forward.
+    :param debug_on:  Boolean flag indicating if debug info should be generated or not.
+    :return:          None
+    """
+    if T <= 0:
+        raise ValueError("Time must be positive")
+    if engine.stepper is None:
+        engine.stepper = SOLVER.SemiImplicitStepper(engine, debug_on)
+    T_left = T
+    while T_left:
+        dt = min(T_left, engine.params.time_step)
+        engine.stepper.step(dt, engine, debug_on)
+        T_left -= dt
+
+
+def get_log(engine: Engine) -> List[Dict]:
+    """
+    Retrive log with debug information and timings etc.
+
+    :param engine:  The engine to retrieve the log from.
+    :return:        The log is basically a list of dictionaries. One dictionary for each invocation of the stepper.
+    """
+    return engine.stepper.log
+
 
 # 2022-03-27 Kenny TODO: End users might want to be able to read back the contact force solutions too. This could
 #                   be both as nodal forces on the surface mesh, or as normal load and shear stress on the surface
