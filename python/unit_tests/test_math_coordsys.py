@@ -5,11 +5,11 @@ import numpy as np
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import isl.math.coordsys as CS
-import isl.math.vector3 as V3
-import isl.math.matrix3 as M3
-import isl.math.quaternion as Q
-import isl.util.test_tools as TEST
+import rainbow.math.coordsys as CS
+import rainbow.math.vector3 as V3
+import rainbow.math.matrix3 as M3
+import rainbow.math.quaternion as Q
+import rainbow.util.test_tools as TEST
 
 
 class TestCoordSys(unittest.TestCase):

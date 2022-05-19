@@ -5,10 +5,10 @@ import numpy as np
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import isl.math.expmap as EXP
-import isl.math.quaternion as Q
-import isl.math.vector3 as V3
-import isl.util.test_tools as TEST
+import rainbow.math.expmap as EXP
+import rainbow.math.quaternion as Q
+import rainbow.math.vector3 as V3
+import rainbow.util.test_tools as TEST
 
 
 class TestExomapAPI(unittest.TestCase):

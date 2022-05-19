@@ -5,8 +5,8 @@ import numpy as np
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import isl.math.quaternion as Q
-import isl.util.test_tools as TEST
+import rainbow.math.quaternion as Q
+import rainbow.util.test_tools as TEST
 
 
 class TestQuaternionAPI(unittest.TestCase):
