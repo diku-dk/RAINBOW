@@ -30,7 +30,26 @@ description: >- # this means to ignore newlines until "baseurl:"
 #twitter_username: jekyllrb
 #github_username:  jekyll
 
-show_downloads: "true"
+show_downloads: true
+
+baseurl: /libRAINBOW
+
+# collections:
+#   - installation_pages
+#   - documentation_pages
+
+collections:
+  installation_pages:
+    output: true
+  documentation_pages:
+    output: true
+  help_pages:
+    output: true
+  sub_help_pages:
+    output: true
+
+collections_dir: my_collections
+
 
 # Build settings
 remote_theme: pages-themes/cayman@v0.2.0

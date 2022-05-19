@@ -1,0 +1,17 @@
+---
+layout: page_documentation_single
+title: "<title>"
+filename: "<filename>"
+folder_dir: "isl/<project dir>"
+author: <author>
+maintainer: <maintainer>
+permalink: my_collections/documentation_pages/<project dir>/<name>
+---
+## Purpose & Params
+
+## Example
+```python
+```
+output:
+```bash
+```
