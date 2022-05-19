@@ -5,7 +5,7 @@ import numpy as np
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import isl.math.polynomial as POLY
+import rainbow.math.polynomial as POLY
 
 
 class TestPolynomial(unittest.TestCase):

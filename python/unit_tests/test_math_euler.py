@@ -6,9 +6,9 @@ import numpy as np
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import isl.math.euler as EULER
-import isl.math.quaternion as Q
-import isl.math.matrix3 as M3
+import rainbow.math.euler as EULER
+import rainbow.math.quaternion as Q
+import rainbow.math.matrix3 as M3
 
 
 def compute_orientation_zyx(matrix):
