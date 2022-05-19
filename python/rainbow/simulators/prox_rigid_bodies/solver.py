@@ -1,3 +1,4 @@
+from genericpath import exists
 from typing import Tuple
 
 import scipy.sparse as sparse
@@ -444,19 +445,32 @@ def get_total_energy(engine) -> Tuple[float, float]:
     for body in engine.bodies.values():
         if body.is_fixed:
             continue
+        # print(f"\nObject: {body.name} - mass: {body.mass}")
         m = body.mass
         h = 0
-        if "Gravity" in body.forces:
-            h = np.dot(engine.forces["Gravity"].up, body.r)
+
+        
+        G = V3.make(0,0,0)
+        isGravity = False
+        for force in engine.forces:
+            if isinstance(engine.forces[force], Gravity):
+                gravity_force = engine.forces[force]
+                G += gravity_force.up * gravity_force.g
+                isGravity = True
+
         v = np.linalg.norm(body.v)
         w = body.w
         I_bf = body.inertia
         R = Q.to_matrix(body.q)
         I_wcs = MASS.update_inertia_tensor(R, I_bf)
         wIw = np.dot(w, np.dot(I_wcs, w))
-        kinetic += 0.5 * (m * v * v + wIw)
-        if "Gravity" in body.forces:
-            potential += engine.forces["Gravity"].g * m * h
+        kinetic += 0.5 * (m * (v ** 2) + wIw)
+        if isGravity:
+            up = V3.unit(G)
+            g  = V3.norm(G)
+            h  = up.dot(body.r)
+            potential += m * g * h
+
     return kinetic, potential
 
 
