@@ -5,9 +5,9 @@ import numpy as np
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import isl.math.quaternion as Q
-import isl.math.matrix3 as M3
-import isl.util.test_tools as TEST
+import rainbow.math.quaternion as Q
+import rainbow.math.matrix3 as M3
+import rainbow.util.test_tools as TEST
 
 
 class TestMatrix3API(unittest.TestCase):

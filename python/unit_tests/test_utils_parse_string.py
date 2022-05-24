@@ -4,7 +4,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import isl.util.parse_string as PARSE
+import rainbow.util.parse_string as PARSE
 
 
 class TestQuaternionAPI(unittest.TestCase):

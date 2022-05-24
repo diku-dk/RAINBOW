@@ -4,14 +4,14 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import isl.simulators.prox_soft_bodies.api as API
-import isl.simulators.prox_soft_bodies.solver as SOLVER
-import isl.simulators.prox_soft_bodies.mechanics as MECH
-import isl.simulators.prox_soft_bodies.collision_detection as CD
-import isl.simulators.prox_rigid_bodies.gauss_seidel as GS
-import isl.geometry.volume_mesh as VM
-import isl.math.vector3 as V3
-import isl.math.matrix3 as M3
+import rainbow.simulators.prox_soft_bodies.api as API
+import rainbow.simulators.prox_soft_bodies.solver as SOLVER
+import rainbow.simulators.prox_soft_bodies.mechanics as MECH
+import rainbow.simulators.prox_soft_bodies.collision_detection as CD
+import rainbow.simulators.prox_rigid_bodies.gauss_seidel as GS
+import rainbow.geometry.volume_mesh as VM
+import rainbow.math.vector3 as V3
+import rainbow.math.matrix3 as M3
 import numpy as np
 import matplotlib.pyplot as pyplot
 

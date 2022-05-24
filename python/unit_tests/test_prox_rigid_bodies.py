@@ -4,7 +4,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import isl.simulators.prox_rigid_bodies.api as API
+import rainbow.simulators.prox_rigid_bodies.api as API
 
 
 class TestRigidBodiesAPI(unittest.TestCase):
