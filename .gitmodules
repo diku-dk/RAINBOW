@@ -1,0 +1,3 @@
+[submodule "Tight-Inclusion-Wrap/Tight-Inclusion"]
+	path = Tight-Inclusion-Wrap/Tight-Inclusion
+	url = https://github.com/Continuous-Collision-Detection/Tight-Inclusion

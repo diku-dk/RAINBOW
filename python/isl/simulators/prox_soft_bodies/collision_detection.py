@@ -387,7 +387,7 @@ def _contact_reduction(engine, stats, debug_on):
 
 
 ##Stefans Additions
-def _compute_contacts(engine, stats, dt, DT, bodyA, bodyB, results, debug_on):
+def _compute_contacts(engine, stats, dt, toi, bodyA, bodyB, results, debug_on):
     """
     :param engine:      The current engine instance we are working with.
     :param stats:       A dictionary where to add more profiling and timing measurements.
@@ -401,6 +401,9 @@ def _compute_contacts(engine, stats, dt, DT, bodyA, bodyB, results, debug_on):
     contact_point_generation_timer = None
     if debug_on:
         contact_point_generation_timer = Timer('contact_point_generation')
+
+    # if(len(results) > 0):
+    #     print(str(len(results)))
 
     for k in range(len(results)):
         idx_triA, idx_triB = results[k]    # Get the triangle face indices
@@ -447,12 +450,10 @@ def _compute_contacts(engine, stats, dt, DT, bodyA, bodyB, results, debug_on):
         if (not np.any(collisions)):
             continue
 
-        #Will need to be higher than this, probably
+        #Will need to be higher than 0 in some cases, probably
         epsilon = 0.0
-        # print("Collisiontime: \n" + str(collisiontime))
 
         boolmask = np.nonzero(collisiontime >= epsilon)
-        # print(boolmask)
 
         idx_tetA = bodyA.owners[idx_triA][0]   # Get index of tetrahedron that f_a comes from
         idx_tetB = bodyB.owners[idx_triB][0]   # Get index of tetrahedron that f_b comes from
@@ -481,9 +482,8 @@ def _compute_contacts(engine, stats, dt, DT, bodyA, bodyB, results, debug_on):
                 p = v0-n*gab
                 omegaA = BC.compute_barycentric_tetrahedron(XA[0], XA[1], XA[2], XA[3], p)
                 omegaB = BC.compute_barycentric_tetrahedron(XB[0], XB[1], XB[2], XB[3], p)
-                cp = ContactPoint(bodyA, bodyB, idx_tetA, idx_tetB, omegaA, omegaB, p, n,gab) #Need to find value for the gab
+                cp = ContactPoint(bodyA, bodyB, idx_tetA, idx_tetB, omegaA, omegaB, p, n,gab) 
                 engine.contact_points.append(cp)
-                print("p: " + str(p) + " n: " + str(n) + " Gab: " + str(gab))
             else: #Else it is an edge-edge
                 eeidx = index-6
                 v0 = EEInputs[eeidx,0]
@@ -516,51 +516,42 @@ def _compute_contacts(engine, stats, dt, DT, bodyA, bodyB, results, debug_on):
                     lcheck = np.dot(n,leftnormal2)
                     rcheck = np.dot(n,rightnormal2)
 
-                    if (lcheck<0 and rcheck<0):
-                        n *=-1
-                    elif (lcheck <0):
-                        n = leftnormal2*np.dot(n,leftnormal2)
-                    elif(rcheck <0):
-                        n = leftnormal2*np.dot(n,rightnormal2)
+                    if(lcheck>=0):
+                        if (rcheck<0):
+                            n = n-rightnormal2*rcheck #If only rcheck is under 0, Project N to the right side of the vorenoi zone
+                        #Do nothing if both lcheck and rcheck are above 0
+                    else: 
+                        if (rcheck<0):
+                            n *=-1 #If both are negative, Reverse N
+                        else:
+                            n = n-leftnormal2*lcheck #If only lcheck is under 0, Project N to the left side of the vorenoi zone
 
                     n = V3.unit(n)
 
                     pvec = p2-p1
 
-                    # print("Pvec: " + str(pvec) + " n:" + str(n))
-
-                    # print("Dot prodoct:" + str(np.dot(pvec,n)))
-
                     if(np.dot(pvec,n)>0):
                         gab *=-1
 
-                    # # print("Parameters. E0: " + str(E0) + " left_Edge: " + str(left_Edge) + " right_Edge: " + str(right_Edge))
-
-                    # print("First leftnormal:" + str(leftnormal) + " Second Normal: " + str(leftnormal2))
-
-                    # print("First rightnormal:" + str(rightnormal) + " Second Normal: " + str(rightnormal2))
 
 
                     omegaA = BC.compute_barycentric_tetrahedron(XA[0], XA[1], XA[2], XA[3], p)
                     omegaB = BC.compute_barycentric_tetrahedron(XB[0], XB[1], XB[2], XB[3], p)
                     cp = ContactPoint(bodyA, bodyB, idx_tetA, idx_tetB, omegaA, omegaB, p, n,gab)
                     engine.contact_points.append(cp)
-                    print("p: " + str(p) + " n: " + str(n) + " Gab: " + str(gab))
 
-        # print(str(collisiontime))
+
+
         collisiontime[boolmask] = np.inf
-        # print("Masked: \n" + str(collisiontime))
 
-        # minindex = np.argmin(collisiontime)
-        # lowest_col_time = collisiontime[minindex]
 
         lowest_col_time = np.min(collisiontime)
 
-        # Update the DT, if it is the lowest so far
-        if(DT>lowest_col_time):
-            DT = lowest_col_time
+        # Update the toi, if it is the lowest so far
+        if(toi>lowest_col_time):
+            toi = lowest_col_time
 
-    return DT, stats            
+    return toi, stats            
 
 def _contact_determination(overlaps, engine, dt, stats, debug_on):
     """
@@ -576,17 +567,17 @@ def _contact_determination(overlaps, engine, dt, stats, debug_on):
         contact_determination_timer = Timer('contact_determination', 8)
         contact_determination_timer.start()
     engine.contact_points = []
-    DT=dt
+    toi=dt
     for key, results in overlaps.items():
         # TODO 2022-12-31 Kenny: The code currently computes a lot of redundant contacts due
         #  to BVH traversal may return a triangle as part of several pairs. We only need
         #  the triangle pair information to warp a triangle from local space of one body
         #  into the local SDF space of the other body. However, we just need one pair where
         #  a specific triangle is part of, not all pairs where the triangle is part of.
-        DT,stats = _compute_contacts(engine,
+        toi,stats = _compute_contacts(engine,
                           stats,
                           dt,
-                          DT,
+                          toi,
                           key[0],  # Body A
                           key[1],  # Body B
                           results,
@@ -595,7 +586,7 @@ def _contact_determination(overlaps, engine, dt, stats, debug_on):
     if debug_on:
         contact_determination_timer.end()
         stats['contact_determination'] = contact_determination_timer.elapsed
-    return DT,stats
+    return toi,stats
 
 def run_collision_detection(engine, dt, stats, debug_on):
     """
@@ -616,11 +607,11 @@ def run_collision_detection(engine, dt, stats, debug_on):
         collision_detection_timer.start()
     stats = _update_bvh(engine, stats, debug_on)
     overlaps, stats = _narrow_phase(engine, stats, debug_on)
-    DT,stats = _contact_determination(overlaps, engine, dt, stats, debug_on)
+    toi,stats = _contact_determination(overlaps, engine, dt, stats, debug_on)
     stats = _contact_reduction(engine, stats, debug_on)
     if debug_on:
         collision_detection_timer.end()
         stats['collision_detection_time'] = collision_detection_timer.elapsed
-    return DT, stats
+    return toi, stats
 
 ##

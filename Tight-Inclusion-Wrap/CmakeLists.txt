@@ -1,0 +1,10 @@
+cmake_minimum_required(VERSION 3.16)
+project(MyTightInclusion)
+
+add_subdirectory(pybind11)
+add_subdirectory(Tight-Inclusion)
+add_subdirectory(eigen)
+
+pybind11_add_module(TightInclusionWrap main.cpp)
+
+target_link_properties(TightInclusionWrap tight-inclusion::tight-inclussion eigen::eigen)
