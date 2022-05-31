@@ -1,4 +1,3 @@
-from genericpath import exists
 from typing import Tuple
 
 import scipy.sparse as sparse
