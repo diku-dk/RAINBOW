@@ -28,6 +28,7 @@
     </header>
     
     <a href="{{ site.url }}{{ site.baseurl }}/"} class="tablink" onclick="openPage('Home', this, 'red')">Home</a>
+    <a href="{{ site.url }}{{ site.baseurl }}/examples"} class="tablink" onclick="openPage('Examples', this, 'red')">Examples</a>
     <a href="{{ site.url }}{{ site.baseurl }}/installation_guide/" class="tablink" onclick="openPage('Installation', this, 'green')">Installation</a>
     <a href="{{ site.url }}{{ site.baseurl }}/documentation/" class="tablink" onclick="openPage('Documentation', this, 'purple')">Documentation</a>
     <a href="{{ site.url }}{{ site.baseurl }}/contact/" class="tablink" onclick="openPage('Contact', this, 'blue')">Contact</a>
@@ -37,8 +38,8 @@
     <!-- <a id="skip-to-content" href="#content">Skip to the content.</a> -->
     <main id="content" class="main-content" role="main">
       {{ content }} 
-      Updated 15:15 
-      {{ site.url }}
+      
+      <script src="../assets/code/copy_code.js"></script>
       <footer class="site-footer">
         {% if site.github.is_project_page %}
           <span class="site-footer-owner"><a href="{{ site.github.repository_url }}">{{ site.github.repository_name }}</a> is maintained by <a href="{{ site.github.owner_url }}">{{ site.github.owner_name }}</a>.</span>
