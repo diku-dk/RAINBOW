@@ -19,7 +19,7 @@ from rainbow.geometry.surface_mesh import create_sphere, create_box
 
 
 
-## Examples 1 - Statup
+## Examples 1 - Get started
 Let's make a box rotate 360 degrees by setting its angular velocity to 2 pi and run the simulation for a second.  
 
 Start by creating an environment. In this case, we create a box with dimensions 5., 5. and 10. 
