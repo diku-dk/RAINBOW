@@ -473,13 +473,14 @@ def get_largest_gap_error(engine) -> float:
     return -gap
 
 
-def solve_dynamics(dt: float, engine, debug_on: bool) -> dict:
+def solve_dynamics(dt: float, engine, stats: dict, debug_on: bool) -> dict:
     """
-    This is the main simulation method that is responsible for stepping time
-     forward to the next time-step.
+    This is the main simulation method that is responsible for stepping the rigid bodies
+    forward to the next time-step.
 
     :param dt:        The time-step to step time forward in the engine.
     :param engine:    The engine that holds all the rigid bodies.
+    :param stats:     A dictionary that collects performance measurements and statistics when debugging mode is on.
     :param debug_on:  A boolean flag to toggle debug mode.
     :return:          A dictionary with collected statistics and performance measurements.
     """
@@ -487,7 +488,6 @@ def solve_dynamics(dt: float, engine, debug_on: bool) -> dict:
     if debug_on:
         timer = Timer("Solve Dynamics")
         timer.start()
-    stats = {}
 
     x = get_position_vector(engine)
     u = get_velocity_vector(engine)
@@ -541,8 +541,9 @@ def solve_dynamics(dt: float, engine, debug_on: bool) -> dict:
 
     if debug_on:
         timer.end()
-        stats["stepper_time"] = timer.elapsed
-        stats["dt"] = dt
+        if "solve_dynamics" not in stats:
+            stats["solve_dynamics"] = 0
+        stats["solve_dynamics"] += timer.elapsed
         stats["contact_points"] = len(engine.contact_points)
         stats["contact_forces"] = du_contact
         stats["total_forces"] = du_total
@@ -558,6 +559,16 @@ def solve_dynamics(dt: float, engine, debug_on: bool) -> dict:
     return stats
 
 def stepper(dt: float, engine, debug_on: bool) -> dict:
+    """
+    The stepper function for the simulation. Computes the earliest time of impact
+    in the simulation given a time-step dt and substeps the simulation
+    until the given time-step is reached.
+
+    :param dt:        The time-step to step time forward in the engine.
+    :param engine:    The engine that holds all the rigid bodies.
+    :param debug_on:  A boolean flag to toggle debug mode.
+    :return:          A dictionary with collected statistics and performance measurements.
+    """
     timer = None
     if debug_on:
         timer = Timer('Stepper')
@@ -565,13 +576,12 @@ def stepper(dt: float, engine, debug_on: bool) -> dict:
     stats = {}
 
     dti = dt
-    # while (dti > 0):
-    toi, stats = CD.run_collision_detection(dti, engine, stats, debug_on)
-    print(f"{toi=}")
-        # if toi < 1.0e-5:
-        #     toi = dti
-    stats = solve_dynamics(toi, engine, debug_on)
-    dti -= toi
+    while (dti > 0):
+        toi, stats = CD.run_collision_detection(dti, engine, stats, debug_on)
+        if toi < 1.0e-5:
+            toi = dti
+        stats = solve_dynamics(toi, engine, stats, debug_on)
+        dti -= toi
 
     if debug_on:
         timer.end()

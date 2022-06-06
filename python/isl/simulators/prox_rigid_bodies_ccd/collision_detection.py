@@ -215,34 +215,6 @@ class Interval():
         self.lower = lower
         self.upper = upper
 
-    def __add__(self, other):
-        a, b, c, d = self.lower, self.upper, other.lower, other.upper
-        return Interval(a + c, b + d)
-
-    def __sub__(self, other):
-        a, b, c, d = self.lower, self.upper, other.lower, other.upper
-        return Interval(a - d, b - c)
-
-    def __mul__(self, other):
-        if isinstance(other, float):
-            return Interval(self.lower * other, self.upper * other)
-
-        a, b, c, d = self.lower, self.upper, other.lower, other.upper
-        if isinstance(other, Interval3):
-            return Interval3(a * c, b * d)
-
-        elif isinstance(other, self.__class__):
-            return Interval(min(a*c, a*d, b*c, b*d),
-                            max(a*c, a*d, b*c, b*d))
-
-    def __div__(self, other):
-        a, b, c, d = self.lower, self.upper, other.lower, other.upper
-        # [c,d] cannot contain zero:
-        if c*d <= 0:
-            raise ValueError(f"Interval {other} cannot be denominator because it contains zero")
-        return Interval(min(a/c, a/d, b/c, b/d),
-                        max(a/c, a/d, b/c, b/d))
-
     def __contains__(self, key):
         return self.lower <= key and key <= self.upper
 
@@ -271,7 +243,6 @@ class Interval3():
             return self.t.lower < other.t.lower
         else:
             return self.l < other.l
-
 
 
 class VertexFace():
@@ -560,34 +531,36 @@ def split(I: Interval3, g):
         return [Interval3(I.t, I.u, Interval(I.v.lower, m)), Interval3(I.t, I.u, Interval(m, I.v.upper))]
 
 def solve_interval(I_0: Interval3, f, delta=0.000001, m_I=1000000):
+    """
+    This function computes the earliest time of impact
+    of the formulation given in f for the interval I_0.
+
+    :param I_0:         Initial interval.
+    :param f:           Triangle formulation to use (vertex-face or edge-edge).
+    :param delta:       Minimum interval width of result.
+    :param m_I:         Maximum amount of iterations.
+    :return:            The earliest time of impact.
+    """
     n = 0
-    # q = queue.PriorityQueue()
-    # q.put(I_0)
     q = []
     l_p = -1
     heapq.heappush(q, [l_p, I_0.t.lower, I_0])
     I_f = None
-    # while q.qsize() != 0:
+
     while len(q) > 0:
-        # I = q.get()
         l, _, I = heapq.heappop(q)
         n = n + 1
 
-        # l = I.l
-        # B = f.inclusion(I)
-        B, B_w = f.inclusion_box(I)
+        B = f.inclusion(I) # B, B_w = f.inclusion_box(I)
         if B:
 
             if l != l_p:
                 I_f = I
 
             if n >= m_I:
-                # return I
                 return I_f
 
-            if I.w() < delta:
-            # if B_w < delta:
-                # return I
+            if I.w() < delta: # if B_w < delta:
                 if l != l_p:
                     return I_f
             else:
@@ -595,22 +568,18 @@ def solve_interval(I_0: Interval3, f, delta=0.000001, m_I=1000000):
                 for i in Is:
                     if i.u.lower + i.v.lower <= 1.0:
                         i.l = l+1
-                        # q.put(i)
                         heapq.heappush(q, [l+1, i.t.lower, i])
         l_p = l
     return None
 
 def solve_interval_bfs(I_0: Interval3, g, delta=0.000001, m_I=1000000):
     n = 0
-    # q = queue.Queue()
-    # q.put((I_0, 0))
     q = deque()
     q.append((I_0, -1))
     l_p = -1
     I_f = None
-    # while q.qsize() != 0:
+
     while len(q) > 0:
-        # I, l = q.get()
         I, l = q.popleft()
         I_g = g.inclusion(I)
         n = n + 1
@@ -620,34 +589,27 @@ def solve_interval_bfs(I_0: Interval3, g, delta=0.000001, m_I=1000000):
                 I_f = I
 
             if n >= m_I:
-                # if I_f.t.lower == 0:
-                #     return None
                 return I_f
 
             if I.w() < delta:
                 #if l != l_p:
-                # print(I.t.lower)
                 return I
             else:
                 Is = split_interval(I)
                 for i in Is:
-                    # q.put((i, l+1))
                     q.append((i, l+1))
         l_p = l
     return None
 
 
 def solve_interval_dfs(I_0: Interval3, g, delta=0.000001, m_I=1000000):
-    # s = queue.LifoQueue()
-    # s.put((I_0, 0))
     s = []
     s.append(I_0)
 
-    # while s.qsize() != 0:
     while len(s) > 0:
-        # I, l = s.get()
         I = s.pop()
         I_g = g.inclusion(I)
+
         if I_g:
             if I.w() < delta:
                 return I
@@ -655,14 +617,25 @@ def solve_interval_dfs(I_0: Interval3, g, delta=0.000001, m_I=1000000):
                 Is = split_interval(I)
                 for i in Is:
                     if I.u.lower + I.v.lower <= 1.0:
-                        # s.put((i, l+1))
                         s.append(i)
-
     return None
 
 def _compute_vertex_face_ccd(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
                              v_t1, f_v0_t1, f_v1_t1, f_v2_t1):
+    """
+    This function computes the time of impact and potential contact
+    between a vertex and a face.
 
+    :param v_t0:        Vertex at t0.
+    :param f_v0_t0:     First vertex of face at t0.
+    :param f_v1_t0:     Second vertex of face at t0.
+    :param f_v2_t0:     Third vertex of face at t0.
+    :param v_t1:        Vertex at t1.
+    :param f_v0_t1:     First vertex of face at t1.
+    :param f_v1_t1:     Second vertex of face at t1.
+    :param f_v2_t1:     Third vertex of face at t1.
+    :return:            The time of impact and potential contact of the vertex and face.
+    """
     vf = VertexFace(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
                     v_t1, f_v0_t1, f_v1_t1, f_v2_t1)
 
@@ -680,7 +653,20 @@ def _compute_vertex_face_ccd(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
 
 def _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
                            p1_t1, p2_t1, p3_t1, p4_t1):
+    """
+    This function computes the time of impact and potential contact
+    between two edges.
 
+    :param p1_t0:       First vertex of first edge at t0.
+    :param p2_t0:       Second vertex of first edge at t0.
+    :param p3_t0:       First vertex of second edge at t0.
+    :param p4_t0:       Second vertex of second edge at t0.
+    :param p1_t1:       First vertex of first edge at t1.
+    :param p2_t1:       Second vertex of first edge at t1.
+    :param p3_t1:       First vertex of second edge at t1.
+    :param p4_t1:       Second vertex of second edge at t1.
+    :return:            The time of impact and potential contact of the two edges.
+    """
     ee = EdgeEdge(p1_t0, p2_t0, p3_t0, p4_t0,
                   p1_t1, p2_t1, p3_t1, p4_t1)
 
@@ -698,18 +684,23 @@ def _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
 
 def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
     """
-    This function computes time of impacts and contacts between triangles from body A and body B using continuous collision detecton.
+    This function computes time of impacts and contacts between triangles
+    from body A and body B using continuous collision detecton.
 
     :param engine:      The current engine instance we are working with.
     :param stats:       A dictionary where to add more profiling and timing measurements.
-    :param dt:          Time-step
+    :param dt:          Time-step.
     :param bodyA:       Reference to body A.
     :param bodyB:       Reference to body B.
     :param trianglesA:  Array of triangles from body A that may be colliding with body B.
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            Nothing.
     """
-    # TODO: Make BVH traversel return start and end points instead?
+    contact_point_generation_timer = None
+    if debug_on:
+        contact_point_generation_timer = Timer("contact_point_generation")
+        contact_point_generation_timer.start()
+
     V_a_t0 = Q.rotate_array(bodyA.q, bodyA.shape.mesh.V) + bodyA.r
     V_b_t0 = Q.rotate_array(bodyB.q, bodyB.shape.mesh.V) + bodyB.r
     V_a_t1 = Q.rotate_array(Q.unit(bodyA.q + (Q.prod(Q.from_vector3(bodyA.w), bodyA.q) * dt * 0.5)), bodyA.shape.mesh.V) + bodyA.r + bodyA.v * dt
@@ -751,11 +742,14 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
                     p1, p2 = bodyA.shape.mesh.T[triangleA][i], bodyA.shape.mesh.T[triangleA][(i+1) % 3]
                     m_L, m_R = Q.rotate_array(bodyA.q, bodyA.shape.voronoi_regions[(p1, p2)])
                     n = V3.unit(ee_contact[1])
-                    if np.dot(n, m_L) < 0 or np.dot(n, m_R) < 0: # TODO: and or or?
+                    if np.dot(n, m_L) < 0 or np.dot(n, m_R) < 0:
                         n = -n
                     cp = ContactPoint(bodyA, bodyB, ee_contact[0], n)
                     engine.contact_points.append(cp)
 
+    if debug_on:
+        contact_point_generation_timer.end()
+        stats["contact_point_generation_timer"] = contact_point_generation_timer.elapsed
     return toi*dt
 
 def _contact_determination(dt, overlaps, engine, stats, debug_on):
@@ -763,7 +757,7 @@ def _contact_determination(dt, overlaps, engine, stats, debug_on):
     This function performs determination of contact points between all pairs of overlapping bodies. The function
      essentially post-process the overlap-data that was computed by the narrow-phase collision detection function.
 
-    :param dt:          Time-step
+    :param dt:          Time-step.
     :param overlaps:    A dictionary where keys are overlapping bodies and values are a list of potential
                         colliding triangle pairs.
     :param engine:      The current engine instance we are working with.
@@ -810,6 +804,7 @@ def _contact_determination(dt, overlaps, engine, stats, debug_on):
     #         ),  # 2nd column will be all triangles from B that may collide with A
     #         debug_on,
     #     )
+
     if debug_on:
         contact_determination_timer.end()
         stats["contact_determination"] = contact_determination_timer.elapsed

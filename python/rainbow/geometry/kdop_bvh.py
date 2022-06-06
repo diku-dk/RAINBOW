@@ -230,7 +230,7 @@ def refit_bvh(V, T, tree, K, envelope=0.0, U=None) -> None:
     :param K:                 The number of intervals for the KDOPs
     :param envelope:          The size of the envelope used to enlarge the volume. If a tight fit is wanted
                               one should use the value zero.
-    :param U:                 The swept coordinates of the object
+    :param U:                 The swept coordinates of the object (Optional).
     """
     for subtree in tree.chunks:
         _refit_sub_tree(V, T, subtree, K, envelope, U)
