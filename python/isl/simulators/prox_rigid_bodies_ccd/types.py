@@ -164,6 +164,7 @@ class Shape:
         self.name = name
         self.mesh = None  # Polygonal mesh assumed to be in body frame coordinates.
         self.grid = None  # A signed distance field (SDF) in the body frame.
+        self.voronoi_regions = {} # Voronoi regions for each edge in the body shape
         self.mass = 0.0  # Total mass of shape assuming unit-mass-density.
         self.inertia = (
             V3.zero()
@@ -210,8 +211,6 @@ class RigidBody:
         )  # External forces (like gravity and damping) acting on this body.
         self.material = "default"  # The material this rigid body is made up of.
         self.bvh = None  # k-DOP_bvh encapsulating the entire body.
-        self.voronoi_regions = {} # Voronoi regions for each edge in the body shape
-
 
 class ContactPoint:
     """

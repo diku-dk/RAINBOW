@@ -571,10 +571,11 @@ def solve_interval(I_0: Interval3, f, delta=0.000001, m_I=1000000):
     while len(q) > 0:
         # I = q.get()
         l, _, I = heapq.heappop(q)
+        n = n + 1
+
         # l = I.l
         # B = f.inclusion(I)
         B, B_w = f.inclusion_box(I)
-        n = n + 1
         if B:
 
             if l != l_p:
@@ -584,17 +585,18 @@ def solve_interval(I_0: Interval3, f, delta=0.000001, m_I=1000000):
                 # return I
                 return I_f
 
-            # if I.w() < delta:
-            if B_w < delta:
+            if I.w() < delta:
+            # if B_w < delta:
                 # return I
                 if l != l_p:
                     return I_f
             else:
                 Is = split_interval2(I)
                 for i in Is:
-                    i.l = l+1
-                    # q.put(i)
-                    heapq.heappush(q, [l+1, i.t.lower, i])
+                    if i.u.lower + i.v.lower <= 1.0:
+                        i.l = l+1
+                        # q.put(i)
+                        heapq.heappush(q, [l+1, i.t.lower, i])
         l_p = l
     return None
 
@@ -617,7 +619,7 @@ def solve_interval_bfs(I_0: Interval3, g, delta=0.000001, m_I=1000000):
             if l != l_p:
                 I_f = I
 
-            if n >= m_I: # TODO: Seems like we are getting false positive contact points from this with edge-edge
+            if n >= m_I:
                 # if I_f.t.lower == 0:
                 #     return None
                 return I_f
@@ -652,8 +654,9 @@ def solve_interval_dfs(I_0: Interval3, g, delta=0.000001, m_I=1000000):
             else:
                 Is = split_interval(I)
                 for i in Is:
-                    # s.put((i, l+1))
-                    s.append(i)
+                    if I.u.lower + I.v.lower <= 1.0:
+                        # s.put((i, l+1))
+                        s.append(i)
 
     return None
 
@@ -669,8 +672,8 @@ def _compute_vertex_face_ccd(v_t0, f_v0_t0, f_v1_t0, f_v2_t0,
         return np.Infinity, None
 
     toi = I.t.lower
-    if toi < 0.0001: # toi == 0:
-        contact = [vf.P(0), vf.N(0)]
+    if toi < 0.1: # toi == 0:
+        contact = [vf.P(toi), vf.N(toi)] # [vf.P(0), vf.N(0)]
         return np.Infinity, contact
 
     return toi, None
@@ -687,8 +690,8 @@ def _compute_edge_edge_ccd(p1_t0, p2_t0, p3_t0, p4_t0,
         return np.Infinity, None
 
     toi = I.t.lower
-    if toi < 0.0001: # toi == 0:
-        contact = [ee.P(0, I.v.lower), ee.N(0)]
+    if toi < 0.1: # toi == 0:
+        contact = [ee.P(toi, I.v.lower), ee.N(toi)] # [ee.P(0, I.v.lower), ee.N(0)]
         return np.Infinity, contact
 
     return toi, None
@@ -723,7 +726,7 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
 
             toi = min(toi, a_vf_toi)
             if a_vf_contact is not None:
-                cp = ContactPoint(bodyA, bodyB, a_vf_contact[0], V3.unit(a_vf_contact[1]))
+                cp = ContactPoint(bodyA, bodyB, a_vf_contact[0], -V3.unit(a_vf_contact[1]))
                 engine.contact_points.append(cp)
 
             b_vf_toi, b_vf_contact = _compute_vertex_face_ccd(f_b_t0[i], f_a_t0[0], f_a_t0[1], f_a_t0[2],
@@ -731,7 +734,7 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
 
             toi = min(toi, b_vf_toi)
             if b_vf_contact is not None:
-                cp = ContactPoint(bodyB, bodyA, b_vf_contact[0], V3.unit(b_vf_contact[1])) # TODO: Should this be BodyA, BodyB with -n?
+                cp = ContactPoint(bodyA, bodyB, b_vf_contact[0], V3.unit(b_vf_contact[1]))
                 engine.contact_points.append(cp)
 
         for i in range(3):
@@ -746,7 +749,7 @@ def _compute_contacts(engine, stats, dt, bodyA, bodyB, triangles, debug_on):
                 toi = min(toi, ee_toi)
                 if ee_contact is not None and V3.norm(ee_contact[1]) != 0:
                     p1, p2 = bodyA.shape.mesh.T[triangleA][i], bodyA.shape.mesh.T[triangleA][(i+1) % 3]
-                    m_L, m_R = Q.rotate_array(bodyA.q, bodyA.voronoi_regions[(p1, p2)])
+                    m_L, m_R = Q.rotate_array(bodyA.q, bodyA.shape.voronoi_regions[(p1, p2)])
                     n = V3.unit(ee_contact[1])
                     if np.dot(n, m_L) < 0 or np.dot(n, m_R) < 0: # TODO: and or or?
                         n = -n
@@ -786,27 +789,27 @@ def _contact_determination(dt, overlaps, engine, stats, debug_on):
         toi = min(toi, dti)
 
     # engine.contact_points = []
-    for key, results in overlaps.items():
-        _compute_contacts_dcd(
-            engine,
-            stats,
-            key[0],  # Body A
-            key[1],  # Body B
-            np.unique(
-                results[:, 0]
-            ),  # 1st column will be all triangles from A that may collide with B
-            debug_on,
-        )
-        _compute_contacts_dcd(
-            engine,
-            stats,
-            key[1],  # Body B
-            key[0],  # Body A
-            np.unique(
-                results[:, 1]
-            ),  # 2nd column will be all triangles from B that may collide with A
-            debug_on,
-        )
+    # for key, results in overlaps.items():
+    #     _compute_contacts_dcd(
+    #         engine,
+    #         stats,
+    #         key[0],  # Body A
+    #         key[1],  # Body B
+    #         np.unique(
+    #             results[:, 0]
+    #         ),  # 1st column will be all triangles from A that may collide with B
+    #         debug_on,
+    #     )
+    #     _compute_contacts_dcd(
+    #         engine,
+    #         stats,
+    #         key[1],  # Body B
+    #         key[0],  # Body A
+    #         np.unique(
+    #             results[:, 1]
+    #         ),  # 2nd column will be all triangles from B that may collide with A
+    #         debug_on,
+    #     )
     if debug_on:
         contact_determination_timer.end()
         stats["contact_determination"] = contact_determination_timer.elapsed
@@ -838,7 +841,7 @@ def _contact_reduction(engine, stats, debug_on):
     for cp1 in engine.contact_points:
         unique = True
         for cp2 in reduced_list:
-            if {cp1.bodyA, cp1.bodyB} == {cp2.bodyA, cp2.bodyB} and (
+            if {cp1.bodyA, cp1.bodyB} == {cp2.bodyA, cp2.bodyB} and ( # np.allclose(cp1.p, cp2.p, atol=0.00001, rtol=0.0)
                 cp1.p == cp2.p
             ).all():
                 unique = False
