@@ -590,13 +590,12 @@ class SemiImplicitStepper:
         stats = {}
 
         dti = dt
-        # while (dti > 0):
-        toi, stats = CD.run_collision_detection(dti, engine, stats, debug_on)
-            # if toi < 1.0e-5:
-            #     toi = dti
-        print(toi)
-        stats = solve_dynamics(toi, engine, stats, debug_on)
-        dti -= toi
+        while (dti > 0):
+            toi, stats = CD.run_collision_detection(dti, engine, stats, debug_on)
+            if toi < 1.0e-5:
+                toi = dti
+            stats = solve_dynamics(toi, engine, stats, debug_on)
+            dti -= toi
 
         if debug_on:
             timer.end()
