@@ -1,5 +1,5 @@
-import isl.math.vector3 as V3
-import isl.math.quaternion as Q
+import rainbow.math.vector3 as V3
+import rainbow.math.quaternion as Q
 
 
 class SurfacesInteraction:
@@ -212,6 +212,7 @@ class RigidBody:
         self.material = "default"  # The material this rigid body is made up of.
         self.bvh = None  # k-DOP_bvh encapsulating the entire body.
 
+
 class ContactPoint:
     """
     A contact point class.
@@ -261,10 +262,8 @@ class Parameters:
         """
         Create an instance of the parameter class.
         """
-        self.total_time = 10.0  # The total allowed simulation time.
-        self.current_time = 0.0  # The current simulation time.
         self.time_step = (
-            0.001  # The time step size to use when taking one simulation solver step.
+            0.001  # The desired time step size to use when taking one simulation solver step.
         )
         self.max_iterations = 200  # Maximum number of Gauss Seidel iterations
         self.use_bounce = False  # Turning bounce on and off
@@ -339,3 +338,4 @@ class Engine:
         self.contact_points = []
         self.surfaces_interactions = SurfacesInteractionLibrary()
         self.params = Parameters()
+        self.stepper = None  # The time stepper used to simulate the world forward in time.

@@ -1,12 +1,10 @@
-import isl.math.quaternion as Q
-import isl.geometry.grid3 as GRID
-import isl.geometry.kdop_bvh as BVH
-import isl.geometry.surface_mesh as MESH
-from isl.simulators.prox_rigid_bodies_ccd.types import *
+import rainbow.math.quaternion as Q
+import rainbow.geometry.grid3 as GRID
+import rainbow.geometry.kdop_bvh as BVH
+from rainbow.simulators.prox_rigid_bodies_ccd.types import *
 from itertools import combinations
-from isl.util.timer import Timer
+from rainbow.util.timer import Timer
 import numpy as np
-import queue
 import heapq
 from collections import deque
 

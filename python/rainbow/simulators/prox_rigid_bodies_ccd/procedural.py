@@ -1,8 +1,8 @@
 import numpy as np
-import isl.math.vector3 as V3
-import isl.math.quaternion as Q
-import isl.geometry.surface_mesh as MESH
-import isl.simulators.prox_rigid_bodies_ccd.api as API
+import rainbow.math.vector3 as V3
+import rainbow.math.quaternion as Q
+import rainbow.geometry.surface_mesh as MESH
+import rainbow.simulators.prox_rigid_bodies_ccd.api as API
 from math import pi, sin, sqrt
 import igl
 

@@ -1,7 +1,7 @@
 import numpy as np
-import isl.math.vector3 as V3
-import isl.math.matrix3 as M3
-import isl.math.quaternion as Q
+import rainbow.math.vector3 as V3
+import rainbow.math.matrix3 as M3
+import rainbow.math.quaternion as Q
 
 
 class MassProperties:

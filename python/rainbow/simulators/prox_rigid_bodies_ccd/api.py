@@ -1,9 +1,10 @@
-import isl.geometry.surface_mesh as MESH
-import isl.math.functions as FUNC
-import isl.geometry.grid3 as GRID
-import isl.geometry.kdop_bvh as BVH
-import isl.simulators.prox_rigid_bodies_ccd.solver as SOLVER
-from isl.simulators.prox_rigid_bodies_ccd.types import *
+from typing import List, Dict
+import rainbow.geometry.surface_mesh as MESH
+import rainbow.math.functions as FUNC
+import rainbow.geometry.grid3 as GRID
+import rainbow.geometry.kdop_bvh as BVH
+import rainbow.simulators.prox_rigid_bodies_ccd.solver as SOLVER
+from rainbow.simulators.prox_rigid_bodies_ccd.types import *
 import numpy as np
 
 
@@ -20,6 +21,15 @@ def generate_unique_name(name: str) -> str:
     n = random.random()
     unique_name = name + "_" + str(n) + "_" + str(datetime.datetime.now())
     return unique_name
+
+
+def create_engine() -> Engine:
+    """
+    Create Engine.
+
+    :return: A new Engine instance containing the world to be simulated and the actual simulator to use.
+    """
+    return Engine()
 
 
 def create_rigid_body(engine, body_name: str) -> None:
@@ -477,3 +487,32 @@ def create_surfaces_interaction(engine, A: str, B: str, epsilon: float, mu) -> N
     behaviour.epsilon = epsilon
     behaviour.mu = mu
     engine.surfaces_interactions.storage[key] = behaviour
+
+def simulate(engine, T: float, debug_on: bool = False) -> None:
+    """
+    Simulate forward in time.
+
+    :param engine:    The engine holding the world to be simulated.
+    :param T:         The time to simulate forward.
+    :param debug_on:  Boolean flag indicating if debug info should be generated or not.
+    :return:          None
+    """
+    if T <= 0:
+        raise ValueError("Time must be positive")
+    if engine.stepper is None:
+        engine.stepper = SOLVER.SemiImplicitStepper(engine)
+    T_left = T
+    while T_left:
+        dt = min(T_left, engine.params.time_step)
+        engine.stepper.step(dt, engine, debug_on)
+        T_left -= dt
+
+
+def get_log(engine: Engine) -> List[Dict]:
+    """
+    Retrive log with debug information and timings etc.
+
+    :param engine:  The engine to retrieve the log from.
+    :return:        The log is basically a list of dictionaries. One dictionary for each invocation of the stepper.
+    """
+    return engine.stepper.log

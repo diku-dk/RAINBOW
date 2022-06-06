@@ -1,11 +1,13 @@
+from typing import Tuple
+
 import scipy.sparse as sparse
-import isl.math.matrix3 as M3
-import isl.geometry.surface_mesh as MESH
-import isl.simulators.prox_rigid_bodies_ccd.mass as MASS
-import isl.simulators.prox_rigid_bodies_ccd.collision_detection as CD
-import isl.simulators.prox_rigid_bodies_ccd.gauss_seidel as GS
-from isl.simulators.prox_rigid_bodies_ccd.types import *
-from isl.util.timer import Timer
+import rainbow.math.matrix3 as M3
+import rainbow.geometry.surface_mesh as MESH
+import rainbow.simulators.prox_rigid_bodies_ccd.mass as MASS
+import rainbow.simulators.prox_rigid_bodies_ccd.collision_detection as CD
+import rainbow.simulators.prox_rigid_bodies_ccd.gauss_seidel as GS
+from rainbow.simulators.prox_rigid_bodies_ccd.types import *
+from rainbow.util.timer import Timer
 import numpy as np
 
 
@@ -427,7 +429,7 @@ def apply_post_stabilization(J, WJT, x, engine, stats: dict, debug_on) -> dict:
     return stats
 
 
-def get_total_energy(engine) -> tuple[float, float]:
+def get_total_energy(engine) -> Tuple[float, float]:
     """
     Compute the total kinetic and potential energy of the whole system in the engine. This function is
     used to monitor energies during simulation which is a very useful debug and analysis tool. The energies are
@@ -444,17 +446,28 @@ def get_total_energy(engine) -> tuple[float, float]:
             continue
         m = body.mass
         h = 0
-        if "Gravity" in body.forces:
-            h = np.dot(engine.forces["Gravity"].up, body.r)
+
+        G = V3.make(0, 0, 0)
+        isGravity = False
+        for force in engine.forces:
+            if isinstance(engine.forces[force], Gravity):
+                gravity_force = engine.forces[force]
+                G += gravity_force.up * gravity_force.g
+                isGravity = True
+
         v = np.linalg.norm(body.v)
         w = body.w
         I_bf = body.inertia
         R = Q.to_matrix(body.q)
         I_wcs = MASS.update_inertia_tensor(R, I_bf)
         wIw = np.dot(w, np.dot(I_wcs, w))
-        kinetic += 0.5 * (m * v * v + wIw)
-        if "Gravity" in body.forces:
-            potential += engine.forces["Gravity"].g * m * h
+        kinetic += 0.5 * (m * (v ** 2) + wIw)
+        if isGravity:
+            up = V3.unit(G)
+            g = V3.norm(G)
+            h = up.dot(body.r)
+            potential += m * g * h
+
     return kinetic, potential
 
 
@@ -533,7 +546,6 @@ def solve_dynamics(dt: float, engine, stats: dict, debug_on: bool) -> dict:
     position_update(x, u, dt, engine)
     set_position_vector(x, engine)
     set_velocity_vector(u, engine)
-    engine.params.current_time += dt
 
     if engine.params.use_post_stabilization:
         if len(engine.contact_points) > 0:
@@ -545,46 +557,49 @@ def solve_dynamics(dt: float, engine, stats: dict, debug_on: bool) -> dict:
             stats["solve_dynamics"] = 0
         stats["solve_dynamics"] += timer.elapsed
         stats["contact_points"] = len(engine.contact_points)
-        stats["contact_forces"] = du_contact
-        stats["total_forces"] = du_total
-        stats["positions"] = x
-        stats["external_forces"] = du_ext
-        stats["velocity"] = u
-        stats["body_names"] = list(engine.bodies)
         kinetic_energy, potential_energy = get_total_energy(engine)
         stats["kinetic_energy"] = kinetic_energy
         stats["potential_energy"] = potential_energy
-        stats["max_gap"] = get_largest_gap_error(engine)
+        stats["max_penetration"] = get_largest_gap_error(engine)
 
     return stats
 
-def stepper(dt: float, engine, debug_on: bool) -> dict:
+class SemiImplicitStepper:
     """
-    The stepper function for the simulation. Computes the earliest time of impact
-    in the simulation given a time-step dt and substeps the simulation
-    until the given time-step is reached.
-
-    :param dt:        The time-step to step time forward in the engine.
-    :param engine:    The engine that holds all the rigid bodies.
-    :param debug_on:  A boolean flag to toggle debug mode.
-    :return:          A dictionary with collected statistics and performance measurements.
+    This class implements a semi-implicit first order Euler time-stepper.
     """
-    timer = None
-    if debug_on:
-        timer = Timer('Stepper')
-        timer.start()
-    stats = {}
 
-    dti = dt
-    while (dti > 0):
+    def __init__(self, engine: Engine) -> None:
+        self.log = []
+
+    def step(self, dt: float, engine: Engine, debug_on: bool) -> None:
+        """
+        The stepper function for the simulation. Computes the earliest time of impact
+        in the simulation given a time-step dt and substeps the simulation
+        until the given time-step is reached.
+
+        :param dt:        The time-step to step time forward in the engine.
+        :param engine:    The engine that holds all the rigid bodies.
+        :param debug_on:  A boolean flag to toggle debug mode.
+        :return:          A dictionary with collected statistics and performance measurements.
+        """
+        timer = None
+        if debug_on:
+            timer = Timer('Stepper')
+            timer.start()
+        stats = {}
+
+        dti = dt
+        # while (dti > 0):
         toi, stats = CD.run_collision_detection(dti, engine, stats, debug_on)
-        if toi < 1.0e-5:
-            toi = dti
+            # if toi < 1.0e-5:
+            #     toi = dti
+        print(toi)
         stats = solve_dynamics(toi, engine, stats, debug_on)
         dti -= toi
 
-    if debug_on:
-        timer.end()
-        stats['stepper_time'] = timer.elapsed
-        stats['dt'] = dt
-    return stats
+        if debug_on:
+            timer.end()
+            stats['stepper_time'] = timer.elapsed
+            stats['dt'] = dt
+            self.log.append(stats)

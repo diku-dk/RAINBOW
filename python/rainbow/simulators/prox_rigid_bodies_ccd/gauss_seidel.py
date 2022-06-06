@@ -1,5 +1,5 @@
 import numpy as np
-from isl.util.timer import Timer
+from rainbow.util.timer import Timer
 
 
 def prox_sphere(z_s, z_t, z_tau, mu, x_n):
