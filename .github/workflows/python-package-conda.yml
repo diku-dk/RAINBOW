@@ -31,6 +31,7 @@ jobs:
             conda install -c conda-forge igl
             conda install coverage
             conda install pyparsing
+            conda install -c conda-forge meshplot
             coverage run  -m unittest python/unit_tests/test_*.py
             coverage report
       - name: Format the code
