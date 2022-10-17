@@ -335,9 +335,14 @@ def __translate_to_body_space_origin(prop_model):
     prop_body.Ixx = prop_model.Ixx - m * (y * y + z * z)
     prop_body.Iyy = prop_model.Iyy - m * (x * x + z * z)
     prop_body.Izz = prop_model.Izz - m * (x * x + y * y)
+
+    too_small = 1.0e-10
     prop_body.Ixy = prop_model.Ixy + m * (x * y)
+    prop_body.Ixy = prop_body.Ixy if np.abs(prop_body.Ixy) > too_small else 0.0
     prop_body.Ixz = prop_model.Ixz + m * (x * z)
+    prop_body.Ixz = prop_body.Ixz if np.abs(prop_body.Ixz) > too_small else 0.0
     prop_body.Iyz = prop_model.Iyz + m * (y * z)
+    prop_body.Iyz = prop_body.Iyz if np.abs(prop_body.Iyz) > too_small else 0.0
     prop_body.mass = m
     prop_body.x = 0.0
     prop_body.y = 0.0
