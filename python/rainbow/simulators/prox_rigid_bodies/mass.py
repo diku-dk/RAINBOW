@@ -267,9 +267,6 @@ def compute_mass_properties(V, T, density: float):
     prop.Ixx = prop.Ixx if prop.Ixx > too_small else 0.0
     prop.Iyy = prop.Iyy if prop.Iyy > too_small else 0.0
     prop.Izz = prop.Izz if prop.Izz > too_small else 0.0
-    prop.Ixy = prop.Ixy if prop.Ixy > too_small else 0.0
-    prop.Iyz = prop.Iyz if prop.Iyz > too_small else 0.0
-    prop.Ixz = prop.Ixz if prop.Ixz > too_small else 0.0
     prop.x = prop.x if abs(prop.x) > too_small else 0.0
     prop.y = prop.y if abs(prop.y) > too_small else 0.0
     prop.z = prop.z if abs(prop.z) > too_small else 0.0
@@ -338,9 +335,14 @@ def __translate_to_body_space_origin(prop_model):
     prop_body.Ixx = prop_model.Ixx - m * (y * y + z * z)
     prop_body.Iyy = prop_model.Iyy - m * (x * x + z * z)
     prop_body.Izz = prop_model.Izz - m * (x * x + y * y)
+
+    too_small = 1.0e-10
     prop_body.Ixy = prop_model.Ixy + m * (x * y)
+    prop_body.Ixy = prop_body.Ixy if np.abs(prop_body.Ixy) > too_small else 0.0
     prop_body.Ixz = prop_model.Ixz + m * (x * z)
+    prop_body.Ixz = prop_body.Ixz if np.abs(prop_body.Ixz) > too_small else 0.0
     prop_body.Iyz = prop_model.Iyz + m * (y * z)
+    prop_body.Iyz = prop_body.Iyz if np.abs(prop_body.Iyz) > too_small else 0.0
     prop_body.mass = m
     prop_body.x = 0.0
     prop_body.y = 0.0
