@@ -285,7 +285,7 @@ def create_cuboid(p0, p1, p2, p3, p4, p5, p6, p7):
 
 def create_box(width, height, depth):
     V = np.zeros((8, 3), dtype=np.float64)
-    T = np.zeros((12, 3), dtype=np.int)
+    T = np.zeros((12, 3), dtype=int)
 
     V[0, :] = V3.make(-width, -height, -depth) * 0.5
     V[1, :] = V3.make(width, -height, -depth) * 0.5
