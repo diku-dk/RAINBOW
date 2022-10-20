@@ -262,11 +262,16 @@ def compute_mass_properties(V, T, density: float):
         raise RuntimeError(
             "compute_mass_properties(): internal error, bad mesh encountered"
         )
+    # We clamp computed values to zero if they are very tiny numbers. This is mainly due making inertia tensor more
+    # human-readable when printing it.
     too_small = 1.0e-10
     prop.mass = prop.mass if prop.mass > too_small else 0.0
     prop.Ixx = prop.Ixx if prop.Ixx > too_small else 0.0
     prop.Iyy = prop.Iyy if prop.Iyy > too_small else 0.0
     prop.Izz = prop.Izz if prop.Izz > too_small else 0.0
+    prop.Ixy = prop.Ixy if abs(prop.Ixy) > too_small else 0.0
+    prop.Iyz = prop.Iyz if abs(prop.Iyz) > too_small else 0.0
+    prop.Ixz = prop.Ixz if abs(prop.Ixz) > too_small else 0.0
     prop.x = prop.x if abs(prop.x) > too_small else 0.0
     prop.y = prop.y if abs(prop.y) > too_small else 0.0
     prop.z = prop.z if abs(prop.z) > too_small else 0.0
