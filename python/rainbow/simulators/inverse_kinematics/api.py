@@ -6,6 +6,12 @@ import numpy as np
 
 
 def __is_valid_euler_code(euler_code):
+    """
+    Function to test if the Euler angle convention encoded as a string value is supported by this simulator.
+
+    :param euler_code:   A text encoding of an euler angle encoding.
+    :return:             If the Euler code is usable then the return value is true otherwise it is false.
+    """
     proper_euler_anlges = ['XZX', 'XYX', 'YXY', 'YZY', 'ZYZ', 'ZXZ']
     tait_bryan_angles = ['XZY', 'XYZ', 'YXZ', 'YZX', 'ZYX', 'ZXY']
     if euler_code in proper_euler_anlges:
@@ -16,11 +22,31 @@ def __is_valid_euler_code(euler_code):
 
 
 def create_skeleton():
+    """
+    This is a factory function for creating an empty IK skeleton.
+
+    :return:  The skeleton that was created.
+    """
     S = Skeleton()
     return S
 
 
 def create_root(skeleton, alpha, beta, gamma, tx, ty, tz, euler_code='ZYZ'):
+    """
+    This function creates a root bone in an empty skeleton. It should be the first function to use
+    when populating a skeleton with bones. A skeleton can only have one root bone.
+
+    :param skeleton:      The skeleton where to create the root bone.
+    :param alpha:         The alpha Euler angle of the joint that is represented by this bone.
+    :param beta:          The beta Euler angle of the joint that is represented by this bone
+    :param gamma:         The gamma Euler angle of the joint that is represented by this bone
+    :param tx:            The x-component of the bone vector.
+    :param ty:            The y-component of the bone vector.
+    :param tz:            The z-component of the bone vector.
+    :param euler_code:    The Euler angle convention used for the joint represented by this bone. This
+                          encodes the meaning of the alpha, beta and gamma joint angle values.
+    :return:              A reference to the root bone that was created.
+    """
     if skeleton.has_root():
         raise RuntimeError('create_root(): Internal error, root already existed')
     if not __is_valid_euler_code(euler_code):
@@ -36,6 +62,22 @@ def create_root(skeleton, alpha, beta, gamma, tx, ty, tz, euler_code='ZYZ'):
 
 
 def add_bone(skeleton, parent_idx, alpha, beta, gamma, tx, ty, tz, euler_code='ZYZ'):
+    """
+    This function creates a new bone in a skeleton. It needs the index of an existing parent bone to know where to
+    create the new bone.
+
+    :param skeleton:      The skeleton where to create the new bone into.
+    :param parent_idx:    The index of the parent bone.
+    :param alpha:         The alpha Euler angle of the joint that is represented by this bone.
+    :param beta:          The beta Euler angle of the joint that is represented by this bone
+    :param gamma:         The gamma Euler angle of the joint that is represented by this bone
+    :param tx:            The x-component of the bone vector.
+    :param ty:            The y-component of the bone vector.
+    :param tz:            The z-component of the bone vector.
+    :param euler_code:    The Euler angle convention used for the joint represented by this bone. This
+                          encodes the meaning of the alpha, beta and gamma joint angle values.
+    :return:              A reference to the new bone that was created in the skeleton.
+    """
     if not skeleton.has_bone(parent_idx):
         raise RuntimeError('add_bone(): Internal error, parent did not exist')
     if not __is_valid_euler_code(euler_code):
@@ -55,24 +97,21 @@ def add_bone(skeleton, parent_idx, alpha, beta, gamma, tx, ty, tz, euler_code='Z
     return end_effector
 
 
-def __print_bone(indent, bone, skeleton):
-    print(indent,
-          'Bone idx :', bone.idx,
-          'Parent idx :', bone.parent,
-          'Euler angles :', V3.make(bone.alpha, bone.beta, bone.gamma),
-          'Euler code :', bone.euler_code,
-          ' Origin :', bone.t_wcs
-          )
-    for idx in bone.children:
-        __print_bone(indent + '\t', skeleton.bones[idx], skeleton)
+def __update_bone(bone, skeleton) -> None:
+    """
+    This function extract the joint angles of the current bone and use these to compute the relative transformation
+    from parent bone to this bone. It then extracts the world coordinate pose of the parent bone and use all the
+    information to compute the bones own world coordinate pose.
 
+    Once this is done the function update the child bones world coordinate pose by invoking itself recursively.
 
-def print_skeleton(skeleton):
-    print('skeleton:')
-    __print_bone('\t', skeleton.bones[0], skeleton)
+    Hence, this function recursively traverse the skeleton from root to all end-effectors and while doing so it
+    updates the world coordinate system pose of each bone in the skeleton.
 
-
-def __update_bone(bone, skeleton):
+    :param bone:          The current bone to update.
+    :param skeleton:      The IK skeleton holding all the bones.
+    :return:              None.
+    """
     q_alpha = bone.get_rotation_alpha()
     q_beta = bone.get_rotation_beta()
     q_gamma = bone.get_rotation_gamma()
@@ -90,11 +129,30 @@ def __update_bone(bone, skeleton):
         __update_bone(skeleton.bones[idx], skeleton)
 
 
-def update_skeleton(skeleton):
+def update_skeleton(skeleton) -> None:
+    """
+    This function makes sure that all bones in a skeleton get updated to have the correct world
+    coordinate system pose.
+
+    One should call this method if one have changed the joint angle values stored in the skeleton and now needs
+    to know where things are located in the world coordinate system.
+
+    :param skeleton:  The skeleton that must be updated.
+    :return:          None.
+    """
     __update_bone(skeleton.bones[0], skeleton)
 
 
 def __make_chain(end_effector, skeleton):
+    """
+    This function traverses a skeleton from the given end-effectors. It creates
+    a serial chain going from root bone to the given end-effector. Each chain stores the bone indices of all
+    bones on the path from the root to the end-effector.
+
+    :param end_effector:   A reference to the bone that one wish to use as an end-effector.
+    :param skeleton:       The skeleton which the end-effector bone belongs to.
+    :return:               The resulting IK chain.
+    """
     chain = Chain()
     chain.skeleton = skeleton
     bone = end_effector
@@ -107,6 +165,24 @@ def __make_chain(end_effector, skeleton):
 
 
 def make_chains(skeleton):
+    """
+    A skeleton is basically a tree structure. When manipulating a skeleton with inverse kinematics one does this
+    my specifying a goal for a sol-called end-effector. An end-effector can be any bone in the skeleton. However,
+    end-effectors are often taken to be the leaves of the skeleton tree structure.
+
+    We create this default set of end-effectors by identifying all leaves in the skeleton.
+
+    Because we manipulate the skeleton my specifying goals for our end-effectors we will for each end-effector
+    store this goal as well as all the bones on the path from the end-effector to the root bone of the
+    skeleton. This path of bones makes up a serial chain from root to end-effector. Hence, we create a list
+    of chains where each chain cooresponds to one end-effector.
+
+    This wording of "chain" and "end-effector" comes from Robotics. The computer science equivalent would be
+    something like "path" and "leave".
+
+    :param skeleton:  The skeleton to create serial chains from.
+    :return:          A list of all the default serial chains of the skeleton.
+    """
     chains = []
     for bone in skeleton.bones:
         if bone.is_end_effector():
@@ -115,15 +191,15 @@ def make_chains(skeleton):
     return chains
 
 
-def print_chains(chains):
-    for chain in chains:
-        print('chain:')
-        for idx in chain.bones:
-            print('\t', idx)
-        print()
-
-
 def get_joint_angles(skeleton):
+    """
+    This function retrieves all the joint angles from an IK-skeleton and returns them as a
+    numpy array. This is convenient for converting from skeleton to numpy. The reverse conversion
+    can be done by using the function set_joint_angles.
+
+    :param skeleton:  The IK skeleton from where to retrieve the joint angles.
+    :return:          A numpy array holding the joint angle values.
+    """
     angles = np.zeros((len(skeleton.bones) * 3,), dtype=np.float64)
     for bone in skeleton.bones:
         angles[bone.idx * 3 + 0] = bone.alpha
@@ -132,7 +208,16 @@ def get_joint_angles(skeleton):
     return angles
 
 
-def set_joint_angles(skeleton, angles):
+def set_joint_angles(skeleton, angles) -> None:
+    """
+    This is a convenience function that allow one to use a whole numpy array of joint angle values to
+    set the joint angles stored in a skeleton data structure. This is nice for converting from numpy arrays
+    to skeleton data structure.
+
+    :param skeleton:       The IK skeleton where to set the joint angles.
+    :param angles:         The numpy array that stores the joint angle values to use.
+    :return:               None.
+    """
     for bone in skeleton.bones:
         bone.alpha = angles[bone.idx * 3 + 0]
         bone.beta = angles[bone.idx * 3 + 1]
@@ -140,6 +225,14 @@ def set_joint_angles(skeleton, angles):
 
 
 def get_end_effector(chain, skeleton):
+    """
+    This function retrieve the end-effector position of a chain in the world coordinate system (wcs). The function
+     assumes the skeleton pose has been updated prior to invocation by using the function update_skeleton.
+
+    :param chain:       The IK chain which the end-effector belongs to.
+    :param skeleton:    The IK skeleton, assumed to have been updated by invoking update_skeleton.
+    :return:            The 3D position of the end-effector in the world coordinate system.
+    """
     t_wcs = skeleton.bones[chain.bones[-1]].t_wcs
     q_wcs = skeleton.bones[chain.bones[-1]].q_wcs
     tool = chain.tool
@@ -147,6 +240,14 @@ def get_end_effector(chain, skeleton):
 
 
 def compute_jacobian(chains, skeleton):
+    """
+    Compute the Jacobian of the forward kinematic function. That is the function that computes the
+    end-effector positions in world-space given the cufrrent joint-angle values.
+
+    :param chains:    The IK chains defining the end-effectors.
+    :param skeleton:  The IK skeleton.
+    :return:          A numpy matrix with the value of the Jacobian.
+    """
     num_angles = len(skeleton.bones) * 3
     num_coords = len(chains) * 3
     J = np.zeros((num_coords, num_angles), dtype=np.float64)
@@ -181,6 +282,18 @@ def compute_jacobian(chains, skeleton):
 
 
 def compute_hessian(chains, skeleton, J):
+    """
+    This function compute the Hessian of the IK objective function wrt all the joint angles.
+
+    This implementation is based on an analytical solution for computing the gradient and is hence much faster than
+    a numerical approximation method.
+
+    :param chains:       The IK chains of the IK problem.
+    :param skeleton:     The IK skeleton (basically storing the joint angle values)
+    :param J:            The Jacobian matrix of the forward kinematics functions. Should be computed
+                         using the function compute_jacobian.
+    :return:             A numpy matrix holding the Hessian value.
+    """
     H = np.dot(np.transpose(J), J)
     row_offset = 0
     for chain in chains:
@@ -241,6 +354,18 @@ def compute_hessian(chains, skeleton, J):
 
 
 def compute_gradient(chains, skeleton, J):
+    """
+    This function compute the gradient of the IK objective function wrt all the joint angles.
+
+    This implementation is based on an analytical solution for computing the gradient and is hence much faster than
+    a numerical approximation method.
+
+    :param chains:       The IK chains of the IK problem.
+    :param skeleton:     The IK skeleton (basically storing the joint angle values)
+    :param J:            The Jacobian matrix of the forward kinematics functions. Should be computed
+                         using the function compute_jacobian.
+    :return:             A numpy array holding the gradient value.
+    """
     r = np.zeros((len(chains) * 3,), dtype=np.float64)
     row_offset = 0
     for chain in chains:
@@ -251,7 +376,18 @@ def compute_gradient(chains, skeleton, J):
     return g
 
 
-def compute_objective(chains, skeleton):
+def compute_objective(chains, skeleton) -> float:
+    """
+    This function computes the objective value for the IK problem represented by the IK chains. Each
+    chain describe a goal for an end-effector of a serial IK chain. This function essentially
+    measure the errors between corresponding goals and end-effectors and sum up all the errors to
+    a single float value. A value of zero means all goals are fulfilled, a larger value means larger errors. Hence,
+    to solve the IK problem one wish to minimize the objective function value as much as possible.
+
+    :param chains:    The IK chains of the skeleton.
+    :param skeleton:  The IK skeleton.
+    :return:          The value of the IK objective function.
+    """
     f = 0
     for chain in chains:
         e = get_end_effector(chain, skeleton)
@@ -260,7 +396,16 @@ def compute_objective(chains, skeleton):
     return f * 0.5
 
 
-def set_angle(idx, value, skeleton):
+def set_angle(idx, value, skeleton) -> None:
+    """
+    This function is a convenience function that sets the value of the idx-joint angle. This
+    is such that end-users do not have to know about the data structures used.
+
+    :param idx:        The index value of the joint angle (aka variable) that one which to set the value of.
+    :param value:      The new value of the idx-joint-angle.
+    :param skeleton:   The IK skeleton from which to set the angle value from.
+    :return:           None
+    """
     k = idx // 3
     offset = idx % 3
     if offset == 0:
@@ -273,7 +418,15 @@ def set_angle(idx, value, skeleton):
         raise RuntimeError('set_angle(): no such offset exist')
 
 
-def get_angle(idx, skeleton):
+def get_angle(idx, skeleton) -> float:
+    """
+    This function is a convenience function that extract the value of the idx-joint angle. This
+    is such that end-users do not have to know about the data structures used.
+
+    :param idx:        The index value of the joint angle (aka variable) that one which to retrive the value of.
+    :param skeleton:   The IK skeleton from which to retrive the angle value from.
+    :return:           The value of the idx-joint-angle.
+    """
     k = idx // 3
     offset = idx % 3
     if offset == 0:
@@ -287,6 +440,18 @@ def get_angle(idx, skeleton):
 
 
 def __numerical_differentiation_second_derivative(chains, skeleton, i, j, h):
+    """
+    Numerically evaluate the second order derivative of the objective function wrt the i and j joint angles.
+    This method is not intended to be invoked directly by end-users.
+
+    :param chains:         The IK chains of the IK skeleton.
+    :param skeleton:       The IK skeleton.
+    :param i:              The index of the first component (ie angle) that we compute the derivative with respect to.
+    :param j:              The index of the second component (ie angle) that we compute the derivative with respect to.
+    :param h:              The step-size to use for the finite difference approximation. We use a
+                           central difference approximation.
+    :return:               The second derivative of the IK objective function wrt variables i and j.
+    """
     if i == j:
         update_skeleton(skeleton)
         f_i = compute_objective(chains, skeleton)
@@ -324,6 +489,17 @@ def __numerical_differentiation_second_derivative(chains, skeleton, i, j, h):
 
 
 def __numerical_differentiation_first_derivative(chains, skeleton, i, h):
+    """
+    Numerically evaluate the derivative of the objective function wrt a single joint angle. This method is not
+    intended to be invoked directly by end-users.
+
+    :param chains:         The IK chains of the IK skeleton.
+    :param skeleton:       The IK skeleton.
+    :param i:              The index of the component (ie angle) that we compute the derivative with respect to.
+    :param h:              The step-size to use for the finite difference approximation. We use a
+                           central difference approximation.
+    :return:               The derivative of the objective function wrt the i'th variable.
+    """
     theta_i = get_angle(i, skeleton)
     set_angle(i, theta_i + h, skeleton)
     update_skeleton(skeleton)
@@ -335,7 +511,20 @@ def __numerical_differentiation_first_derivative(chains, skeleton, i, h):
     return (f_iph - f_imh) / (2 * h)
 
 
-def finite_difference_gradient(chains, skeleton, h=0.1):
+def compute_finite_difference_gradient(chains, skeleton, h=0.1):
+    """
+    This function uses finite difference method to get the gradient of the IK objective function.
+    This is a slow method, and it is subject to numerical approximation error. Hence, it is far
+    better to use the function compute_gradient instead.
+
+    :param chains:          All the IK chains.
+    :param skeleton:        The IK skeleton.
+    :param h:               The step-size to use for the finite difference approximation. We
+                            use a 1st order central difference approximation. In general as h goes
+                            to zero the approximation error will go to zero as well.
+
+    :return:                The gradient.
+    """
     N = len(skeleton.bones) * 3
     g = np.zeros((N,), dtype=np.float64)
     for i in range(N):
@@ -343,10 +532,24 @@ def finite_difference_gradient(chains, skeleton, h=0.1):
     return g
 
 
-def finite_difference_hessian(chains, skeleton, h=0.1):
+def compute_finite_difference_hessian(chains, skeleton, h=0.1):
+    """
+    This function uses finite difference method to get the gradient of the IK objective function.
+    This is a slow method, and it is subject to numerical approximation error. Hence, it is far
+    better to use the function compute_gradient instead.
+
+    :param chains:          All the IK chains.
+    :param skeleton:        The IK skeleton.
+    :param h:               The step-size to use for the finite difference approximation. We
+                            use a central difference approximation. In general as h goes
+                            to zero the approximation error will go to zero as well.
+
+    :return:                The Hessian.
+    """
     N = len(skeleton.bones) * 3
     H = np.zeros((N, N), dtype=np.float64)
     for i in range(N):
         for j in range(N):
             H[i, j] = __numerical_differentiation_second_derivative(chains, skeleton, i, j, h)
     return H
+

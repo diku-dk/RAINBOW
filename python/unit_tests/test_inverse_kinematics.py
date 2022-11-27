@@ -108,7 +108,7 @@ class TestInverseKinematics(unittest.TestCase):
         chains[0].goal = V3.make(10, 0, 0)
         J = IK.compute_jacobian(chains, skeleton)
         H = IK.compute_hessian(chains, skeleton, J)
-        H_app = IK.finite_difference_hessian(chains, skeleton, 0.00001)
+        H_app = IK.compute_finite_difference_hessian(chains, skeleton, 0.00001)
         self.assertTrue(TEST.is_array_equal(H, H_app, dec=4))
 
     def test_gradient(self):
@@ -122,5 +122,5 @@ class TestInverseKinematics(unittest.TestCase):
         chains[0].goal = V3.make(10, 0, 0)
         J = IK.compute_jacobian(chains, skeleton)
         g = IK.compute_gradient(chains, skeleton, J)
-        g_app = IK.finite_difference_gradient(chains, skeleton, h=0.00001)
+        g_app = IK.compute_finite_difference_gradient(chains, skeleton, h=0.00001)
         self.assertTrue(TEST.is_array_equal(g, g_app, dec=4))
