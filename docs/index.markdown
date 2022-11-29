@@ -1,10 +1,10 @@
 ---
 layout: default
 ---
-# RAINBOW Software Foundation (libRAINBOW) 
+# RAINBOW Software Foundation (RAINBOW) 
 <!-- [Installation Guide](/installation_guide/){: .btn } -->
 
-# What is libRAINBOW
+# What is RAINBOW
 TBA - in more detail -
 # Examples
 TBA - Show cool examples and the use cases
