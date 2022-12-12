@@ -106,12 +106,12 @@ class TriangleLayout:
     @staticmethod
     def get_global_indices(encoding: list[int], P: int) -> list[int]:
         """
-        All nodes from a P-order triangle elements can be specified and located using only 10 numbers, always.
+        All nodes from a P-order triangle element can be specified and located using only 10 numbers, always.
 
         The trick is to assume that interior edge and cell nodes are stored with increasing global index
         values. Hence, one only need to remember the offset index to where cell and edge indices start. One
-        also need to remember in which order the nodes should be visited. We turn this orientation, and this
-        can be +1 (meaning increasing) or -1 (meaning reverse order).
+        also need to remember in which order the nodes should be visited. We name this the orientation of the
+        edges. It can be +1 (meaning increasing) or -1 (meaning reverse order).
 
         Hence, when storing mesh information we often just store a triangular finite element as 10 integer
         values as a single row in a matrix. The encoding format is as follows:
@@ -287,13 +287,13 @@ def interpolate(U, node_indices, shape_functions, w):
     return np.dot(values.T, weights)
 
 
-class TriangleMeshFactory:
+class _TriangleMeshFactory:
     """
     This class wraps the functionality needed to create a higher order Triangular finite element mesh.
     """
 
     @staticmethod
-    def make(V, T, P: int, keep_indices: bool):
+    def make(V, T, P: int, keep_indices=False) -> TriangleMesh:
         """
         The input to this factory function is a linear triangle element mesh, which are defined by its vertex-array V
         and its triangle array T. The output will then be a higher order triangle mesh.
@@ -319,11 +319,11 @@ class TriangleMeshFactory:
         for e in range(len(T)):
             i, j, k = T[e]  # Get global corner indices of input triangle
 
-            cell_offset = TriangleMeshFactory.__create_cell_vertices(vertices, P)
+            cell_offset = _TriangleMeshFactory.create_cell_vertices(vertices, P)
 
-            ij_offset, ij_orientation = TriangleMeshFactory.__create_edge_vertices(i, j, lut, vertices, P)
-            jk_offset, jk_orientation = TriangleMeshFactory.__create_edge_vertices(j, k, lut, vertices, P)
-            ki_offset, ki_orientation = TriangleMeshFactory.__create_edge_vertices(k, i, lut, vertices, P)
+            ij_offset, ij_orientation = _TriangleMeshFactory.create_edge_vertices(i, j, lut, vertices, P)
+            jk_offset, jk_orientation = _TriangleMeshFactory.create_edge_vertices(j, k, lut, vertices, P)
+            ki_offset, ki_orientation = _TriangleMeshFactory.create_edge_vertices(k, i, lut, vertices, P)
 
             encoding = [
                 i, j, k,
@@ -355,7 +355,7 @@ class TriangleMeshFactory:
         return mesh
 
     @staticmethod
-    def __key(src_idx: int, dst_idx: int) -> tuple[int, int]:
+    def key(src_idx: int, dst_idx: int) -> tuple[int, int]:
         """
 
         :param src_idx:
@@ -365,7 +365,7 @@ class TriangleMeshFactory:
         return (src_idx, dst_idx) if src_idx < dst_idx else (dst_idx, src_idx)
 
     @staticmethod
-    def __create_edge_vertices(src_idx: int, dst_idx: int, lut, vertices, P: int) -> tuple[int, int]:
+    def create_edge_vertices(src_idx: int, dst_idx: int, lut, vertices, P: int) -> tuple[int, int]:
         """
 
         :param src_idx:
@@ -376,10 +376,10 @@ class TriangleMeshFactory:
         :return:
         """
         if TriangleLayout.number_of_edge_nodes(P) > 0:
-            key = TriangleMeshFactory.__key(src_idx, dst_idx)
+            key = _TriangleMeshFactory.key(src_idx, dst_idx)
             if key in lut:
                 order, offset = lut[key]
-                orientation = 1 if order == key else -1
+                orientation = 1 if order == (src_idx, dst_idx) else -1
             else:
                 offset = len(vertices)
                 orientation = 1
@@ -393,7 +393,7 @@ class TriangleMeshFactory:
         return offset, orientation
 
     @staticmethod
-    def __create_cell_vertices(vertices, P: int) -> int:
+    def create_cell_vertices(vertices, P: int) -> int:
         """
 
         :param vertices:
@@ -406,3 +406,15 @@ class TriangleMeshFactory:
             vertices.append(coordinates)
         return offset
 
+
+def make_mesh(V, T, P: int, keep_indices=False) -> TriangleMesh:
+    """
+    This is just a convenience function to make user-interface less verbose.
+
+    :param V:                The vertices off a 1st order triangle mesh.
+    :param T:                The triangle index array of a 1st order triangle mesh.
+    :param P:                The order of the Triangle elements in the mesh.
+    :param keep_indices:     A boolean flag telling whether to store global indices.
+    :return:                 A P'th order triangle mesh.
+    """
+    return _TriangleMeshFactory.make(V, T, P, keep_indices)

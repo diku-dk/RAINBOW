@@ -47,95 +47,205 @@ def make_test_mesh(width, height, I, J):
     return V, T
 
 
+def _plot_shape_function(I: int, J: int, K: int) -> None:
+    """
+    Plot a shape function.
+
+    :param I:   The i-index of the corresponding node of the shape function.
+    :param J:   The j-index of the corresponding node of the shape function.
+    :param K:   The k-index of the corresponding node of the shape function.
+    :return:    None.
+    """
+    X = []
+    Y = []
+    Z = []
+    phi = FEM.TriangleShapeFunction([I, J, K])
+    triangle = FEM.TriangleElement(30)
+    for m in range(FEM.TriangleLayout.number_of_total_nodes(30)):
+        x = triangle.barycentric[m]
+        value = phi.value(x)
+        X.append(x[0])
+        Y.append(x[1])
+        Z.append(value)
+    import matplotlib.pyplot as plt
+    latex_shape_func_name = '$N_{' + str(I) + str(J) + str(K) + '}$'
+    ax = plt.figure().add_subplot(projection='3d')
+    ax.set_title('Lagrangian shape function ' + latex_shape_func_name)
+    ax.set_xlabel('$x$', labelpad=20)
+    ax.set_ylabel('$y$', labelpad=20)
+    ax.set_zlabel(latex_shape_func_name, labelpad=20)
+    ax.plot_trisurf(X, Y, Z, linewidth=0.2, antialiased=True)
+    plt.show()
+    file_name = 'N_' + str(I) + str(J) + str(K) + '.pdf'
+    # plt.savefig(file_name, format='pdf')
+
 
 class TestHigherOrderTriangleFEM(unittest.TestCase):
+    # self.test_pascal_triangles(6)
+    # self.test_triangle_interpolation(3)
+    # self.test_mesh_interpolation(3)
 
-    def __init__(self):
-        print('Testing started')
-        # self.test_ijk_format(1)
-        # self.test_ijk_format(2)
-        # self.test_ijk_format(3)
-        # self.test_ijk_format(4)
-        # self.test_shape_function_properties(3)
-        # self.test_shape_function_interpolation(2, 0, 0)
-        # self.test_shape_function_interpolation(1, 1, 2)
-        # self.test_shape_function_interpolation(3, 0, 0)
-        # self.test_shape_function_interpolation(1, 1, 1)
-        # self.test_shape_function_interpolation(1, 2, 0)
-        # self.test_shape_function_interpolation(2, 1, 0)
-        # self.test_shape_function_interpolation(0, 2, 1)
-        # self.test_shape_function_interpolation(0, 1, 2)
-        # self.test_shape_function_interpolation(2, 0, 1)
-        # self.test_shape_function_interpolation(1, 0, 2)
-        # self.test_shape_function_interpolation(2, 2, 2)
-        # self.test_build_fem_mesh(1)
-        # self.test_build_fem_mesh(2)
-        # self.test_build_fem_mesh(3)
-        # self.test_pascal_triangles(6)
-        # self.test_triangle_interpolation(3)
-        self.test_mesh_interpolation(3)
-        print('Done testing')
+    def test_ijk_format_order_1(self):
+        P = 1
+        self.assertEqual(3, FEM.TriangleLayout.number_of_total_nodes(P))
+        self.assertEqual(3, FEM.TriangleLayout.number_of_corner_nodes(P))
+        self.assertEqual(0, FEM.TriangleLayout.number_of_edge_nodes(P))
+        self.assertEqual(0, FEM.TriangleLayout.number_of_cell_nodes(P))
+        triangle = FEM.TriangleElement(P)
+        self.assertEqual(3, triangle.ijk_format.shape[0])
+        self.assertEqual(3, triangle.ijk_format.shape[1])
+        self.assertTrue(TEST.is_array_equal([1, 0, 0], triangle.ijk_format[0]))
+        self.assertTrue(TEST.is_array_equal([0, 1, 0], triangle.ijk_format[1]))
+        self.assertTrue(TEST.is_array_equal([0, 0, 1], triangle.ijk_format[2]))
+        self.assertEqual(3, triangle.barycentric.shape[0])
+        self.assertEqual(3, triangle.barycentric.shape[1])
+        self.assertTrue(TEST.is_array_equal([1., 0., 0.], triangle.barycentric[0]))
+        self.assertTrue(TEST.is_array_equal([0., 1., 0.], triangle.barycentric[1]))
+        self.assertTrue(TEST.is_array_equal([0., 0., 1.], triangle.barycentric[2]))
 
-    def test_ijk_format(self, P):
-        triangle = FEM.TriangleElemenet(P)
-        print('--------------------------------------------------')
-        print(triangle.P, '-th order Pascal ReferenceTriangle Info:')
-        print('\tTotal number of nodes         :', number_of_total_nodes(P))
-        print('\tNumber of corner nodes        :', number_of_corner_nodes(P))
-        print('\tNumber of nodes on edges      :', number_of_edge_nodes(P))
-        print('\tNumber of interior cell nodes :', number_of_cell_nodes(P))
-        print('IJK format of nodes:\n', triangle.ijk_format)
-        print('Barycentric coordinates:\n', triangle.barycentric)
-        print('--------------------------------------------------')
+    def test_ijk_format_order_2(self):
+        P = 2
+        self.assertEqual(6, FEM.TriangleLayout.number_of_total_nodes(P))
+        self.assertEqual(3, FEM.TriangleLayout.number_of_corner_nodes(P))
+        self.assertEqual(1, FEM.TriangleLayout.number_of_edge_nodes(P))
+        self.assertEqual(0, FEM.TriangleLayout.number_of_cell_nodes(P))
+        triangle = FEM.TriangleElement(P)
+        self.assertEqual(6, triangle.ijk_format.shape[0])
+        self.assertEqual(3, triangle.ijk_format.shape[1])
+        self.assertTrue(TEST.is_array_equal([2, 0, 0], triangle.ijk_format[0]))
+        self.assertTrue(TEST.is_array_equal([0, 2, 0], triangle.ijk_format[1]))
+        self.assertTrue(TEST.is_array_equal([0, 0, 2], triangle.ijk_format[2]))
+        self.assertTrue(TEST.is_array_equal([1, 1, 0], triangle.ijk_format[3]))
+        self.assertTrue(TEST.is_array_equal([0, 1, 1], triangle.ijk_format[4]))
+        self.assertTrue(TEST.is_array_equal([1, 0, 1], triangle.ijk_format[5]))
+        self.assertEqual(6, triangle.barycentric.shape[0])
+        self.assertEqual(3, triangle.barycentric.shape[1])
+        self.assertTrue(TEST.is_array_equal([1., 0., 0.], triangle.barycentric[0]))
+        self.assertTrue(TEST.is_array_equal([0., 1., 0.], triangle.barycentric[1]))
+        self.assertTrue(TEST.is_array_equal([0., 0., 1.], triangle.barycentric[2]))
+        self.assertTrue(TEST.is_array_equal([0.5, 0.5, 0.], triangle.barycentric[3]))
+        self.assertTrue(TEST.is_array_equal([0., 0.5, 0.5], triangle.barycentric[4]))
+        self.assertTrue(TEST.is_array_equal([0.5, 0., 0.5], triangle.barycentric[5]))
 
-    def test_shape_function_properties(self, P):
-        import math
-        print('--------------------------------------------------')
-        triangle = ReferenceTriangle(P)
-        for n in range(number_of_total_nodes(P)):
-            phi = LagrangeShapeFunction(triangle.ijk_format[n])
-            for m in range(number_of_total_nodes(P)):
-                x = triangle.barycentric[m]
-                value = phi.value(x)
-                if n == m and math.fabs(1.0 - value) > 0.0001:
-                    print('failure')
-                if n != m and math.fabs(value) > 0.00001:
-                    print('failure')
-        print('--------------------------------------------------')
+    def test_ijk_format_order_3(self):
+        P = 3
+        self.assertEqual(10, FEM.TriangleLayout.number_of_total_nodes(P))
+        self.assertEqual(3, FEM.TriangleLayout.number_of_corner_nodes(P))
+        self.assertEqual(2, FEM.TriangleLayout.number_of_edge_nodes(P))
+        self.assertEqual(1, FEM.TriangleLayout.number_of_cell_nodes(P))
+        triangle = FEM.TriangleElement(P)
+        self.assertEqual(10, triangle.ijk_format.shape[0])
+        self.assertEqual(3, triangle.ijk_format.shape[1])
+        self.assertTrue(TEST.is_array_equal([3, 0, 0], triangle.ijk_format[0]))
+        self.assertTrue(TEST.is_array_equal([0, 3, 0], triangle.ijk_format[1]))
+        self.assertTrue(TEST.is_array_equal([0, 0, 3], triangle.ijk_format[2]))
+        self.assertTrue(TEST.is_array_equal([1, 1, 1], triangle.ijk_format[3]))
+        self.assertTrue(TEST.is_array_equal([2, 1, 0], triangle.ijk_format[4]))
+        self.assertTrue(TEST.is_array_equal([1, 2, 0], triangle.ijk_format[5]))
+        self.assertTrue(TEST.is_array_equal([0, 2, 1], triangle.ijk_format[6]))
+        self.assertTrue(TEST.is_array_equal([0, 1, 2], triangle.ijk_format[7]))
+        self.assertTrue(TEST.is_array_equal([1, 0, 2], triangle.ijk_format[8]))
+        self.assertTrue(TEST.is_array_equal([2, 0, 1], triangle.ijk_format[9]))
+        self.assertEqual(10, triangle.barycentric.shape[0])
+        self.assertEqual(3, triangle.barycentric.shape[1])
+        self.assertTrue(TEST.is_array_equal([1., 0., 0.], triangle.barycentric[0]))
+        self.assertTrue(TEST.is_array_equal([0., 1., 0.], triangle.barycentric[1]))
+        self.assertTrue(TEST.is_array_equal([0., 0., 1.], triangle.barycentric[2]))
+        self.assertTrue(TEST.is_array_equal([1/3, 1/3, 1/3], triangle.barycentric[3]))
+        self.assertTrue(TEST.is_array_equal([2/3., 1/3, 0.], triangle.barycentric[4]))
+        self.assertTrue(TEST.is_array_equal([1/3, 2/3, 0.], triangle.barycentric[5]))
+        self.assertTrue(TEST.is_array_equal([0., 2/3, 1/3], triangle.barycentric[6]))
+        self.assertTrue(TEST.is_array_equal([0, 1/3, 2/3], triangle.barycentric[7]))
+        self.assertTrue(TEST.is_array_equal([1/3., 0., 2/3], triangle.barycentric[8]))
+        self.assertTrue(TEST.is_array_equal([2/3, 0, 1/3], triangle.barycentric[9]))
 
-    def test_shape_function_interpolation(self, I, J, K):
-        print('--------------------------------------------------')
-        X = []
-        Y = []
-        Z = []
-        phi = LagrangeShapeFunction([I, J, K])
-        triangle = ReferenceTriangle(30)
-        for m in range(number_of_total_nodes(triangle.P)):
-            x = triangle.barycentric[m]
-            value = phi.value(x)
-            X.append(x[0])
-            Y.append(x[1])
-            Z.append(value)
-        import matplotlib.pyplot as plt
-        latex_shape_func_name = '$N_{' + str(I) + str(J) + str(K) + '}$'
-        ax = plt.figure().add_subplot(projection='3d')
-        ax.set_title('Lagrangian shape function ' + latex_shape_func_name)
-        ax.set_xlabel('$x$', labelpad=20)
-        ax.set_ylabel('$y$', labelpad=20)
-        ax.set_zlabel(latex_shape_func_name, labelpad=20)
-        ax.plot_trisurf(X, Y, Z, linewidth=0.2, antialiased=True)
-        plt.show()
-        file_name = 'N_' + str(I) + str(J) + str(K) + '.pdf'
-        # plt.savefig(file_name, format='pdf')
-        print('--------------------------------------------------')
+    def test_ijk_format_order_4(self):
+        P = 4
+        self.assertEqual(15, FEM.TriangleLayout.number_of_total_nodes(P))
+        self.assertEqual(3, FEM.TriangleLayout.number_of_corner_nodes(P))
+        self.assertEqual(3, FEM.TriangleLayout.number_of_edge_nodes(P))
+        self.assertEqual(3, FEM.TriangleLayout.number_of_cell_nodes(P))
+        triangle = FEM.TriangleElement(P)
+        self.assertEqual(15, triangle.ijk_format.shape[0])
+        self.assertEqual(3, triangle.ijk_format.shape[1])
+        self.assertTrue(TEST.is_array_equal([4, 0, 0], triangle.ijk_format[0]))
+        self.assertTrue(TEST.is_array_equal([0, 4, 0], triangle.ijk_format[1]))
+        self.assertTrue(TEST.is_array_equal([0, 0, 4], triangle.ijk_format[2]))
+        self.assertTrue(TEST.is_array_equal([1, 1, 2], triangle.ijk_format[3]))
+        self.assertTrue(TEST.is_array_equal([2, 1, 1], triangle.ijk_format[4]))
+        self.assertTrue(TEST.is_array_equal([1, 2, 1], triangle.ijk_format[5]))
+        self.assertTrue(TEST.is_array_equal([3, 1, 0], triangle.ijk_format[6]))
+        self.assertTrue(TEST.is_array_equal([2, 2, 0], triangle.ijk_format[7]))
+        self.assertTrue(TEST.is_array_equal([1, 3, 0], triangle.ijk_format[8]))
+        self.assertTrue(TEST.is_array_equal([0, 3, 1], triangle.ijk_format[9]))
+        self.assertTrue(TEST.is_array_equal([0, 2, 2], triangle.ijk_format[10]))
+        self.assertTrue(TEST.is_array_equal([0, 1, 3], triangle.ijk_format[11]))
+        self.assertTrue(TEST.is_array_equal([1, 0, 3], triangle.ijk_format[12]))
+        self.assertTrue(TEST.is_array_equal([2, 0, 2], triangle.ijk_format[13]))
+        self.assertTrue(TEST.is_array_equal([3, 0, 1], triangle.ijk_format[14]))
+        self.assertEqual(15, triangle.barycentric.shape[0])
+        self.assertEqual(3, triangle.barycentric.shape[1])
+        self.assertTrue(TEST.is_array_equal([1., 0., 0.], triangle.barycentric[0]))
+        self.assertTrue(TEST.is_array_equal([0., 1., 0.], triangle.barycentric[1]))
+        self.assertTrue(TEST.is_array_equal([0., 0., 1.], triangle.barycentric[2]))
+        self.assertTrue(TEST.is_array_equal([1/4, 1/4, 2/4], triangle.barycentric[3]))
+        self.assertTrue(TEST.is_array_equal([2/4, 1/4, 1/4], triangle.barycentric[4]))
+        self.assertTrue(TEST.is_array_equal([1/4, 2/4, 1/4], triangle.barycentric[5]))
+        self.assertTrue(TEST.is_array_equal([3/4, 1/4, 0.], triangle.barycentric[6]))
+        self.assertTrue(TEST.is_array_equal([2/4, 2/4, 0.], triangle.barycentric[7]))
+        self.assertTrue(TEST.is_array_equal([1/4, 3/4, 0.], triangle.barycentric[8]))
+        self.assertTrue(TEST.is_array_equal([0., 3/4, 1/4], triangle.barycentric[9]))
+        self.assertTrue(TEST.is_array_equal([0., 2/4, 2/4], triangle.barycentric[10]))
+        self.assertTrue(TEST.is_array_equal([0., 1/4, 3/4], triangle.barycentric[11]))
+        self.assertTrue(TEST.is_array_equal([1/4, 0., 3/4], triangle.barycentric[12]))
+        self.assertTrue(TEST.is_array_equal([2/4, 0., 2/4], triangle.barycentric[13]))
+        self.assertTrue(TEST.is_array_equal([3/4, 0., 1/4], triangle.barycentric[14]))
 
-    def test_build_fem_mesh(self, P):
-        print('--------------------------------------------------')
+    def test_shape_function_properties(self):
+        # This unit-test verifies the shape interpolation properties of a shape function. That
+        # is if evaluated at the location of the node that the shape function belongs to the value
+        # should ne 1 and at all other nodes the value should be zero.
+        for P in range(1,5):
+            triangle = FEM.TriangleElement(P)
+            for n in range(FEM.TriangleLayout.number_of_total_nodes(P)):
+                phi = FEM.TriangleShapeFunction(triangle.ijk_format[n])
+                for m in range(FEM.TriangleLayout.number_of_total_nodes(P)):
+                    w = triangle.barycentric[m]
+                    value = phi.value(w)
+                    if n == m:
+                        self.assertAlmostEqual(value, 1.)
+                    else:
+                        self.assertAlmostEqual(value, 0.)
+
+    def test_shape_function(self):
+        """
+        This is really not a test, this is just plotting stuff.
+
+        :return:
+        """
+        _plot_shape_function(2, 0, 0)
+        _plot_shape_function(1, 1, 2)
+        _plot_shape_function(3, 0, 0)
+        _plot_shape_function(1, 1, 1)
+        _plot_shape_function(1, 2, 0)
+        _plot_shape_function(2, 1, 0)
+        _plot_shape_function(0, 2, 1)
+        _plot_shape_function(0, 1, 2)
+        _plot_shape_function(2, 0, 1)
+        _plot_shape_function(1, 0, 2)
+        _plot_shape_function(2, 1, 0)
+        _plot_shape_function(2, 2, 2)
+
+    def test_make_mesh(self):
+        # This is the input mesh
         #
         #     2    3    5
-        #     *    *    *
-        #
-        #     *    *    *
+        #     +----+----+
+        #     |\   |   /|
+        #     | \  |  / |
+        #     |  \ | /  |
+        #     |   \|/   |
+        #     +----+----+
         #     0    1    4
         #
         V = np.array([[0, 0],
@@ -148,10 +258,88 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
                       [1, 3, 2],
                       [1, 5, 3],
                       [1, 4, 5]], dtype=int)
-        mesh = FiniteElementMesh(V, T, P)
-        print('FEM Nodes:\n', mesh.V)
-        print('FEM Elements:\n', mesh.E)
-        print('--------------------------------------------------')
+        # Now we create a first order FEM mesh. This is basically the same as the input. So the interesting
+        # thing to see is if the encodings are done correctly.
+        mesh = FEM.make_mesh(V, T, P=1, keep_indices=False)
+        self.assertEqual(mesh.vertices.shape[0], 6)
+        self.assertEqual(mesh.vertices.shape[1], 2)
+        self.assertTrue(TEST.is_array_equal([0., 0.], mesh.vertices[0]))
+        self.assertTrue(TEST.is_array_equal([1., 0.], mesh.vertices[1]))
+        self.assertTrue(TEST.is_array_equal([0., 1.], mesh.vertices[2]))
+        self.assertTrue(TEST.is_array_equal([1., 1.], mesh.vertices[3]))
+        self.assertTrue(TEST.is_array_equal([2., 0.], mesh.vertices[4]))
+        self.assertTrue(TEST.is_array_equal([2., 1.], mesh.vertices[5]))
+        self.assertEqual(mesh.encodings.shape[0], 4)
+        self.assertEqual(mesh.encodings.shape[1], 10)
+        self.assertTrue(TEST.is_array_equal([0,  1,  2, -1, -1, -1, -1,  0,  0,  0], mesh.encodings[0]))
+        self.assertTrue(TEST.is_array_equal([1,  3,  2, -1, -1, -1, -1,  0,  0,  0], mesh.encodings[1]))
+        self.assertTrue(TEST.is_array_equal([1,  5,  3, -1, -1, -1, -1,  0,  0,  0], mesh.encodings[2]))
+        self.assertTrue(TEST.is_array_equal([1,  4,  5, -1, -1, -1, -1,  0,  0,  0], mesh.encodings[3]))
+        # Now we got for a second order mesh. The second order element will have an extra node
+        # on the edges, but no interior cell nodes.
+        mesh = FEM.make_mesh(V, T, P=2, keep_indices=False)
+        self.assertEqual(mesh.vertices.shape[0], 15)
+        self.assertEqual(mesh.vertices.shape[1], 2)
+        self.assertTrue(TEST.is_array_equal([0., 0.], mesh.vertices[0]))
+        self.assertTrue(TEST.is_array_equal([1., 0.], mesh.vertices[1]))
+        self.assertTrue(TEST.is_array_equal([0., 1.], mesh.vertices[2]))
+        self.assertTrue(TEST.is_array_equal([1., 1.], mesh.vertices[3]))
+        self.assertTrue(TEST.is_array_equal([2., 0.], mesh.vertices[4]))
+        self.assertTrue(TEST.is_array_equal([2., 1.], mesh.vertices[5]))
+        self.assertTrue(TEST.is_array_equal([.5, 0.], mesh.vertices[6]))
+        self.assertTrue(TEST.is_array_equal([.5, .5], mesh.vertices[7]))
+        self.assertTrue(TEST.is_array_equal([0., .5], mesh.vertices[8]))
+        self.assertTrue(TEST.is_array_equal([1., .5], mesh.vertices[9]))
+        self.assertTrue(TEST.is_array_equal([0.5, 1.], mesh.vertices[10]))
+        self.assertTrue(TEST.is_array_equal([1.5, .5], mesh.vertices[11]))
+        self.assertTrue(TEST.is_array_equal([1.5, 1.], mesh.vertices[12]))
+        self.assertTrue(TEST.is_array_equal([1.5, 0.], mesh.vertices[13]))
+        self.assertTrue(TEST.is_array_equal([2., .5], mesh.vertices[14]))
+        self.assertEqual(mesh.encodings.shape[0], 4)
+        self.assertEqual(mesh.encodings.shape[1], 10)
+        self.assertTrue(TEST.is_array_equal([0,  1,  2, -1, 6, 7, 8,  1,  1,  1], mesh.encodings[0]))
+        self.assertTrue(TEST.is_array_equal([1,  3,  2, -1, 9, 10, 7,  1,  1,  -1], mesh.encodings[1]))
+        self.assertTrue(TEST.is_array_equal([1,  5,  3, -1, 11, 12, 9,  1,  1,  -1], mesh.encodings[2]))
+        self.assertTrue(TEST.is_array_equal([1,  4,  5, -1, 13, 14, 11,  1,  1,  -1], mesh.encodings[3]))
+        # Now we will try order 3 mesh. This time there will be exactly one interior node in each mesh, and edges
+        # will have to nodes, so orientation is really important.
+        mesh = FEM.make_mesh(V, T, P=3, keep_indices=False)
+        self.assertEqual(mesh.vertices.shape[0], 28)
+        self.assertEqual(mesh.vertices.shape[1], 2)
+        self.assertTrue(TEST.is_array_equal([0., 0.], mesh.vertices[0]))
+        self.assertTrue(TEST.is_array_equal([1., 0.], mesh.vertices[1]))
+        self.assertTrue(TEST.is_array_equal([0., 1.], mesh.vertices[2]))
+        self.assertTrue(TEST.is_array_equal([1., 1.], mesh.vertices[3]))
+        self.assertTrue(TEST.is_array_equal([2., 0.], mesh.vertices[4]))
+        self.assertTrue(TEST.is_array_equal([2., 1.], mesh.vertices[5]))
+        self.assertTrue(TEST.is_array_equal([0.33333333, 0.33333333], mesh.vertices[6]))
+        self.assertTrue(TEST.is_array_equal([0.33333333, 0.], mesh.vertices[7]))
+        self.assertTrue(TEST.is_array_equal([0.66666667, 0.], mesh.vertices[8]))
+        self.assertTrue(TEST.is_array_equal([0.66666667, 0.33333333], mesh.vertices[9]))
+        self.assertTrue(TEST.is_array_equal([0.33333333, 0.66666667], mesh.vertices[10]))
+        self.assertTrue(TEST.is_array_equal([0.,         0.66666667], mesh.vertices[11]))
+        self.assertTrue(TEST.is_array_equal([0.,         0.33333333], mesh.vertices[12]))
+        self.assertTrue(TEST.is_array_equal([0.66666667, 0.66666667], mesh.vertices[13]))
+        self.assertTrue(TEST.is_array_equal([1.,         0.33333333], mesh.vertices[14]))
+        self.assertTrue(TEST.is_array_equal([1.,         0.66666667], mesh.vertices[15]))
+        self.assertTrue(TEST.is_array_equal([0.66666667, 1.], mesh.vertices[16]))
+        self.assertTrue(TEST.is_array_equal([0.33333333, 1.], mesh.vertices[17]))
+        self.assertTrue(TEST.is_array_equal([1.33333333, 0.66666667], mesh.vertices[18]))
+        self.assertTrue(TEST.is_array_equal([1.33333333, 0.33333333], mesh.vertices[19]))
+        self.assertTrue(TEST.is_array_equal([1.66666667, 0.66666667], mesh.vertices[20]))
+        self.assertTrue(TEST.is_array_equal([1.66666667, 1.], mesh.vertices[21]))
+        self.assertTrue(TEST.is_array_equal([1.33333333, 1.], mesh.vertices[22]))
+        self.assertTrue(TEST.is_array_equal([1.66666667, 0.33333333], mesh.vertices[23]))
+        self.assertTrue(TEST.is_array_equal([1.33333333, 0.], mesh.vertices[24]))
+        self.assertTrue(TEST.is_array_equal([1.66666667, 0.], mesh.vertices[25]))
+        self.assertTrue(TEST.is_array_equal([2.,        0.33333333], mesh.vertices[26]))
+        self.assertTrue(TEST.is_array_equal([2.,        0.66666667], mesh.vertices[27]))
+        self.assertEqual(mesh.encodings.shape[0], 4)
+        self.assertEqual(mesh.encodings.shape[1], 10)
+        self.assertTrue(TEST.is_array_equal([0,  1,  2, 6, 7, 9, 11,  1,  1,  1], mesh.encodings[0]))
+        self.assertTrue(TEST.is_array_equal([1,  3,  2, 13, 14, 16, 9,  1,  1,  -1], mesh.encodings[1]))
+        self.assertTrue(TEST.is_array_equal([1,  5,  3, 18, 19, 21, 14,  1,  1,  -1], mesh.encodings[2]))
+        self.assertTrue(TEST.is_array_equal([1,  4,  5, 23, 24, 26, 19,  1,  1,  -1], mesh.encodings[3]))
 
     def test_pascal_triangles(self, P):
         print('--------------------------------------------------')
