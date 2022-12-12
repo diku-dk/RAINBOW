@@ -81,9 +81,6 @@ def _plot_shape_function(I: int, J: int, K: int) -> None:
 
 
 class TestHigherOrderTriangleFEM(unittest.TestCase):
-    # self.test_pascal_triangles(6)
-    # self.test_triangle_interpolation(3)
-    # self.test_mesh_interpolation(3)
 
     def test_ijk_format_order_1(self):
         P = 1
@@ -342,6 +339,7 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         self.assertTrue(TEST.is_array_equal([1,  4,  5, 23, 24, 26, 19,  1,  1,  -1], mesh.encodings[3]))
 
     def test_pascal_triangles(self, P):
+        # self.test_pascal_triangles(6)
         print('--------------------------------------------------')
         X = []
         Y = []
@@ -366,6 +364,7 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         print('--------------------------------------------------')
 
     def test_triangle_interpolation(self, P):
+        # self.test_triangle_interpolation(3)
         print('--------------------------------------------------')
         ref = ReferenceTriangle(P)
         indices = np.arange(len(ref.barycentric))
@@ -394,6 +393,7 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         print('--------------------------------------------------')
 
     def test_mesh_interpolation(self, P):
+        # self.test_mesh_interpolation(3)
         print('--------------------------------------------------')
         ref = ReferenceTriangle(P)
         V, T = make_mesh(8.0, 8.0, 4, 4)
