@@ -330,7 +330,7 @@ class Field:
         self.shape = (len(mesh.vertices),) + shape
         self.values = None
 
-    def get_value(self, idx, w):
+    def get_value(self, idx, w) -> np.ndarray:
         """
         This method retrieves the field value at the desired location.
 
@@ -343,6 +343,19 @@ class Field:
         #  Currently the code is hardwired to assume that indices are not stored. Hence, they must be recomputed.
         indices = TriangleLayout.get_global_indices(encoding=e, P=self.mesh.layout.P)
         return Field.IsoParametric.interpolate(self.values, indices, self.mesh.element.shape_functions, w)
+
+    def get_gradient(self, idx, w) -> np.ndarray:
+        """
+
+        :param idx:
+        :param w:
+        :return:
+        """
+        e = self.mesh.encodings[idx]
+        # TODO 2022-12-15 Kenny review: Here we could reuses indices if the mesh keeps them at creation time.
+        #  Currently the code is hardwired to assume that indices are not stored. Hence, they must be recomputed.
+        indices = TriangleLayout.get_global_indices(encoding=e, P=self.mesh.layout.P)
+        return None # Field.IsoParametric.interpolate(self.values, indices, self.mesh.element.shape_functions, w)
 
 
 class _TriangleMeshFactory:
