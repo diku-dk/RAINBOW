@@ -184,6 +184,97 @@ class TriangleShapeFunction:
     barycentric coordinates. Hence, in 2D we have 3-barycentric coordinates.
     """
 
+    @staticmethod
+    def __L(P: int, N: int, w: np.ndarray) -> float:
+        """
+        This is an auxiliary function that allow us to implement the
+        evaluation of the Lagrange shape function in a simple way.
+
+        :param P:   The order of the triangle.
+        :param N:   The order corresponding to the barycentric coordinate that we evaluate wrt to.
+        :param w:   The barycentric coordinate at which the Lagrangian shape function is evaluated.
+        :return:    The value of the Lagrange shape function of order M at the bary-centric coordinate w.
+        """
+        value = 1.0
+        for n in range(N):
+            value *= (P * w - n) / (n + 1.0)
+        return value
+
+    @staticmethod
+    def __dL(P: int, N: int, w: np.ndarray) -> float:
+        """
+        This is an auxiliary function that allow us to implement the
+        evaluation of the gradient of the Lagrange shape function in a recursive way.
+
+        Here we outline the basic idea behind the theory. By definition we have that the
+        recursive Lagrange shape function is given by
+
+            phi(w,I,J,K) \equiv L(w,I)*L(w,J)*L(w,K)
+
+        where the "pseudo-basis" functions are given as follows
+
+            L(w,N) \equiv \Pi_{n=0}^{N-1}  (P w + n)/(n+1)
+
+        Let us introduce the symbol
+
+            f_n  \equiv (P w + n)/(n+1)
+
+        From this we may define
+
+            df_n \equiv \pdv{f_n}{w} \equiv P / (n+1)
+
+        Then
+
+            L(w,N) = f_0 f_1 f_2 \cdots f_{N-1}
+
+        So we have
+
+            dL = \pdv{L(w,N)}{w} = df_0  f_1   f_2  f_3 \cdots  f_{N-1}
+                                 +  f_0  df_1  f_2  f_3 \cdots  f_{N-1}
+                                 +  f_0   f_1 df_2  f_3 \cdots  f_{N-1}
+                                 +                      \cdots
+                                 +  f_0   f_2  f_2  f_3 \cdots df_{N-1}
+        Define
+
+            A_n \equiv f_0     f_1     \cdots f_{n-1} if n>0 else 1
+            B_n \equiv f_{n+1} f_{n+2} \cdots f_{M-1} if n < M-1 else 1
+
+        Using these we have
+
+            dL = A_0 df_0  B_0
+               + A_1 df_1  B_1
+               + A_2 df_2  B_2
+               +      \cdots
+               +  A_{N-1} df_{N-1}  B_{N-1}
+
+        Or written compactly
+
+            dL = sum_{i=0}^{M-1} A_i df_i B_i
+
+        The idea is now simply to compute the A and B arrays and then do the final sum that defines the derivatue of L.
+        The clever part is that
+
+            A_n = A_{n-1} f_{n-1}
+            B_n = f_{n+1} B_{n+1}
+
+        :param P:   The order of the triangle.
+        :param N:   The order corresponding to the barycentric coordinate that we evaluate wrt to.
+        :param w:   The barycentric coordinate at which the Lagrangian shape function is evaluated.
+        :return:    The value of the Lagrange shape function of order M at the bary-centric coordinate w.
+        """
+        # TODO 2022-12-15 Kenny review: Kind of bad to reallocate the A and B arrays. The allocation could be
+        #  reused. This is expensive in Python.
+        A = np.ones((N,), dtype=float)
+        B = np.ones((N,), dtype=float)
+        for i in range(1, N):
+            A[i] = A[i - 1] * ((P * w + i) / (i + 1))
+        for i in reversed(range(N - 1)):
+            B[i] = ((P * w + i + 1) / (i + 2)) * B[i + 1]
+        dL = 0
+        for i in range(1, N):
+            dL += A[i] * (P / (i + 1)) * B[i]
+        return dL
+
     def __init__(self, IJK):
         """
         Initializes the shape function for the node of the triangular element represented by the given IJK format.
@@ -203,22 +294,6 @@ class TriangleShapeFunction:
         self.K = IJK[2]
         self.P = self.I + self.J + self.K  # The order of the shape function.
 
-    @staticmethod
-    def __L(P: int, N: int, w: np.ndarray) -> float:
-        """
-        This is an auxiliary function that allow us to implement the
-        evaluation of the Lagrange shape function in a simple way.
-
-        :param P:   The order of the triangle.
-        :param N:   The order corresponding to the barycentric coordinate that we evaluate wrt to.
-        :param w:   The barycentric coordinate at which the Lagrangian shape function is evaluated.
-        :return:    The value of the Lagrange shape function of order M at the bary-centric coordinate w.
-        """
-        value = 1.0
-        for n in range(N):
-            value *= (P * w - n) / (n + 1.0)
-        return value
-
     def value(self, w) -> float:
         """
         Evaluate the value of the shape function at the given barycentric coordinate.
@@ -226,12 +301,28 @@ class TriangleShapeFunction:
         :param w:    Barycentric coordinate of the point we wish to evaluate the shape function for.
         :return:     The value of the shape function of IJK node at barycentric position w.
         """
-        return TriangleShapeFunction.__L(self.P, self.I, w[0]) * \
-               TriangleShapeFunction.__L(self.P, self.J, w[1]) * \
-               TriangleShapeFunction.__L(self.P, self.K, w[2])
+        LI = TriangleShapeFunction.__L(self.P, self.I, w[0])
+        LJ = TriangleShapeFunction.__L(self.P, self.J, w[1])
+        LK = TriangleShapeFunction.__L(self.P, self.K, w[2])
+        return LI*LJ*LK
 
-    def __call__(self, w: np.ndarray) -> float:
-        return self.value(w)
+    def gradient(self, w) -> np.ndarray:
+        """
+        Evaluate the gradient wrt iso-parametric parameters at the given barycentric coordinate.
+
+        :param w:    The value of the barycentric coordinate at which we wish to know the gradient.
+        :return:     The gradient vector.
+        """
+        LI = TriangleShapeFunction.__L(self.P, self.I, w[0])
+        LJ = TriangleShapeFunction.__L(self.P, self.J, w[1])
+        LK = TriangleShapeFunction.__L(self.P, self.K, w[2])
+        dLI = TriangleShapeFunction.__dL(self.P, self.I, w[0])
+        dLJ = TriangleShapeFunction.__dL(self.P, self.J, w[1])
+        dLK = TriangleShapeFunction.__dL(self.P, self.K, w[2])
+        dPhi0 = dLI*LJ*LK
+        dPhi1 = LI*dLJ*LK
+        dPhi2 = LI*LJ*dLK
+        return np.array([dPhi0, dPhi1, dPhi2], dtype=np.float64)
 
 
 class TriangleElement:
@@ -351,11 +442,7 @@ class Field:
         :param w:
         :return:
         """
-        e = self.mesh.encodings[idx]
-        # TODO 2022-12-15 Kenny review: Here we could reuses indices if the mesh keeps them at creation time.
-        #  Currently the code is hardwired to assume that indices are not stored. Hence, they must be recomputed.
-        indices = TriangleLayout.get_global_indices(encoding=e, P=self.mesh.layout.P)
-        return None # Field.IsoParametric.interpolate(self.values, indices, self.mesh.element.shape_functions, w)
+        raise RuntimeError("Not implemented yet")
 
 
 class _TriangleMeshFactory:
@@ -499,7 +586,7 @@ def make_zero_field(mesh: TriangleMesh, shape: tuple[int, ...]) -> Field:
     :return:         A new field value instance representing the new field.
     """
     field = Field(mesh, shape)
-    field.values = np.zeros(field.shape, dtype=float)
+    field.values = np.zeros(field.shape, dtype=np.float64)
     return field
 
 
