@@ -238,8 +238,8 @@ class TriangleElement:
             raise ValueError("P must be of positive")
         self.P = P
         self.ijk_format = TriangleLayout.compute_ijk_format(P)
-        self.shape_functions = [TriangleShapeFunction(self.ijk_format[i]) for i in range(len(self.ijk_format))]
         self.barycentric = self.ijk_format.astype(dtype=np.float64) / self.P
+        self.shape_functions = [TriangleShapeFunction(self.ijk_format[i]) for i in range(len(self.ijk_format))]
 
 
 class TriangleMesh:
@@ -266,25 +266,61 @@ class TriangleMesh:
         if P < 0:
             raise ValueError("P must be of first order or higher.")
         self.P = P  # The order of the triangle.
+        # TODO 2022-12-15 Kenny review: The recursive Lagrangian simplicial element type allow us to reuse the
+        #  shape-functions for all elements in our mesh. This is because we do not need to compute polynomial
+        #  coefficients for each individual shape-function. This is space efficient as all elements of the mesh
+        #  share the exact same IJK format, barycentric coordinates and shape-functions.
+        #  If we changed to Lagrangian element that uses a generalized Vandemonde approach for computing
+        #  polynomial coefficient then the coefficients would be unique for each shape-function for each
+        #  node in the mesh. 
         self.element = TriangleElement(self.P)  # The triangle element type.
         self.vertices = None  # V-by-3 array of vertex coordinates, assuming V total nodes.
         self.encodings = None  # T-by-10 array of triangle encodings, assuming T triangles.
         self.indices = None  # T-by-N array of global node indices, assuming N nodes per triangle.
 
 
-def interpolate(U, node_indices, shape_functions, w):
+class Field:
     """
-    Interpolate field at barycentric position.
+    This class represents a field that is sampled onto the nodes of a mesh, and the mesh element type is
+    used for retrieving the field values.
+    """
+    class IsoParametric:
 
-    :param U:                 The field to be interpolated. Essential has a value of every node in the mesh.
-    :param node_indices:      Global node indices of the triangle nodes.
-    :param shape_functions:   Shape functions of the triangle nodes.
-    :param w:                 Barycentric coordinate of the evaluation point.
-    :return:                  The value of the U-field at the point w.
-    """
-    values = np.array([U[k] for k in node_indices], dtype=np.float64)
-    weights = np.array([phi.value(w) for phi in shape_functions], dtype=np.float64)
-    return np.dot(values.T, weights)
+        @staticmethod
+        def interpolate(U, node_indices, shape_functions, w):
+            """
+            Interpolate field at barycentric position.
+
+            :param U:                 The field to be interpolated. Essential has a value of every node in the mesh.
+            :param node_indices:      Global node indices of the triangle nodes.
+            :param shape_functions:   Shape functions of the triangle nodes.
+            :param w:                 Barycentric coordinate of the evaluation point.
+            :return:                  The value of the U-field at the point w.
+            """
+            values = np.array([U[k] for k in node_indices], dtype=np.float64)
+            weights = np.array([phi.value(w) for phi in shape_functions], dtype=np.float64)
+            return np.dot(values.T, weights)
+
+    def __init__(self, mesh: TriangleMesh, dimension: int):
+        """
+
+        :param mesh:
+        :param dimension:
+        """
+        self.mesh = mesh
+        self.values = np.zeros( len(mesh.vertices), dimension)
+
+    def get_value(self, idx, w):
+        """
+        This method retrieves the field value at the desired location.
+
+        :param idx:  The index of the triangle element from within the field value is wanted.
+        :param w:    Barycentric value at which the field value should be retrieved.
+        :return:     The field value at location w in triangle with index idx.
+        """
+        e = self.mesh.encodings[idx]
+        indices = TriangleLayout.get_global_indices(encoding=e, P=self.mesh.P)
+        return Field.IsoParametric.interpolate(self.values, indices, self.mesh.element.shape_functions, w)
 
 
 class _TriangleMeshFactory:
@@ -341,7 +377,7 @@ class _TriangleMeshFactory:
                 # linear_encoding = [i, j, k, -1, -1, -1, -1, 0, 0, 0]
                 # linear_indices = TriangleLayout.get_global_indices(linear_encoding, 1)
                 linear_indices = [i, j, k]
-                vertices[global_idx] = interpolate(V,
+                vertices[global_idx] = Field.IsoParametric.interpolate(V,
                                                    linear_indices,
                                                    linear_element.shape_functions,
                                                    mesh.element.barycentric[local_idx]

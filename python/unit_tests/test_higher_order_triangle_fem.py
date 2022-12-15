@@ -80,6 +80,13 @@ def _plot_shape_function(I: int, J: int, K: int) -> None:
     # plt.savefig(file_name, format='pdf')
 
 
+def _peak(PX, PY):
+    U = 3 * (1 - PX) ** 2. * np.exp(-(PX ** 2) - (PY + 1) ** 2) \
+        - 10 * (PX / 5 - PX ** 3 - PY ** 5) * np.exp(-PX ** 2 - PY ** 2) \
+        - 1 / 3 * np.exp(-(PX + 1) ** 2 - PY ** 2)
+    return U
+
+
 class TestHigherOrderTriangleFEM(unittest.TestCase):
 
     def test_ijk_format_order_1(self):
@@ -338,18 +345,18 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         self.assertTrue(TEST.is_array_equal([1,  5,  3, 18, 19, 21, 14,  1,  1,  -1], mesh.encodings[2]))
         self.assertTrue(TEST.is_array_equal([1,  4,  5, 23, 24, 26, 19,  1,  1,  -1], mesh.encodings[3]))
 
-    def test_pascal_triangles(self, P):
-        # self.test_pascal_triangles(6)
-        print('--------------------------------------------------')
+    def test_pascal_triangles(self):
+        # This text function is really just showing the nodes of the Pascal triangle for increasing order. This is
+        # merely just a visual inspection and not a unit-test.
+        P = 5    # Maximum order of Pascal triangle visualized
         X = []
         Y = []
         Z = []
-        for i in range(1, P):
-            samples = ReferenceTriangle(i).barycentric  # Reference sampling points
+        for i in range(1, P+1):
+            samples = FEM.TriangleElement(i).barycentric  # Reference sampling points
             for s in samples:
                 X.append(s[0])
                 Y.append(s[1])
-                # Z.append(s[2])
                 Z.append(i)
         import matplotlib.pyplot as plt
         ax = plt.figure().add_subplot(projection='3d')
@@ -361,60 +368,61 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         plt.show()
         # file_name = 'mesh_interpolation.pdf'
         # plt.savefig(file_name, format='pdf')
-        print('--------------------------------------------------')
 
-    def test_triangle_interpolation(self, P):
-        # self.test_triangle_interpolation(3)
-        print('--------------------------------------------------')
-        ref = ReferenceTriangle(P)
+    def test_triangle_interpolation(self):
+        P = 3   # The order of the triangle we are testing.
+        ref = FEM.TriangleElement(P)
         indices = np.arange(len(ref.barycentric))
         V = ref.barycentric
-        U = V[:, 0] ** 2  # Create scalar field that lives on new mesh nodes.
-        samples = ReferenceTriangle(60).barycentric  # Reference sampling points
+        U = V[:, 0] ** 2 + V[:, 1] ** 2 # Create scalar field that lives on the ref triangle.
+        samples = FEM.TriangleElement(60).barycentric  # Sampling Test Points
         X = []
         Y = []
         Z = []
         for s in samples:
-            value = interpolate(U, indices, ref.shape_func, s)
-            x = interpolate(V, indices, ref.shape_func, s)
+            value = FEM.Field.IsoParametric.interpolate(U, indices, ref.shape_functions, s)
+            x = FEM.Field.IsoParametric.interpolate(V, indices, ref.shape_functions, s)
             X.append(x[0])
             Y.append(x[1])
             Z.append(value)
+            self.assertAlmostEqual(value, x[0]**2 + x[1]**2)
         import matplotlib.pyplot as plt
         ax = plt.figure().add_subplot(projection='3d')
-        ax.set_title('Interpolation test on ' + str(P) + '-order mesh')
+        ax.set_title('Interpolation test on ' + str(P) + '-order triangle element')
         ax.set_xlabel('$x$', labelpad=20)
         ax.set_ylabel('$y$', labelpad=20)
-        ax.set_zlabel('$x^2$', labelpad=20)
+        ax.set_zlabel('$x^2+Y^2$', labelpad=20)
         ax.scatter(X, Y, Z)
         plt.show()
         # file_name = 'mesh_interpolation.pdf'
         # plt.savefig(file_name, format='pdf')
-        print('--------------------------------------------------')
 
-    def test_mesh_interpolation(self, P):
-        # self.test_mesh_interpolation(3)
-        print('--------------------------------------------------')
-        ref = ReferenceTriangle(P)
-        V, T = make_mesh(8.0, 8.0, 4, 4)
-        mesh = FiniteElementMesh(V, T, P)
-        PX = mesh.V[:, 0]
-        PY = mesh.V[:, 1]
-        U = 3 * (1 - PX) ** 2. * np.exp(-(PX ** 2) - (PY + 1) ** 2) \
-            - 10 * (PX / 5 - PX ** 3 - PY ** 5) * np.exp(-PX ** 2 - PY ** 2) \
-            - 1 / 3 * np.exp(-(PX + 1) ** 2 - PY ** 2)
-        samples = ReferenceTriangle(20).barycentric  # Reference sampling points
+    def test_mesh_interpolation(self):
+        P = 8  # The order of the elements.
+        ref = FEM.TriangleElement(P)
+        V, T = make_test_mesh(8.0, 8.0, 4, 4)
+        mesh = FEM.make_mesh(V, T, P)
+        PX = mesh.vertices[:, 0]
+        PY = mesh.vertices[:, 1]
+        # TODO 2022-12-15 Kenny review: Peaks uses exponential functions and hence needs quite high order elements
+        #  to get a low error when interpolating. It may be smarter to use a test function based on polynomials
+        #  because then we know how to set the order to get a "match" within machine precision.
+        U = _peak(PX, PY)
+        samples = FEM.TriangleElement(10).barycentric  # Test sampling points
         X = []
         Y = []
         Z = []
-        for encoding in mesh.E:
-            indices = global_indices(encoding, P)
+        for encoding in mesh.encodings:
+            indices = FEM.TriangleLayout.get_global_indices(encoding, P)
             for s in samples:
-                value = interpolate(U, indices, ref.shape_func, s)
-                x = interpolate(mesh.V, indices, ref.shape_func, s)
-                X.append(x[0])
-                Y.append(x[1])
+                value = FEM.Field.IsoParametric.interpolate(U, indices, ref.shape_functions, s)
+                p = FEM.Field.IsoParametric.interpolate(mesh.vertices, indices, ref.shape_functions, s)
+                X.append(p[0])
+                Y.append(p[1])
                 Z.append(value)
+                # TODO 2012-12-15 Kenny review: The precision in this test is not really impressive, 8th order
+                #  polynomials to get this precision for peaks function seems bad?
+                self.assertAlmostEqual(value, _peak(p[0], p[1]), places=1)
         import matplotlib.pyplot as plt
         ax = plt.figure().add_subplot(projection='3d')
         ax.set_title('Interpolation test on ' + str(P) + '-order mesh')
@@ -423,6 +431,5 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         ax.set_zlabel('Peaks', labelpad=20)
         ax.scatter(X, Y, Z, c=Z)
         plt.show()
-        file_name = 'mesh_interpolation_order_' + str(P) + '.pdf'
-        plt.savefig(file_name, format='pdf')
-        print('--------------------------------------------------')
+        # file_name = 'mesh_interpolation_order_' + str(P) + '.pdf'
+        # plt.savefig(file_name, format='pdf')
