@@ -163,10 +163,22 @@ class TriangleLayout:
             indices.extend(ki_edge)
         return indices
 
+    def __init__(self, P):
+        """
+        Create an instance of an P'th order Pascal Triangle Layout.
+
+        :param P: The order of the Triangle.
+        """
+        if P < 1:
+            raise ValueError("P must be of positive")
+        self.P = P
+        self.ijk_format = TriangleLayout.compute_ijk_format(P)
+        self.barycentric = self.ijk_format.astype(dtype=np.float64) / self.P
+
 
 class TriangleShapeFunction:
     """
-    This class implement a Lagrangian shape function for a triangular element.
+    This class implement a recursively defined Lagrangian shape function for a triangular element.
 
     The magic behind this implementation is that the shape function is evaluated using
     barycentric coordinates. Hence, in 2D we have 3-barycentric coordinates.
@@ -224,34 +236,34 @@ class TriangleShapeFunction:
 
 class TriangleElement:
     """
-    This class creates lookup data structures for an P'th order Pascal triangle. The
-    purpose is mostly to make bookkeeping more simple in finite element method codes.
+    This class creates lookup data structures for shape functions defined on a Pascal triangle. The
+    purpose is mostly to make bookkeeping of shape functions more simple in finite element
+    method codes.
     """
 
-    def __init__(self, P):
+    def __init__(self, layout: TriangleLayout):
         """
-        Create an instance of an P'th order ReferenceTriangle.
+        Create an instance of a triangle element from a triangle layout template. This combines the layout
+        with the choice of the function space to use for the element.
 
-        :param P: The order of the ReferenceTriangle.
+        :param layout: The layout of the triangle element.
         """
-        if P < 1:
-            raise ValueError("P must be of positive")
-        self.P = P
-        self.ijk_format = TriangleLayout.compute_ijk_format(P)
-        self.barycentric = self.ijk_format.astype(dtype=np.float64) / self.P
-        self.shape_functions = [TriangleShapeFunction(self.ijk_format[i]) for i in range(len(self.ijk_format))]
+        # TODO 2022-12-15 Kenny review: Add code to test for valid input layout argument.
+        self.shape_functions = [TriangleShapeFunction(layout.ijk_format[i]) for i in range(len(layout.ijk_format))]
 
 
 class TriangleMesh:
     """
     A P'th order triangle mesh.
 
-    A triangle mesh consists of an element type. The element type tells us something about the nodal layout of
-    each triangle and what shape function to use.
+    A triangle mesh consists of an element type. The element type tells us something about the shape function space
+    used. The element is defined from a specific triangle layout saying how many nodes each element has and where
+    they are placed in iso-parametric space (barycentric coordinates).
 
     Further, the triangle mesh contains the coordinates of all the nodes. This is called the vertices. Individual
     triangles can be representing in one of two ways. Either as a list of the global indices that makes up the
-    triangle, or using a compact run-length encoding of the index lists.
+    triangle, or using a compact run-length encoding of the index lists. The conversion from encoding to global
+    indices are defined by the triangle layout.
 
     The index representation takes up more storage but is faster, whereas the encoding uses minimal
     storage but takes a few flops to expand when one needs to find the global indices that defines a triangle.
@@ -259,21 +271,20 @@ class TriangleMesh:
 
     def __init__(self, P: int):
         """
-        Create a 2D FEM mesh of order P.
+        Create a 2D triangular FEM mesh of order P.
 
-        :param P:                The order of the triangle mesh.
+        :param P:  The order of the triangle mesh.
         """
-        if P < 0:
-            raise ValueError("P must be of first order or higher.")
-        self.P = P  # The order of the triangle.
+        self.layout = TriangleLayout(P)
         # TODO 2022-12-15 Kenny review: The recursive Lagrangian simplicial element type allow us to reuse the
         #  shape-functions for all elements in our mesh. This is because we do not need to compute polynomial
         #  coefficients for each individual shape-function. This is space efficient as all elements of the mesh
         #  share the exact same IJK format, barycentric coordinates and shape-functions.
         #  If we changed to Lagrangian element that uses a generalized Vandemonde approach for computing
         #  polynomial coefficient then the coefficients would be unique for each shape-function for each
-        #  node in the mesh. 
-        self.element = TriangleElement(self.P)  # The triangle element type.
+        #  node in the mesh. Hence, we can not share shape functions across elements in this case. The current
+        #  code is hard-wired to the recursive shape functions.
+        self.element = TriangleElement(self.layout)  # The triangle element type.
         self.vertices = None  # V-by-3 array of vertex coordinates, assuming V total nodes.
         self.encodings = None  # T-by-10 array of triangle encodings, assuming T triangles.
         self.indices = None  # T-by-N array of global node indices, assuming N nodes per triangle.
@@ -284,7 +295,11 @@ class Field:
     This class represents a field that is sampled onto the nodes of a mesh, and the mesh element type is
     used for retrieving the field values.
     """
+
     class IsoParametric:
+        """
+        This class encapsulates functionality that is specific to only work in the iso-parametric space of the element.
+        """
 
         @staticmethod
         def interpolate(U, node_indices, shape_functions, w):
@@ -301,14 +316,19 @@ class Field:
             weights = np.array([phi.value(w) for phi in shape_functions], dtype=np.float64)
             return np.dot(values.T, weights)
 
-    def __init__(self, mesh: TriangleMesh, dimension: int):
+    def __init__(self, mesh: TriangleMesh, shape: tuple[int, ...]):
         """
+        Initialize the field.
+        The initializer will not allocate the values of the field. We supply a series of factory
+        functions that allocates and initialize the actual field values.
 
-        :param mesh:
-        :param dimension:
+        :param mesh:   The mesh that the field is associated with. The filed lives on the nodes of the mesh.
+        :param shape:  A tuple that indicates the shape (aka dimension) of the field.
         """
+        # TODO 2022-12-15 Kenny review: Add code to test for valid input values of mesh and shape arguments.
         self.mesh = mesh
-        self.values = np.zeros( len(mesh.vertices), dimension)
+        self.shape = (len(mesh.vertices),) + shape
+        self.values = None
 
     def get_value(self, idx, w):
         """
@@ -319,7 +339,9 @@ class Field:
         :return:     The field value at location w in triangle with index idx.
         """
         e = self.mesh.encodings[idx]
-        indices = TriangleLayout.get_global_indices(encoding=e, P=self.mesh.P)
+        # TODO 2022-12-15 Kenny review: Here we could reuses indices if the mesh keeps them at creation time.
+        #  Currently the code is hardwired to assume that indices are not stored. Hence, they must be recomputed.
+        indices = TriangleLayout.get_global_indices(encoding=e, P=self.mesh.layout.P)
         return Field.IsoParametric.interpolate(self.values, indices, self.mesh.element.shape_functions, w)
 
 
@@ -341,7 +363,7 @@ class _TriangleMeshFactory:
         :return:                 A P'th order triangle mesh.
         """
         mesh = TriangleMesh(P)
-        linear_element = TriangleElement(1)
+        linear_element = TriangleElement(TriangleLayout(1))
 
         lut = {}
         vertices = []
@@ -374,14 +396,12 @@ class _TriangleMeshFactory:
                 global_indices.append(indices)
 
             for local_idx, global_idx in enumerate(indices):
-                # linear_encoding = [i, j, k, -1, -1, -1, -1, 0, 0, 0]
-                # linear_indices = TriangleLayout.get_global_indices(linear_encoding, 1)
                 linear_indices = [i, j, k]
                 vertices[global_idx] = Field.IsoParametric.interpolate(V,
-                                                   linear_indices,
-                                                   linear_element.shape_functions,
-                                                   mesh.element.barycentric[local_idx]
-                                                   )
+                                                                       linear_indices,
+                                                                       linear_element.shape_functions,
+                                                                       mesh.layout.barycentric[local_idx]
+                                                                       )
 
         mesh.vertices = np.array(vertices, dtype=np.float64)
         mesh.encodings = np.array(encodings, dtype=int)
@@ -454,3 +474,41 @@ def make_mesh(V, T, P: int, keep_indices=False) -> TriangleMesh:
     :return:                 A P'th order triangle mesh.
     """
     return _TriangleMeshFactory.make(V, T, P, keep_indices)
+
+
+def make_zero_field(mesh: TriangleMesh, shape: tuple[int, ...]) -> Field:
+    """
+    This function creates a field associated to a mesh and initialize all
+    field values to be zero.
+
+    :param mesh:     The mesh the field lives on.
+    :param shape:    The shape (aka dimension) of the field.
+    :return:         A new field value instance representing the new field.
+    """
+    field = Field(mesh, shape)
+    field.values = np.zeros(field.shape, dtype=float)
+    return field
+
+
+def make_field_from_array(mesh: TriangleMesh, values: np.ndarray, copy=True) -> Field:
+    """
+    This function creates a field from an input array and associates it with the given
+    mesh. It is important that the number of mesh vertices (aka nodes) are equal to the
+    first dimension of the input array.
+    
+    :param mesh:       The mesh for which the field should be created.
+    :param values:     An array of values to use to initialize the field values with.
+    :param copy:       A boolean flag that tells whether a new copy of the input array is
+                       created or whether the field just keeps a reference to the input array. Default
+                       behavior is to create a copy.
+    :return:           A new field value instance representing the new field.
+    """
+    if values.shape[0] != len(mesh.vertices):
+        raise ValueError("Array did not have correct number of elements. Must be the same as number of nodes in mesh")
+
+    field = Field(mesh, values.shape[1:])
+    if copy:
+        field.values = np.copy(values)
+    else:
+        field.values = values
+    return field

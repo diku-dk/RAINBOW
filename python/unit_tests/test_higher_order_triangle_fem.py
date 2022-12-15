@@ -7,6 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import rainbow.geometry.higher_order_triangle_fem as FEM
 import rainbow.util.test_tools as TEST
+from rainbow.math.functions import peaks
 
 
 def make_test_mesh(width, height, I, J):
@@ -60,7 +61,7 @@ def _plot_shape_function(I: int, J: int, K: int) -> None:
     Y = []
     Z = []
     phi = FEM.TriangleShapeFunction([I, J, K])
-    triangle = FEM.TriangleElement(30)
+    triangle = FEM.TriangleLayout(30)
     for m in range(FEM.TriangleLayout.number_of_total_nodes(30)):
         x = triangle.barycentric[m]
         value = phi.value(x)
@@ -80,11 +81,20 @@ def _plot_shape_function(I: int, J: int, K: int) -> None:
     # plt.savefig(file_name, format='pdf')
 
 
-def _peak(PX, PY):
-    U = 3 * (1 - PX) ** 2. * np.exp(-(PX ** 2) - (PY + 1) ** 2) \
-        - 10 * (PX / 5 - PX ** 3 - PY ** 5) * np.exp(-PX ** 2 - PY ** 2) \
-        - 1 / 3 * np.exp(-(PX + 1) ** 2 - PY ** 2)
-    return U
+def poly_surf(X, Y):
+    """
+    This is just some polynomial surface used for testing interpolation properties of the fem mesh.
+
+    Implementation supports both scalars and arrays as input/output.
+
+    :param X:  The x-coordinate value.
+    :param Y:  The y-coordinate value.
+    :return:   The resulting z value.
+    """
+    Z = 3 * (1 - X) ** 2. * ((X ** 2) + (Y + 1) ** 2) \
+        - 10 * (X / 5 - X ** 2 - Y ** 3) * (X ** 2 + Y ** 2) \
+        - 1 / 3 * ((X + 1) ** 2 + Y ** 2)
+    return Z/30000
 
 
 class TestHigherOrderTriangleFEM(unittest.TestCase):
@@ -95,7 +105,7 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         self.assertEqual(3, FEM.TriangleLayout.number_of_corner_nodes(P))
         self.assertEqual(0, FEM.TriangleLayout.number_of_edge_nodes(P))
         self.assertEqual(0, FEM.TriangleLayout.number_of_cell_nodes(P))
-        triangle = FEM.TriangleElement(P)
+        triangle = FEM.TriangleLayout(P)
         self.assertEqual(3, triangle.ijk_format.shape[0])
         self.assertEqual(3, triangle.ijk_format.shape[1])
         self.assertTrue(TEST.is_array_equal([1, 0, 0], triangle.ijk_format[0]))
@@ -113,7 +123,7 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         self.assertEqual(3, FEM.TriangleLayout.number_of_corner_nodes(P))
         self.assertEqual(1, FEM.TriangleLayout.number_of_edge_nodes(P))
         self.assertEqual(0, FEM.TriangleLayout.number_of_cell_nodes(P))
-        triangle = FEM.TriangleElement(P)
+        triangle = FEM.TriangleLayout(P)
         self.assertEqual(6, triangle.ijk_format.shape[0])
         self.assertEqual(3, triangle.ijk_format.shape[1])
         self.assertTrue(TEST.is_array_equal([2, 0, 0], triangle.ijk_format[0]))
@@ -137,7 +147,7 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         self.assertEqual(3, FEM.TriangleLayout.number_of_corner_nodes(P))
         self.assertEqual(2, FEM.TriangleLayout.number_of_edge_nodes(P))
         self.assertEqual(1, FEM.TriangleLayout.number_of_cell_nodes(P))
-        triangle = FEM.TriangleElement(P)
+        triangle = FEM.TriangleLayout(P)
         self.assertEqual(10, triangle.ijk_format.shape[0])
         self.assertEqual(3, triangle.ijk_format.shape[1])
         self.assertTrue(TEST.is_array_equal([3, 0, 0], triangle.ijk_format[0]))
@@ -169,7 +179,7 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         self.assertEqual(3, FEM.TriangleLayout.number_of_corner_nodes(P))
         self.assertEqual(3, FEM.TriangleLayout.number_of_edge_nodes(P))
         self.assertEqual(3, FEM.TriangleLayout.number_of_cell_nodes(P))
-        triangle = FEM.TriangleElement(P)
+        triangle = FEM.TriangleLayout(P)
         self.assertEqual(15, triangle.ijk_format.shape[0])
         self.assertEqual(3, triangle.ijk_format.shape[1])
         self.assertTrue(TEST.is_array_equal([4, 0, 0], triangle.ijk_format[0]))
@@ -209,8 +219,8 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         # This unit-test verifies the shape interpolation properties of a shape function. That
         # is if evaluated at the location of the node that the shape function belongs to the value
         # should ne 1 and at all other nodes the value should be zero.
-        for P in range(1,5):
-            triangle = FEM.TriangleElement(P)
+        for P in range(1, 5):
+            triangle = FEM.TriangleLayout(P)
             for n in range(FEM.TriangleLayout.number_of_total_nodes(P)):
                 phi = FEM.TriangleShapeFunction(triangle.ijk_format[n])
                 for m in range(FEM.TriangleLayout.number_of_total_nodes(P)):
@@ -353,7 +363,7 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         Y = []
         Z = []
         for i in range(1, P+1):
-            samples = FEM.TriangleElement(i).barycentric  # Reference sampling points
+            samples = FEM.TriangleLayout(i).barycentric  # Reference sampling points
             for s in samples:
                 X.append(s[0])
                 Y.append(s[1])
@@ -371,17 +381,18 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
 
     def test_triangle_interpolation(self):
         P = 3   # The order of the triangle we are testing.
-        ref = FEM.TriangleElement(P)
-        indices = np.arange(len(ref.barycentric))
-        V = ref.barycentric
+        layout = FEM.TriangleLayout(P)
+        element = FEM.TriangleElement(layout)
+        indices = np.arange(len(layout.barycentric))
+        V = layout.barycentric
         U = V[:, 0] ** 2 + V[:, 1] ** 2 # Create scalar field that lives on the ref triangle.
-        samples = FEM.TriangleElement(60).barycentric  # Sampling Test Points
+        samples = FEM.TriangleLayout(60).barycentric  # Sampling Test Points
         X = []
         Y = []
         Z = []
         for s in samples:
-            value = FEM.Field.IsoParametric.interpolate(U, indices, ref.shape_functions, s)
-            x = FEM.Field.IsoParametric.interpolate(V, indices, ref.shape_functions, s)
+            value = FEM.Field.IsoParametric.interpolate(U, indices, element.shape_functions, s)
+            x = FEM.Field.IsoParametric.interpolate(V, indices, element.shape_functions, s)
             X.append(x[0])
             Y.append(x[1])
             Z.append(value)
@@ -398,31 +409,27 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         # plt.savefig(file_name, format='pdf')
 
     def test_mesh_interpolation(self):
-        P = 8  # The order of the elements.
-        ref = FEM.TriangleElement(P)
+        P = 5  # The order of the elements.
+        layout = FEM.TriangleLayout(P)
+        element = FEM.TriangleElement(layout)
         V, T = make_test_mesh(8.0, 8.0, 4, 4)
         mesh = FEM.make_mesh(V, T, P)
         PX = mesh.vertices[:, 0]
         PY = mesh.vertices[:, 1]
-        # TODO 2022-12-15 Kenny review: Peaks uses exponential functions and hence needs quite high order elements
-        #  to get a low error when interpolating. It may be smarter to use a test function based on polynomials
-        #  because then we know how to set the order to get a "match" within machine precision.
-        U = _peak(PX, PY)
-        samples = FEM.TriangleElement(10).barycentric  # Test sampling points
+        U = poly_surf(PX, PY)
+        samples = FEM.TriangleLayout(10).barycentric  # Test sampling points
         X = []
         Y = []
         Z = []
         for encoding in mesh.encodings:
             indices = FEM.TriangleLayout.get_global_indices(encoding, P)
             for s in samples:
-                value = FEM.Field.IsoParametric.interpolate(U, indices, ref.shape_functions, s)
-                p = FEM.Field.IsoParametric.interpolate(mesh.vertices, indices, ref.shape_functions, s)
+                value = FEM.Field.IsoParametric.interpolate(U, indices, element.shape_functions, s)
+                p = FEM.Field.IsoParametric.interpolate(mesh.vertices, indices, element.shape_functions, s)
                 X.append(p[0])
                 Y.append(p[1])
                 Z.append(value)
-                # TODO 2012-12-15 Kenny review: The precision in this test is not really impressive, 8th order
-                #  polynomials to get this precision for peaks function seems bad?
-                self.assertAlmostEqual(value, _peak(p[0], p[1]), places=1)
+                self.assertAlmostEqual(value, poly_surf(p[0], p[1]))
         import matplotlib.pyplot as plt
         ax = plt.figure().add_subplot(projection='3d')
         ax.set_title('Interpolation test on ' + str(P) + '-order mesh')
@@ -433,3 +440,60 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         plt.show()
         # file_name = 'mesh_interpolation_order_' + str(P) + '.pdf'
         # plt.savefig(file_name, format='pdf')
+
+    def test_make_field(self):
+        P = 3
+        V, T = make_test_mesh(8.0, 8.0, 4, 4)
+        mesh = FEM.make_mesh(V, T, P)
+        scalar_field = FEM.make_zero_field(mesh, shape=(1,))
+        vector_field = FEM.make_zero_field(mesh, shape=(3,))
+        tensor_field = FEM.make_zero_field(mesh, shape=(2, 2))
+        self.assertEqual(scalar_field.values.shape, (169, 1))
+        self.assertEqual(vector_field.values.shape, (169, 3))
+        self.assertEqual(tensor_field.values.shape, (169, 2, 2))
+        # Now we will test if we get exceptions if we try to create a
+        # field using a wrong sized array.
+        self.assertRaises(ValueError, FEM.make_field_from_array, mesh, V, True)
+        self.assertRaises(ValueError, FEM.make_field_from_array, mesh, V, False)
+        # Now we will test if the copy argument works, so we either get a copy or reference into
+        # the array used to create the field.
+        array_field = FEM.make_field_from_array(mesh, mesh.vertices, False)
+        self.assertEqual(array_field.values.shape, (169, 2))
+        mesh.vertices[1, 1] = 100
+        self.assertEqual(array_field.values[1, 1], 100)
+        array_field = FEM.make_field_from_array(mesh, mesh.vertices, True)
+        self.assertEqual(array_field.values.shape, (169, 2))
+        mesh.vertices[1, 1] = -100
+        self.assertEqual(array_field.values[1, 1], 100)
+
+    def test_field_interpolation(self):
+        P = 5  # The order of the elements.
+        V, T = make_test_mesh(8.0, 8.0, 4, 4)
+
+        mesh = FEM.make_mesh(V, T, P)
+        U = FEM.make_field_from_array(mesh, poly_surf(mesh.vertices[:, 0], mesh.vertices[:, 1]))
+        X0 = FEM.make_field_from_array(mesh, mesh.vertices, False)
+
+        samples = FEM.TriangleLayout(10).barycentric  # Test sampling points
+        X = []
+        Y = []
+        Z = []
+        for k in range(len(mesh.encodings)):
+            for s in samples:
+                value = U.get_value(k, s)
+                p = X0.get_value(k, s)
+                X.append(p[0])
+                Y.append(p[1])
+                Z.append(value)
+                self.assertAlmostEqual(value, poly_surf(p[0], p[1]))
+        import matplotlib.pyplot as plt
+        ax = plt.figure().add_subplot(projection='3d')
+        ax.set_title('Interpolation test on ' + str(P) + '-order field')
+        ax.set_xlabel('$x$', labelpad=20)
+        ax.set_ylabel('$y$', labelpad=20)
+        ax.set_zlabel('Peaks', labelpad=20)
+        ax.scatter(X, Y, Z, c=Z)
+        plt.show()
+        # file_name = 'field_interpolation_order_' + str(P) + '.pdf'
+        # plt.savefig(file_name, format='pdf')
+

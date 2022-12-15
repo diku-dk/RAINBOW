@@ -48,3 +48,18 @@ def direction_of_most_variance(P):
     _, values, vectors = PCA(P)            # Returns eigenvalue not sorted
     largest_eigenv_idx = np.argmax(values)
     return vectors[largest_eigenv_idx]
+
+
+def peaks(X, Y):
+    """
+    This is an implementation of the peaks function, https://www.mathworks.com/help/matlab/ref/peaks.html.
+    Implementation supports both scalars and arrays as input/output.
+
+    :param X:  The x-coordinate value.
+    :param Y:  The y-coordinate value.
+    :return:   The resulting z value.
+    """
+    Z = 3 * (1 - X) ** 2. * np.exp(-(X ** 2) - (Y + 1) ** 2) \
+        - 10 * (X / 5 - X ** 3 - Y ** 5) * np.exp(-X ** 2 - Y ** 2) \
+        - 1 / 3 * np.exp(-(X + 1) ** 2 - Y ** 2)
+    return Z
