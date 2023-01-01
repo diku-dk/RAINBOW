@@ -497,3 +497,19 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         # file_name = 'field_interpolation_order_' + str(P) + '.pdf'
         # plt.savefig(file_name, format='pdf')
 
+    def test_gradient_computation(self):
+        P = 5  # The order of the elements.
+        V, T = make_test_mesh(1.0, 1.0, 1, 1) # Unit cube made of two triangles
+        mesh = FEM.make_mesh(V, T, P)
+        U = FEM.make_field_from_array(mesh, poly_surf(mesh.vertices[:, 0], mesh.vertices[:, 1]))
+        X0 = FEM.make_field_from_array(mesh, mesh.vertices, False)
+
+        samples = FEM.TriangleLayout(3).barycentric  # Test sampling points
+        for k in range(len(mesh.encodings)):
+            for s in samples:
+                g = U.get_gradient(k, s)
+                p = X0.get_value(k, s)
+                print(p,g)
+                #self.assertAlmostEqual(value, poly_surf(p[0], p[1]))
+
+

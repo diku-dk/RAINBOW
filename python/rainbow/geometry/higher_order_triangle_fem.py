@@ -411,8 +411,10 @@ class Field:
         def interpolate_gradient(U, node_indices, shape_functions, w):
             values = np.array([U[k] for k in node_indices], dtype=np.float64)
             gradients = np.array([phi.gradient(w) for phi in shape_functions], dtype=np.float64)
-            # TODO 2022-12-29 Kenny review: Verify sum(outer(values, gradients)) gives correct implementation
-            return np.sum(np.outer(values.T, gradients))
+            # The results should be the sum of the tensor products between the values of the gradient
+            # of the shape functions. That is something like this
+            #  gradient = sum_i values(i) \otimes gradient(i)
+            return np.einsum('i...,i...', values, gradients)
 
     def __init__(self, mesh: TriangleMesh, shape: tuple[int, ...]):
         """
