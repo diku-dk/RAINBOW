@@ -497,38 +497,55 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         # file_name = 'field_interpolation_order_' + str(P) + '.pdf'
         # plt.savefig(file_name, format='pdf')
 
-    def test_shape_function_gradients(self):
+    def test_shape_function_gradients(self) -> None:
+        """
+        In this test function we make sure that we can compute the derivative
+        of the shape functions correctly.
+
+        We assume that our code for evaluating the value of a shape function is correct. This allows us to
+        create a symbolic expression of the shape function and then take the symbolic derivative. This way
+        we can symbolically generate a closed form solution for evaluating the value of our shape function
+        gradient.
+
+        :return: None
+        """
         import sympy as sym
 
-        samples = FEM.TriangleLayout(1).barycentric  # Test sampling points
-        P = 2
-        element = FEM.TriangleElement(FEM.TriangleLayout(P))
-        for phi in element.shape_functions:
-            print("-----------------------------------------------")
-            # First we create a symbolic expression for the shape function that we are testing
-            w0 = sym.Symbol('w0')
-            w1 = sym.Symbol('w1')
-            w2 = sym.Symbol('w2')
-            phi_expr = sym.expand(phi.value([w0, w1, w2]))
-            print("\tphi :=", phi_expr)
-            # Then we compute a symbolic derivative of that shape function, observe we keep it as partial derivatives.
-            dphi_d0_expr = sym.diff(phi_expr, w0)
-            dphi_d1_expr = sym.diff(phi_expr, w1)
-            dphi_d2_expr = sym.diff(phi_expr, w2)
-            print("\tdphi/dw0 :=", dphi_d0_expr)
-            print("\tdphi/dw1 :=", dphi_d1_expr)
-            print("\tdphi/dw2 :=", dphi_d2_expr)
-            for w in samples:
-                # From our expressions of the symbolic partical derivatives we can now substitute the barycentric
-                # coordinates to evaluate the exact value of the partial derivatives.
-                d0 = dphi_d0_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
-                d1 = dphi_d1_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
-                d2 = dphi_d2_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
-                # We now use our recursive "fast" way of evaluation the gradient value.
-                gradient = phi.gradient(w)
-                print("symbolic evaluated:", [d0, d1, d2], " computed:", gradient)
-                # Finally, we can compute the symbolic values to the actual computed values
-                #self.assertTrue(TEST.is_array_equal([d0, d1, d2], gradient))
+        def test_order(P) -> None:
+            """
+            Local test routine that makes it easier to add more test cases of higher order.
+
+            :param P:  The order of the shape function to test.
+            :return:   None
+            """
+            samples = FEM.TriangleLayout(10).barycentric  # Test sampling points
+            element = FEM.TriangleElement(FEM.TriangleLayout(P))
+            for phi in element.shape_functions:
+                # First we create a symbolic expression for the shape function that we are testing
+                w0 = sym.Symbol('w0')
+                w1 = sym.Symbol('w1')
+                w2 = sym.Symbol('w2')
+                phi_expr = sym.expand(phi.value([w0, w1, w2]))
+                # Then we compute a symbolic derivative of that shape function, observe we keep it as partial derivatives.
+                dphi_d0_expr = sym.diff(phi_expr, w0)
+                dphi_d1_expr = sym.diff(phi_expr, w1)
+                dphi_d2_expr = sym.diff(phi_expr, w2)
+                for w in samples:
+                    # From our expressions of the symbolic partical derivatives we can now substitute the barycentric
+                    # coordinates to evaluate the exact value of the partial derivatives.
+                    d0 = dphi_d0_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
+                    d1 = dphi_d1_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
+                    d2 = dphi_d2_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
+                    # We now use our recursive "fast" way of evaluation the gradient value.
+                    gradient = phi.gradient(w)
+                    # Finally, we can compute the symbolic values to the actual computed values
+                    self.assertTrue(TEST.is_array_equal([d0, d1, d2], gradient))
+        # Now we can just run our test scenarios with increasing orders of the shape function.
+        test_order(P=1)
+        test_order(P=2)
+        test_order(P=3)
+        test_order(P=4)
+        test_order(P=5)
 
     #def test_field_gradients(self):
     #    P = 5  # The order of the elements.

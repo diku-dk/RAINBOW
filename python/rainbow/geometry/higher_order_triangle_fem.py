@@ -262,17 +262,23 @@ class TriangleShapeFunction:
         :param w:   The barycentric coordinate at which the Lagrangian shape function is evaluated.
         :return:    The value of the Lagrange shape function of order M at the bary-centric coordinate w.
         """
+        # TODO 2023-01-01 Kenny review: Local functions are really bad for performance, but makes implementation
+        #  very readable.
+        def f(n):
+            return (P*w - n)/(n+1)
+        def df(n):
+            return P/(n+1)
         # TODO 2022-12-15 Kenny review: Kind of bad to reallocate the A and B arrays. The allocation could be
         #  reused. This is expensive in Python.
         A = np.ones((N,), dtype=float)
         B = np.ones((N,), dtype=float)
         for i in range(1, N):
-            A[i] = A[i - 1] * ((P * w - i) / (i + 1))
+            A[i] = A[i - 1] * f(i-1)
         for i in reversed(range(N - 1)):
-            B[i] = ((P * w - i - 1) / (i + 2)) * B[i + 1]
+            B[i] = f(i+1) * B[i + 1]
         dL = 0
         for i in range(N):
-            dL += A[i] * (P / (i + 1)) * B[i]
+            dL += A[i] * df(i) * B[i]
         return dL
 
     def __init__(self, IJK):
