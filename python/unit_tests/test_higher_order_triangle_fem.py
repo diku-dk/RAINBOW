@@ -547,18 +547,36 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         test_order(P=4)
         test_order(P=5)
 
-    #def test_field_gradients(self):
-    #    P = 5  # The order of the elements.
-    #    V, T = make_test_mesh(1.0, 1.0, 1, 1) # Unit cube made of two triangles
-    #    mesh = FEM.make_mesh(V, T, P)
-    #    U = FEM.make_field_from_array(mesh, poly_surf(mesh.vertices[:, 0], mesh.vertices[:, 1]))
-    #    X0 = FEM.make_field_from_array(mesh, mesh.vertices, False)
-    #
-    #    samples = FEM.TriangleLayout(3).barycentric  # Test sampling points
-    #    for k in range(len(mesh.encodings)):
-    #        for w in samples:
-    #            g = U.get_gradient(k, w)
-    #            p = X0.get_value(k, w)
-    #            print(p, g)
-    #            #self.assertAlmostEqual(value, poly_surf(p[0], p[1]))
+    def test_field_gradients(self):
+        import sympy as sym
+        # Create some test sampling points in barycentric coordinates
+        samples = FEM.TriangleLayout(10).barycentric
+        # Set the order of the element type to test.
+        P = 5
+        # Create a test mesh
+        V, T = make_test_mesh(1.0, 1.0, 1, 1)
+        mesh = FEM.make_mesh(V, T, P)
+        # Create some known scalar field defined on the mesh
+        U = FEM.make_field_from_array(mesh, poly_surf(mesh.vertices[:, 0], mesh.vertices[:, 1]))
+        # Create the coordinate field on the mesh
+        X0 = FEM.make_field_from_array(mesh, mesh.vertices, False)
+        # Define some symbolic variables
+        w0 = sym.Symbol('w0')
+        w1 = sym.Symbol('w1')
+        w2 = sym.Symbol('w2')
+        for k in range(len(mesh.encodings)):
+            U_expr = sym.expand(U.get_value(k, [w0, w1, w2]))
+            #dU_d0_expr = sym.diff(U_expr, w0)
+            #dU_d1_expr = sym.diff(U_expr, w1)
+            #dU_d2_expr = sym.diff(U_expr, w2)
+            for w in samples:
+                #d0 = dU_d0_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
+                #d1 = dU_d1_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
+                #d2 = dU_d2_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
+                u = U.get_value(k, w)
+                g = U.get_gradient(k, w)
+                p = X0.get_value(k, w)
+                #self.assertTrue(TEST.is_array_equal([d0, d1, d2], g))
+                print(p,u,g)
+
 
