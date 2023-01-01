@@ -393,7 +393,7 @@ class Field:
         """
 
         @staticmethod
-        def interpolate(U, node_indices, shape_functions, w):
+        def interpolate_value(U, node_indices, shape_functions, w):
             """
             Interpolate field at barycentric position.
 
@@ -406,6 +406,13 @@ class Field:
             values = np.array([U[k] for k in node_indices], dtype=np.float64)
             weights = np.array([phi.value(w) for phi in shape_functions], dtype=np.float64)
             return np.dot(values.T, weights)
+
+        @staticmethod
+        def interpolate_gradient(U, node_indices, shape_functions, w):
+            values = np.array([U[k] for k in node_indices], dtype=np.float64)
+            gradients = np.array([phi.gradient(w) for phi in shape_functions], dtype=np.float64)
+            # TODO 2022-12-29 Kenny review: Verify sum(outer(values, gradients)) gives correct implementation
+            return np.sum(np.outer(values.T, gradients))
 
     def __init__(self, mesh: TriangleMesh, shape: tuple[int, ...]):
         """
@@ -433,16 +440,21 @@ class Field:
         # TODO 2022-12-15 Kenny review: Here we could reuses indices if the mesh keeps them at creation time.
         #  Currently the code is hardwired to assume that indices are not stored. Hence, they must be recomputed.
         indices = TriangleLayout.get_global_indices(encoding=e, P=self.mesh.layout.P)
-        return Field.IsoParametric.interpolate(self.values, indices, self.mesh.element.shape_functions, w)
+        return Field.IsoParametric.interpolate_value(self.values, indices, self.mesh.element.shape_functions, w)
 
     def get_gradient(self, idx, w) -> np.ndarray:
         """
+        This function retrieves the value of the gradient of the field at the desired location.
 
-        :param idx:
-        :param w:
-        :return:
+        :param idx:  The index of the triangle element from within the field gradient value is wanted.
+        :param w:    Barycentric value at which the field gradient value should be retrieved.
+        :return:     The field gradient value at location w in triangle with index idx.
         """
-        raise RuntimeError("Not implemented yet")
+        e = self.mesh.encodings[idx]
+        # TODO 2022-12-15 Kenny review: Here we could reuses indices if the mesh keeps them at creation time.
+        #  Currently the code is hardwired to assume that indices are not stored. Hence, they must be recomputed.
+        indices = TriangleLayout.get_global_indices(encoding=e, P=self.mesh.layout.P)
+        return Field.IsoParametric.interpolate_gradient(self.values, indices, self.mesh.element.shape_functions, w)
 
 
 class _TriangleMeshFactory:
@@ -497,11 +509,11 @@ class _TriangleMeshFactory:
 
             for local_idx, global_idx in enumerate(indices):
                 linear_indices = [i, j, k]
-                vertices[global_idx] = Field.IsoParametric.interpolate(V,
-                                                                       linear_indices,
-                                                                       linear_element.shape_functions,
-                                                                       mesh.layout.barycentric[local_idx]
-                                                                       )
+                vertices[global_idx] = Field.IsoParametric.interpolate_value(V,
+                                                                             linear_indices,
+                                                                             linear_element.shape_functions,
+                                                                             mesh.layout.barycentric[local_idx]
+                                                                             )
 
         mesh.vertices = np.array(vertices, dtype=np.float64)
         mesh.encodings = np.array(encodings, dtype=int)

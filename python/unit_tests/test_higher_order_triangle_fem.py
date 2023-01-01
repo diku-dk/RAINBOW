@@ -391,8 +391,8 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         Y = []
         Z = []
         for s in samples:
-            value = FEM.Field.IsoParametric.interpolate(U, indices, element.shape_functions, s)
-            x = FEM.Field.IsoParametric.interpolate(V, indices, element.shape_functions, s)
+            value = FEM.Field.IsoParametric.interpolate_value(U, indices, element.shape_functions, s)
+            x = FEM.Field.IsoParametric.interpolate_value(V, indices, element.shape_functions, s)
             X.append(x[0])
             Y.append(x[1])
             Z.append(value)
@@ -424,8 +424,8 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         for encoding in mesh.encodings:
             indices = FEM.TriangleLayout.get_global_indices(encoding, P)
             for s in samples:
-                value = FEM.Field.IsoParametric.interpolate(U, indices, element.shape_functions, s)
-                p = FEM.Field.IsoParametric.interpolate(mesh.vertices, indices, element.shape_functions, s)
+                value = FEM.Field.IsoParametric.interpolate_value(U, indices, element.shape_functions, s)
+                p = FEM.Field.IsoParametric.interpolate_value(mesh.vertices, indices, element.shape_functions, s)
                 X.append(p[0])
                 Y.append(p[1])
                 Z.append(value)
