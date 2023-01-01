@@ -185,7 +185,7 @@ class TriangleShapeFunction:
     """
 
     @staticmethod
-    def __L(P: int, N: int, w: np.ndarray) -> float:
+    def __L(P: int, N: int, w: float) -> float:
         """
         This is an auxiliary function that allow us to implement the
         evaluation of the Lagrange shape function in a simple way.
@@ -201,7 +201,7 @@ class TriangleShapeFunction:
         return value
 
     @staticmethod
-    def __dL(P: int, N: int, w: np.ndarray) -> float:
+    def __dL(P: int, N: int, w: float) -> float:
         """
         This is an auxiliary function that allow us to implement the
         evaluation of the gradient of the Lagrange shape function in a recursive way.
@@ -209,15 +209,15 @@ class TriangleShapeFunction:
         Here we outline the basic idea behind the theory. By definition we have that the
         recursive Lagrange shape function is given by
 
-            phi(w,I,J,K) \equiv L(w,I)*L(w,J)*L(w,K)
+            phi(w,I,J,K) \equiv L(w_0,I) * L(w_1,J) * L(w_2,K)
 
         where the "pseudo-basis" functions are given as follows
 
-            L(w,N) \equiv \Pi_{n=0}^{N-1}  (P w + n)/(n+1)
+            L(w,N) \equiv \Pi_{n=0}^{N-1}  (P w - n)/(n+1)
 
         Let us introduce the symbol
 
-            f_n  \equiv (P w + n)/(n+1)
+            f_n  \equiv (P w - n)/(n+1)
 
         From this we may define
 
@@ -267,11 +267,11 @@ class TriangleShapeFunction:
         A = np.ones((N,), dtype=float)
         B = np.ones((N,), dtype=float)
         for i in range(1, N):
-            A[i] = A[i - 1] * ((P * w + i) / (i + 1))
+            A[i] = A[i - 1] * ((P * w - i) / (i + 1))
         for i in reversed(range(N - 1)):
-            B[i] = ((P * w + i + 1) / (i + 2)) * B[i + 1]
+            B[i] = ((P * w - i - 1) / (i + 2)) * B[i + 1]
         dL = 0
-        for i in range(1, N):
+        for i in range(N):
             dL += A[i] * (P / (i + 1)) * B[i]
         return dL
 
@@ -293,6 +293,8 @@ class TriangleShapeFunction:
         self.J = IJK[1]
         self.K = IJK[2]
         self.P = self.I + self.J + self.K  # The order of the shape function.
+        if self.P < 1:
+            raise ValueError("THe order P must be positive")
 
     def value(self, w) -> float:
         """
@@ -319,9 +321,9 @@ class TriangleShapeFunction:
         dLI = TriangleShapeFunction.__dL(self.P, self.I, w[0])
         dLJ = TriangleShapeFunction.__dL(self.P, self.J, w[1])
         dLK = TriangleShapeFunction.__dL(self.P, self.K, w[2])
-        dPhi0 = dLI*LJ*LK
-        dPhi1 = LI*dLJ*LK
-        dPhi2 = LI*LJ*dLK
+        dPhi0 = dLI * LJ * LK
+        dPhi1 = LI * dLJ * LK
+        dPhi2 = LI * LJ * dLK
         return np.array([dPhi0, dPhi1, dPhi2], dtype=np.float64)
 
 

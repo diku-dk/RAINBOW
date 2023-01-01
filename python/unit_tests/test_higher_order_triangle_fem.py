@@ -498,22 +498,50 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         # plt.savefig(file_name, format='pdf')
 
     def test_shape_function_gradients(self):
-        for phi in mesh.element.shape_functions:
-            for w in samples:
-                iso_gradient = phi.gradient(w)
+        import sympy as sym
 
-    def test_field_gradients(self):
-        P = 5  # The order of the elements.
-        V, T = make_test_mesh(1.0, 1.0, 1, 1) # Unit cube made of two triangles
-        mesh = FEM.make_mesh(V, T, P)
-        U = FEM.make_field_from_array(mesh, poly_surf(mesh.vertices[:, 0], mesh.vertices[:, 1]))
-        X0 = FEM.make_field_from_array(mesh, mesh.vertices, False)
-
-        samples = FEM.TriangleLayout(3).barycentric  # Test sampling points
-        for k in range(len(mesh.encodings)):
+        samples = FEM.TriangleLayout(1).barycentric  # Test sampling points
+        P = 2
+        element = FEM.TriangleElement(FEM.TriangleLayout(P))
+        for phi in element.shape_functions:
+            print("-----------------------------------------------")
+            # First we create a symbolic expression for the shape function that we are testing
+            w0 = sym.Symbol('w0')
+            w1 = sym.Symbol('w1')
+            w2 = sym.Symbol('w2')
+            phi_expr = sym.expand(phi.value([w0, w1, w2]))
+            print("\tphi :=", phi_expr)
+            # Then we compute a symbolic derivative of that shape function, observe we keep it as partial derivatives.
+            dphi_d0_expr = sym.diff(phi_expr, w0)
+            dphi_d1_expr = sym.diff(phi_expr, w1)
+            dphi_d2_expr = sym.diff(phi_expr, w2)
+            print("\tdphi/dw0 :=", dphi_d0_expr)
+            print("\tdphi/dw1 :=", dphi_d1_expr)
+            print("\tdphi/dw2 :=", dphi_d2_expr)
             for w in samples:
-                g = U.get_gradient(k, w)
-                p = X0.get_value(k, w)
-                print(p, g)
-                #self.assertAlmostEqual(value, poly_surf(p[0], p[1]))
+                # From our expressions of the symbolic partical derivatives we can now substitute the barycentric
+                # coordinates to evaluate the exact value of the partial derivatives.
+                d0 = dphi_d0_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
+                d1 = dphi_d1_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
+                d2 = dphi_d2_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
+                # We now use our recursive "fast" way of evaluation the gradient value.
+                gradient = phi.gradient(w)
+                print("symbolic evaluated:", [d0, d1, d2], " computed:", gradient)
+                # Finally, we can compute the symbolic values to the actual computed values
+                #self.assertTrue(TEST.is_array_equal([d0, d1, d2], gradient))
+
+    #def test_field_gradients(self):
+    #    P = 5  # The order of the elements.
+    #    V, T = make_test_mesh(1.0, 1.0, 1, 1) # Unit cube made of two triangles
+    #    mesh = FEM.make_mesh(V, T, P)
+    #    U = FEM.make_field_from_array(mesh, poly_surf(mesh.vertices[:, 0], mesh.vertices[:, 1]))
+    #    X0 = FEM.make_field_from_array(mesh, mesh.vertices, False)
+    #
+    #    samples = FEM.TriangleLayout(3).barycentric  # Test sampling points
+    #    for k in range(len(mesh.encodings)):
+    #        for w in samples:
+    #            g = U.get_gradient(k, w)
+    #            p = X0.get_value(k, w)
+    #            print(p, g)
+    #            #self.assertAlmostEqual(value, poly_surf(p[0], p[1]))
 
