@@ -548,35 +548,37 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
         test_order(P=5)
 
     def test_field_gradients(self):
-        import sympy as sym
+        h = 0.005
+        h2 = h / 2.
         # Create some test sampling points in barycentric coordinates
-        samples = FEM.TriangleLayout(10).barycentric
+        samples = FEM.TriangleLayout(4).barycentric
         # Set the order of the element type to test.
-        P = 5
+        P = 3
         # Create a test mesh
         V, T = make_test_mesh(1.0, 1.0, 1, 1)
         mesh = FEM.make_mesh(V, T, P)
         # Create some known scalar field defined on the mesh
         U = FEM.make_field_from_array(mesh, poly_surf(mesh.vertices[:, 0], mesh.vertices[:, 1]))
-        # Create the coordinate field on the mesh
-        X0 = FEM.make_field_from_array(mesh, mesh.vertices, False)
-        # Define some symbolic variables
-        w0 = sym.Symbol('w0')
-        w1 = sym.Symbol('w1')
-        w2 = sym.Symbol('w2')
         for k in range(len(mesh.encodings)):
-            U_expr = sym.expand(U.get_value(k, [w0, w1, w2]))
-            #dU_d0_expr = sym.diff(U_expr, w0)
-            #dU_d1_expr = sym.diff(U_expr, w1)
-            #dU_d2_expr = sym.diff(U_expr, w2)
             for w in samples:
-                #d0 = dU_d0_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
-                #d1 = dU_d1_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
-                #d2 = dU_d2_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
-                u = U.get_value(k, w)
                 g = U.get_gradient(k, w)
-                p = X0.get_value(k, w)
-                #self.assertTrue(TEST.is_array_equal([d0, d1, d2], g))
-                print(p,u,g)
+                # To evaluate if the field gradient is correctly computed we will use a central finite difference
+                # approximation for comparison.
+                # It is not straightforward to use symbolic comparison as sympy expressions can not be generated from
+                # calling Field.get_value() with sympy symbols. The reason is that we use some numpy functions inside
+                # this implementation that can not be converted to sympy expressions.
+                # Hence, we fall back on this more "primitive" way of testing our gradient computations.
+                #
+                # The error of the finite difference approximations should be O(h**2) ~ 10e-6 (about 6 or 7 decimals)
+                up0 = U.get_value(k, w + np.array([h2, 0., 0.]))
+                um0 = U.get_value(k, w - np.array([h2, 0., 0.]))
+                up1 = U.get_value(k, w + np.array([0., h2, 0.]))
+                um1 = U.get_value(k, w - np.array([0., h2, 0.]))
+                up2 = U.get_value(k, w + np.array([0., 0., h2]))
+                um2 = U.get_value(k, w - np.array([0., 0., h2]))
+                d0 = (up0 - um0) / h
+                d1 = (up1 - um1) / h
+                d2 = (up2 - um2) / h
+                self.assertTrue(TEST.is_array_equal([d0, d1, d2], g, dec=6))
 
 
