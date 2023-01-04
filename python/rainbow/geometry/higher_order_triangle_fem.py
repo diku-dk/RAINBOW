@@ -636,3 +636,13 @@ def make_field_from_array(mesh: TriangleMesh, values: np.ndarray, copy=True) -> 
     return field
 
 
+class ChangeOfVariables:
+
+    def compute_j(self, w):
+        """
+        To transform from some spatial field (dx) into the iso-parametric space (dw) we need to compute the absolute
+        value of the determinant of the Jacobian, dx = j dw
+
+        :return:   The value of j at position w
+        """
+    def compute_spatial_gradient(self, w, ):
