@@ -636,13 +636,65 @@ def make_field_from_array(mesh: TriangleMesh, values: np.ndarray, copy=True) -> 
     return field
 
 
-class ChangeOfVariables:
+class IntegralTerm:
 
-    def compute_j(self, w):
-        """
-        To transform from some spatial field (dx) into the iso-parametric space (dw) we need to compute the absolute
-        value of the determinant of the Jacobian, dx = j dw
+    # \int_{x \in \Omega} f(x) dx
+    #domain Omega
+    #differential (dx)
+    #integrand (f)
 
-        :return:   The value of j at position w
+
+
+
+
+class Integrator:
+
+    def integrate(self, mesh, term):
         """
-    def compute_spatial_gradient(self, w, ):
+
+        :param mesh:
+        :param term:
+        :return:
+        """
+        # This method will integrate an integral term for each element of mesh and store results as an array of
+        # element-wise integration results. The integral term consist of an integrand function f defined on some
+        # spatial domain \Omega. For now, we write this abstractly as
+        #
+        #    \int_{x \ in  \Omega} f(x) dx
+        #
+        # We make the observation that quadrature points are stored in iso-parametric space and input integrals
+        # will often be defined in some spatial space different from the iso-parametric space.
+        #
+        # We can get quadrature weights W_k and quadrature points w_k from quadpy, so we do not have to derive
+        # these ourselves. We can just assume these are given to us.
+        #
+        # Quadrature schemes are derived in the iso-parametric space, \Omega_0, that means we have,
+        #
+        #    \int_{\Omega_0} f(w) dw  \approx sum_k W_k f(w_k)
+        #
+        # We need to do a change of variables to the spatial space, \Omega, which the "input" integral is
+        # defined on
+        #
+        #    \int_{x \ in  \Omega} f(x) dx
+        #
+        # From the finite element method we have x(w) = sum \phi_i(w) x_i and we have d\vec{x} = J d\vec{w} where J is the
+        # Jacobian matrix and d\vec{w} and d\vec{x} are some differential vectors. From this we can apply
+        # the change of variables theorem and obtain,
+        #
+        #    \int_{\Omega_0} f(x(w)) j(w) dw  \approx sum_k W_k f(w_k) j(w_k)
+        #
+        # where j(w) = abs(det(J(w)))
+        #
+        #
+
+
+
+
+
+class Assembly:
+
+    def assemble_vector(self, mesh, be):
+        # Take an array of element-wise vector results and assemble them into one global vector
+
+    def assemble_matrix(self, mesh. Ae):
+        # Take an array of element-wise matrix results and assemble them into one global matrix
