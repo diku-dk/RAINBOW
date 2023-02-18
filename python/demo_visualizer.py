@@ -12,16 +12,16 @@ import rainbow.math.vector3 as V3
 def show_simple_setup():
     skeleton = IK.create_skeleton()
     B0 = IK.create_root(skeleton, alpha=IK.degrees_to_radians(10), beta=IK.degrees_to_radians(10), gamma=IK.degrees_to_radians(10), tx=1.0, ty=0.0, tz=0.0)
-    B1 = IK.add_bone(skeleton, parent_idx=B0.idx, alpha=IK.degrees_to_radians(20), beta=IK.degrees_to_radians(40), gamma=IK.degrees_to_radians(10), tx=1.0, ty=0.0, tz=0.0)
-    B2 = IK.add_bone(skeleton, parent_idx=B1.idx, alpha=IK.degrees_to_radians(30), beta=IK.degrees_to_radians(10), gamma=IK.degrees_to_radians(60), tx=1.0, ty=0.0, tz=0.0)
+    B1 = IK.add_bone(skeleton, parent_idx=B0.idx, alpha=IK.degrees_to_radians(20), beta=IK.degrees_to_radians(10), gamma=IK.degrees_to_radians(10), tx=1.0, ty=0.0, tz=0.0)
+    B2 = IK.add_bone(skeleton, parent_idx=B1.idx, alpha=IK.degrees_to_radians(30), beta=IK.degrees_to_radians(10), gamma=IK.degrees_to_radians(10), tx=1.0, ty=0.0, tz=0.0)
     B3 = IK.add_bone(skeleton, parent_idx=B2.idx, alpha=IK.degrees_to_radians(40), beta=IK.degrees_to_radians(10), gamma=IK.degrees_to_radians(10), tx=1.0, ty=0.0, tz=0.0)
     IK.update_skeleton(skeleton)
     chains = IK.make_chains(skeleton)
 #    print(B1)
 #    print(skeleton)
-#    print(chains[0])
+    print(chains[0])
     S = GP.GraphicsComponent()
-    S.generateSkeletonMesh(skeleton)
+    S.generateSkeletonMesh(skeleton, chains)
     S.visualize()
 
 if __name__ == '__main__':
