@@ -3,15 +3,16 @@ import polyscope as ps
 import polyscope.imgui as psim
 import igl
 import os
+import math
 
 import rainbow.simulators.inverse_kinematics.api as IK
 import rainbow.math.vector3 as V3
+
 
 from math import *
 
 class GraphicsComponent:
     #Private:
-    boneLen = []
     boneIdx = []
     bonePosition = []
     boneQuaternion = []
@@ -23,11 +24,17 @@ class GraphicsComponent:
     m_pointCloud = None
 
     def updateMeshes(self):
+        """
+        The user have called an update to the IK-skeleton. Update the meshes 
+        """
         self.m_pointCloud.update_point_positions(np.array(self.bonePosition))
-        #A better method is needed:
+        #A better method is probably needed. Right now every time the skeleton
+        # is updated, the previous volumes are simply deleted and the meshes are
+        # removed. It would be better to be able to move the mesh, but I have not
+        # been able to find a method to rotate meshes:
         volumes = []
-        for i in range(len(self.boneIdx)):
-            verts, cells = self.createBoneMesh(self.bonePosition[i], self.boneLen[i], self.boneQuaternion[i])
+        for i in range(len(self.boneIdx)-1):
+            verts, cells = self.createBoneMesh(self.bonePosition[i], self.bonePosition[i+1], self.boneQuaternion[i])
             
             #CANT USE: VolumeMesh.update_vertex_positions(newPos)   
             #Temporary (permanent?) hack until I can figure out how to apply rotation to a mesh:
@@ -38,6 +45,10 @@ class GraphicsComponent:
                              material='ceramic', transparency=0.8))
     
     def callback(self):
+        """
+        A callback-function which is called once every frame. Used to handle logic
+        when something is shown on screen.
+        """
         shouldUpdateSkeleton = self.m_callback.update()   
         if shouldUpdateSkeleton:
             if (len(self.boneIdx) != len(self.bonePosition) or len(self.boneIdx) != len(self.boneEulerRot)):
@@ -62,7 +73,7 @@ class GraphicsComponent:
 
     def positionMesh(self, vertices, offset):
         """
-        Give a mesh (vertices), move the object with an offset.
+        Given a mesh (vertices), move the object with an offset.
 
         :param vertices:       The vertices of a bone mesh.
         :param offset:         The position a mesh should be placed at.
@@ -104,17 +115,19 @@ class GraphicsComponent:
             vertices[i] = vertices[i] * -1 * np.transpose(R_mat)
         return vertices
         
-    def createBoneMesh(self, pos, boneLength, quaternion):
+    def createBoneMesh(self, pos, boneEndPos, quaternion):
         """
         Create the vertices for a bone mesh at the desired position. 
 
         :param pos:            A 3D-vector position stored as a numpy array.
         :param quaternion:     The quaternion representing the rotation of the bone.
-        :param boneLength:     The length of a bone.
+        :param boneStartPos:   The start position of a bone.
+        :param boneEndPos:     The end position of a bone.
 
         :return:               The position of the vertices and the corresponding cells.
         """
-        dist = boneLength[0]
+
+        dist = math.dist(pos, boneEndPos) 
         extend = 0.075
         vertices = np.array([
             [0, -extend, -extend],
@@ -137,11 +150,12 @@ class GraphicsComponent:
         return (vertices, cells)
     
     def constructBoneMeshes(self):
+        """
+        Given some bones, construct and register the actual mesh of the bones
+        """
         bones_amnt = len(self.boneIdx)
-        for i in range(bones_amnt):
-            verts, cells = self.createBoneMesh(self.bonePosition[i], self.boneLen[i], self.boneQuaternion[i])
-#                verts, cells = self.createBoneMesh(self.rotateMeshQ(np.array([self.bonePosition[i]]), self.boneQuaternion[i])[0], self.boneLen[i], self.boneQuaternion[i])
-#                verts, cells = self.createBoneMesh(self.rotateMeshQ(np.array([self.bonePosition[i]]), self.boneQuaternion[i])[0], self.boneQuaternion[i])
+        for i in range(bones_amnt-1):
+            verts, cells = self.createBoneMesh(self.bonePosition[i], self.bonePosition[i+1], self.boneQuaternion[i])
             self.volumes.append(ps.register_volume_mesh(("Bone_" + str(self.boneIdx[i])), verts, mixed_cells=cells, enabled=True, 
                              color=(0.3, 0.6, 0.8), interior_color=(0.4, 0.7, 0.9),
                              edge_color=((0.3, 0.8, 0.3)), edge_width=1.0, 
@@ -149,16 +163,13 @@ class GraphicsComponent:
     
     def generateSkeletonMesh(self, skeleton, chains):
         """
-        Given a skeleton, use store the position and oritation of the contained bones
+        Given a skeleton, store the position and oritation of the contained bones
 
         :param skeleton:       A skeleton class defined consisting of bones.
         """
-#        if not (skeleton.has_bone()):
-#            raise ValueError("Error when creating a skeleton mesh - a minimum of one bone is required.")
-        #If this is called again, it means simply deleting the old data:
+        #If this function is called multiple times, it means deleting the old data:
         self.bonePosition = []
         self.boneQuaternion = []
-        self.boneLen = []
         self.boneIdx = []
         self.boneEulerRot = []
         self.m_skeleton = skeleton
@@ -167,7 +178,6 @@ class GraphicsComponent:
         for i in skeleton.bones:
             self.bonePosition.append(i.t_wcs)
             self.boneQuaternion.append(i.q_wcs)
-            self.boneLen.append(i.t)
             self.boneIdx.append(i.idx)
             self.boneEulerRot.append(np.array([i.alpha, i.beta, i.gamma]))
             print("Q_WCS[i]: " + str(i.t_wcs))
@@ -214,10 +224,11 @@ class CallbackHandler:
     #Private
     m_animComponent = None
     m_ikBoneNameRef = []
-    m_ikBoneRotationRef = []
+    m_ikBoneRotationDegRef = []
     m_ikBonePosRef = []
     m_ikBoneName = []
     m_ikBoneRotation = []
+    m_ikBoneRotationDeg = []
     m_ikBonePos = []
     def __init__(self):
         self.m_animComponent = AnimationComponent()
@@ -235,27 +246,40 @@ class CallbackHandler:
         """
         self.m_ikBoneName = boneName
         self.m_ikBoneRotation = boneRot
+        for i in self.m_ikBoneRotation:
+            self.m_ikBoneRotationDeg.append(np.array([IK.radians_to_degrees(i[0]), IK.radians_to_degrees(i[1]), IK.radians_to_degrees(i[2])]))
         self.m_ikBonePos = bonePos
-        self.m_ikBoneNameRef = boneName
-        self.m_ikBoneRotationRef = boneRot
-        self.m_ikBonePosRef = bonePos
+#        self.m_ikBoneNameRef = boneName
+#        self.m_ikBoneRotationRef = [np.array([0.5, 0.5, 0.5])]
+#        self.m_ikBonePosRef = [np.array([0.5, 0.5, 0.5])]
+        self.m_ikBoneNameRef = boneName.copy()
+        self.m_ikBoneRotationDegRef = (self.m_ikBoneRotationDeg).copy()
+        self.m_ikBonePosRef = bonePos.copy()
     
+    def updateRotationRad(self):
+        for i in range(len(self.m_ikBoneRotationDeg)):
+            self.m_ikBoneRotation[i][0] = IK.degrees_to_radians(self.m_ikBoneRotationDeg[i][0])
+            self.m_ikBoneRotation[i][1] = IK.degrees_to_radians(self.m_ikBoneRotationDeg[i][1])
+            self.m_ikBoneRotation[i][2] = IK.degrees_to_radians(self.m_ikBoneRotationDeg[i][2])
+             
     def getBonesInfo(self):
         """
         Retrieve all info of all IK bones.
 
         :return:               Return the name, position and rotation of the bone 
         """
-        print(self.m_ikBoneName)
+        self.updateRotationRad()
         return (self.m_ikBoneName, self.m_ikBoneRotation, self.m_ikBonePos)
     
     def resetBones(self):
-        print(self.m_ikBonePosRef)
-        self.m_ikBoneName = self.m_ikBoneNameRef
-        self.m_ikBoneRotation = self.m_ikBoneRotationRef
-        self.m_ikBonePos = self.m_ikBonePosRef
+        self.updateRotationRad()
+        self.m_ikBoneName = (self.m_ikBoneNameRef).copy()
+        self.m_ikBoneRotationDeg = (self.m_ikBoneRotationDegRef).copy()
+        self.m_ikBonePos = (self.m_ikBonePosRef).copy()
         
     def update(self):
+        #print(IK.radians_to_degrees(1))
+        print(self.m_ikBonePosRef)
         """
         This function is used to display the IK options panel, where the user
         can apply multiple functionality to a skeleton.
@@ -299,7 +323,7 @@ class CallbackHandler:
                 psim.TextUnformatted("Transform for IK Bones")
                 edited, self.m_ikBonePos[i] = psim.InputFloat3("Bone position", self.m_ikBonePos[i])
                 
-                edited, self.m_ikBoneRotation[i] = psim.InputFloat3("Bone rotation", self.m_ikBoneRotation[i])
+                edited, self.m_ikBoneRotationDeg[i] = psim.InputFloat3("Bone rotation", self.m_ikBoneRotationDeg[i])
                 psim.TreePop()
                 psim.PopItemWidth()
         psim.PopItemWidth()
