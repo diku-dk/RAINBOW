@@ -25,33 +25,11 @@ class GraphicsComponent:
     
     m_ignoreBoneIdx = None
 
-    def updateMeshes(self):
+    def updatePointCloud(self):
         """
-        The user have called an update to the IK-skeleton. Update the meshes 
+        The user have called an update to the IK-skeleton. Update the points 
         """
         self.m_pointCloud.update_point_positions(np.array(self.bonePosition))
-        #A better method is probably needed. Right now every time the skeleton
-        # is updated, the previous volumes are simply deleted and the meshes are
-        # removed. It would be better to be able to move the mesh, but I have not
-        # been able to find a method to rotate meshes:
-#        volumes = []
-        #print(len(self.volumes))
-        #print(self.volumes)
-        #print(len(self.bonePosition))
-#        self.m_ignoreBoneIdx = self.m_callback.getIgnoreTransformBone()
-#        for i in range(len(self.volumes)):
-#            verts, cells = self.createBoneMesh(self.bonePosition[i], self.bonePosition[i+1], self.boneQuaternion[i])
-            
-            #CANT USE: VolumeMesh.update_vertex_positions(newPos)   
-            #Temporary (permanent?) hack until I can figure out how to apply rotation to a mesh:
-#            ps.remove_volume_mesh("Bone_" + str(self.boneIdx[i]))
-#            vol = ps.register_volume_mesh(("Bone_" + str(self.boneIdx[i])), verts, mixed_cells=cells, enabled=True, 
-#                             color=(0.3, 0.6, 0.8), interior_color=(0.4, 0.7, 0.9),
-#                             edge_color=((0.3, 0.8, 0.3)), edge_width=1.0, 
-#                             material='ceramic', transparency=0.8)
-#            self.volumes.append(vol)
-#            if self.m_ignoreBoneIdx is not None and self.m_ignoreBoneIdx != self.boneIdx[i]:
-#                self.transformBoneMesh(self.volumes[i], self.bonePosition[i], self.bonePosition[i], self.boneQuaternion[i])
     
     def callback(self):
         """
@@ -70,61 +48,12 @@ class GraphicsComponent:
                 bone = self.m_skeleton.bones[self.boneIdx[i]]
                 bone.idx = boneIdxs[i]
                 bone.t = V3.make(bonePos[i][0], bonePos[i][1], bonePos[i][2])
-                #To allow for smooth movement of gizmo, we need to retrieve the transform instead of the stored position for ik bones.'
-                
                 bone.alpha = boneRot[i][0]
                 bone.beta = boneRot[i][1]
                 bone.gamma = boneRot[i][2]
             IK.update_skeleton(self.m_skeleton)
             self.generateSkeletonMesh(self.m_skeleton, self.m_chains)
-            self.updateMeshes()
-            
-            
-            
-
-    def positionMesh(self, vertices, offset):
-        """
-        Given a mesh (vertices), move the object with an offset.
-
-        :param vertices:       The vertices of a bone mesh.
-        :param offset:         The position a mesh should be placed at.
-        
-        :return:               The new position of the vertices.
-        """
-        for i in range(vertices.shape[0]):
-            vertices[i][0] += offset[0]
-            vertices[i][1] += offset[1]
-            vertices[i][2] += offset[2]
-        return vertices
-        
-    def rotateMeshQ(self, vertices, quaternion):
-        """
-        DEPRECATED: Given a quaternion, rotate all vertices applying a rotation matrix 
-        quaternion.
-
-        :param vertices:       The vertices of a bone mesh.
-        :param quaternion:     The quaternion, stored as a 4D-vector in the form WXYZ.
-        
-        :return:               The rotated mesh vertices.
-        """
-        #Assuming Q_wcs is on the form WXYZ
-        qr = quaternion[0]
-        qi = quaternion[1]
-        qj = quaternion[2]
-        qk = quaternion[3]
-        quaternion = 1/np.linalg.norm(quaternion) 
-        s = 1.0
-        
-        """https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Quaternion-derived_rotation_matrix"""
-        R_mat = np.matrix([
-            [1.0 - 2.0*s*(qj*qj + qk*qk), 2.0*s*(qi*qj - qk*qr), 2.0*s*(qi*qk + qj*qr)],
-            [2.0*s*(qi*qj + qk*qr), 1.0 - 2.0*s*(qi*qi + qk*qk), 2.0*s*(qj*qk - qi*qr)],
-            [2.0*s*(qi*qk - qj*qr), 2.0*s*(qj*qk + qi*qr), 1.0 - 2.0*s*(qi*qi + qj*qj)]
-        ])
-        
-        for i in range(vertices.shape[0]):
-            vertices[i] = vertices[i] * -1 * np.transpose(R_mat)
-        return vertices
+            self.updatePointCloud()
 
     def convertQuaternionToRotMat(self, quaternion):
         """
@@ -175,9 +104,6 @@ class GraphicsComponent:
             [-dist, extend, -extend]
         ])
 
-        # Position mesh
-#        vertices = self.rotateMeshQ(vertices, quaternion)
-#        vertices = self.positionMesh(vertices, pos)
         cells = np.array([
           [0, 1, 2, 3, 4, 5, 6, 7],
         ])
@@ -197,7 +123,6 @@ class GraphicsComponent:
         :return:               The updated volume.
         """
         rotMat = -1*self.convertQuaternionToRotMat(quaternion)
- #       rotMat = -1*np.transpose(rotMat)
         transform = np.matrix([[rotMat[0, 0], rotMat[0, 1], rotMat[0, 2], boneStartPos[0]],
                                [rotMat[1, 0], rotMat[1, 1], rotMat[1, 2], boneStartPos[1]],
                                [rotMat[2, 0], rotMat[2, 1], rotMat[2, 2], boneStartPos[2]],
@@ -243,7 +168,6 @@ class GraphicsComponent:
             self.boneQuaternion.append(i.q_wcs)
             self.boneIdx.append(i.idx)
             self.boneEulerRot.append(np.array([i.alpha, i.beta, i.gamma]))
-            print("Q_WCS[i]: " + str(i.t_wcs))
         self.constructBoneMeshes()
     
     def createSkeletonJoints(self):
@@ -267,7 +191,7 @@ class GraphicsComponent:
         #TODO: Make better system for IK bones
         self.m_callback.initIKBones([self.boneIdx[0]], [self.boneEulerRot[0]], [self.bonePosition[0]])
         ps.set_user_callback(self.callback)
-#        ps.set_user_callback(self.updaterUI)
+
         
         self.createSkeletonJoints()
 #        print(os.path.dirname(os.getcwd()) + "/data/buddha.obj")
@@ -294,7 +218,8 @@ class CallbackHandler:
     m_ikBoneRotationDeg = []
     m_ikBonePos = []
 
-    m_oldVolumePos = []
+    m_oldVolumeTransform = []
+    m_volumeTransform = []
     m_volumePos = []
     
     m_ignoreTransformBone = None
@@ -318,9 +243,7 @@ class CallbackHandler:
         for i in self.m_ikBoneRotation:
             self.m_ikBoneRotationDeg.append(np.array([IK.radians_to_degrees(i[0]), IK.radians_to_degrees(i[1]), IK.radians_to_degrees(i[2])]))
         self.m_ikBonePos = bonePos
-#        self.m_ikBoneNameRef = boneName
-#        self.m_ikBoneRotationRef = [np.array([0.5, 0.5, 0.5])]
-#        self.m_ikBonePosRef = [np.array([0.5, 0.5, 0.5])]
+
         self.m_ikBoneNameRef = boneName.copy()
         self.m_ikBoneRotationDegRef = (self.m_ikBoneRotationDeg).copy()
         self.m_ikBonePosRef = bonePos.copy()
@@ -359,22 +282,23 @@ class CallbackHandler:
         """
         return (abs(a-b) > 0.000001)
     
-    def isVectorsEqual(self, v1, v2):
+    def isTransformEqual(self, v1, v2):
         """
-        Compare two floats to see if they are almost the same or the same.
+        Compare two transform matrices to see if they are almost equal.
 
-        :param v1:             First vector
-        :param v2:             Second vector        
+        :param v1:             First transform
+        :param v2:             Second transform      
         
-        :return:               A boolean with 1 indicating the two vectors are 
+        :return:               A boolean with 1 indicating the two transforms are 
                                the same and 0 means they are not the same.
         """
-        v1Len = v1.size
-        if v1Len != v2.size:
-            raise ValueError("Dimensions of arrays does not align.")
+        v1Len = v1.shape
+        if v1Len != v2.shape:
+            raise ValueError("Dimensions of transforms does not align.")
         boolAcc = 0
-        for i in range(v1Len):
-            boolAcc += self.compareFloats(v1[i], v2[i])
+        for i in range(v1.shape[0]):
+            for j in range(v1.shape[1]):
+                boolAcc += self.compareFloats(v1[i, j], v2[i, j])
         if (boolAcc != 0):
             return 0
         return 1
@@ -385,13 +309,13 @@ class CallbackHandler:
         happen if either the bone is moved from the UI Panel or if the gizmo 
         transform the bone.
         
-        :param v1:             The vector_1 of rotation/position.
-        :param v2:             The vector_2 of rotation/position.
+        :param v1:             The mat4x4 of rotation/position.
+        :param v2:             The mat4x4 of rotation/position.
 
         :return:               0/false if there has not been a change, 1/true if
                                there has been a change.  
         """
-        if (not self.isVectorsEqual(v1, v2)):
+        if (not self.isTransformEqual(v1, v2)):
             return True
         return False
     
@@ -407,6 +331,36 @@ class CallbackHandler:
         """ 
         return self.m_ignoreTransformBone
         
+    def extractRotationFromTransform(self, rotMat):
+        """
+        Convert a 4x4 translation matrix to ZYZ euler angles.
+        
+        :param rotMat:         The transformation rotation matrix.
+
+        :return:               ZYZ-angles as a three seperate rotations.
+        """
+        rotMat = rotMat*-1
+        transform = np.matrix([[rotMat[0, 0], rotMat[0, 1], rotMat[0, 2]],
+                               [rotMat[1, 0], rotMat[1, 1], rotMat[1, 2]],
+                               [rotMat[2, 0], rotMat[2, 1], rotMat[2, 2]]])
+        thetaY = 0.0
+        thetaZ0 = 0.0
+        thetaZ1 = 0.0
+        if (transform[2, 2] < 1.0):
+            if (transform[2, 2] > -1.0):
+                thetaY = math.acos(transform[2, 2])
+                thetaZ0 = math.atan2(transform[1, 2], transform[0, 2])
+                thetaZ1 = math.atan2(transform[2, 1], -transform[2, 0])
+            else:
+                thetaY = math.pi
+                thetaZ0 = math.atan2(transform[1, 0], transform[1, 1])
+                thetaZ1 = 0.0
+        else:
+            thetaY = 0.0
+            thetaZ0 = math.atan2(transform[1, 0], transform[1, 1])
+            thetaZ1 = 0.0
+        
+        return (thetaZ0, thetaY, thetaZ1)
         
     def update(self):
         """
@@ -426,13 +380,12 @@ class CallbackHandler:
         psim.TextUnformatted("Options for IK bone")
         psim.Separator()
         psim.PopItemWidth()
-        # == Buttons
 
 
         if(psim.Button("Solve IK")):
             # This is reached once when the button is pressed
             print("Solving IK...")
-            # Annoying hack
+            # Annoying hack to allow for the gizmo to function properly
             self.m_ignoreTransformBone = None 
             return True
 
@@ -457,36 +410,37 @@ class CallbackHandler:
                 
                 edited, self.m_ikBoneRotationDeg[i] = psim.InputFloat3("Bone rotation", self.m_ikBoneRotationDeg[i])
        
-       
                 #Check for any change in the bone structure.
-#                print(ps.get_volume_mesh("Bone_" + str(self.m_ikBoneName[i])).get_position())
-#                print("AND")
-#                print(np.array(self.m_ikBonePos[i]))
-                volumePos = ps.get_volume_mesh("Bone_" + str(self.m_ikBoneName[i])).get_position()
-                self.m_volumePos.append(volumePos)
+                volume = ps.get_volume_mesh("Bone_" + str(self.m_ikBoneName[i]))
+                self.m_volumeTransform.append(volume.get_transform())
+                self.m_volumePos.append(volume.get_position())
                 
                 psim.TreePop()
                 psim.PopItemWidth()
         psim.PopItemWidth()
         
-        
-        
         #Kind of a hack, but is needed to allow for smoothly moving the bones with a gizmo:
         hasTransformed = 0
-        if (self.m_volumePos != [] and self.m_oldVolumePos != []):
-            for i in range(len(self.m_volumePos)):
-                hasTransformed += self.checkBoneTransform(self.m_oldVolumePos[i], self.m_volumePos[i])
+        if (self.m_volumeTransform != [] and self.m_oldVolumeTransform != []):
+            for i in range(len(self.m_volumeTransform)):
+                hasTransformed += self.checkBoneTransform(self.m_oldVolumeTransform[i], self.m_volumeTransform[i])
 
                 if (hasTransformed != 0):
                     self.m_ignoreTransformBone = self.m_ikBoneName[i]
-                    self.m_ikBonePos[i] = [volumePos[0], volumePos[1], volumePos[2]]
+                    self.m_ikBonePos[i] = [self.m_volumeTransform[i][0, 3], self.m_volumeTransform[i][1, 3], self.m_volumeTransform[i][2, 3]]
+                    """https://www.geometrictools.com/Documentation/EulerAngles.pdf"""
+                    ZYZ = self.extractRotationFromTransform(ps.get_volume_mesh("Bone_" + str(self.m_ikBoneName[i])).get_transform())
+
+                    self.m_ikBoneRotationDeg[i] = [IK.radians_to_degrees(ZYZ[0]), IK.radians_to_degrees(ZYZ[1]), IK.radians_to_degrees(ZYZ[2])]
+                    self.m_ikBoneRotation[i] = [ZYZ[0], ZYZ[1], ZYZ[2]].copy()
+                    
         
-        self.m_oldVolumePos = self.m_volumePos.copy()
+        self.m_oldVolumeTransform = self.m_volumeTransform.copy()
+        self.m_volumeTransform = []
         self.m_volumePos = []
         
         if (hasTransformed != 0):
             return True
-            print("HELLO")  
         else:
             self.m_ignoreTransformBone = None 
         
