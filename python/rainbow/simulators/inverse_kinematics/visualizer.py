@@ -24,12 +24,22 @@ class GraphicsComponent:
     m_pointCloud = None
     
     m_ignoreBoneIdx = None
-
+    
+    def __init__(self):
+#        verts, cells = self.createBoneMesh(np.array([0.0, 0.0, 0.0]), np.array([2, 0, 0]))
+        verts, faces = self.generate_cone_vertices(1, 2, 0.5, 1)
+        ps.register_surface_mesh(("dummy"), verts, faces, enabled=True, color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), smooth_shade=True, edge_width=0.0, material='ceramic')
+                                 
     def updatePointCloud(self):
         """
         The user have called an update to the IK-skeleton. Update the points 
         """
+##        self.m_pointCloud.update_point_positions(np.array(self.bonePosition[1:]))
         self.m_pointCloud.update_point_positions(np.array(self.bonePosition))
+        verts, cells = self.createBoneMesh(np.array([0, 0, 0]), self.bonePosition[0])
+        ps.register_surface_mesh(("SECONDBONE"), verts, cells, enabled=True, 
+                  color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), 
+                  smooth_shade=True, edge_width=0.0, material='ceramic')
     
     def callback(self):
         """
@@ -79,6 +89,72 @@ class GraphicsComponent:
         ])
         
         return R_mat
+
+    def generate_cone_vertices_single_point(self, radius, height, segments):
+        """
+        DEPRECATED: Based on a radius and a single point.
+
+        :param radius:         The bottom radius of the cone.
+        :param height:         The height of the cone.
+        :param segments:       The amount of faces in a cone.
+        
+        :return:               The vertices and indices of vertices forming 
+                               triangles, forming a cone.
+        """
+        vertices = [np.array([-height, 0.0, 0.0])]
+        tris = []
+        steps = 2 * math.pi / segments
+        for i in range(segments):
+            step = i * steps
+            vert = np.array([0, radius * math.cos(step), radius * math.sin(step)])
+            vert = np.array([height, radius * math.cos(step), radius * math.sin(step)])
+            vertices.append(vert)
+            if i != segments-1:
+                tris.append(np.array([i, 0, i+1]))
+            else:
+                tris.append(np.array([i, 0, 1]))
+#                tris.append(np.array([i, 0, i]))
+
+    def generate_cone_vertices(self, radius, topRadius, height, segments):
+        """
+        Based on the radius of the bottom and top of the cylinder-cone.
+
+        :param radius:         The radius of the bottom of the cone.
+        :param topRadius:      The radius of the top cone.
+        :param height:         The height of the cone.
+        :param segments:       The amount of faces in a cone.
+        
+        :return:               The vertices and indices of vertices forming 
+                               triangles, forming a cone.
+        """
+        vertices = [np.array([-height, 0.0, 0.0])]
+        tris = []
+        steps = 2 * math.pi / segments
+        for i in range(segments):
+            step = i * steps
+            vert = np.array([0, radius * math.cos(step), radius * math.sin(step)])
+            vertices.append(vert)
+            
+        steps = 2 * math.pi / segments
+        for i in range(segments):
+            step = i * steps
+            vert = np.array([-height, topRadius * math.cos(step), topRadius * math.sin(step)])
+            vertices.append(vert)
+        
+        for i in range(segments):
+            if i != segments-1:
+                tris.append(np.array([i+1, i, i+segments]))
+                tris.append(np.array([i+1, i+segments, i+segments+1]))
+            else:
+                tris.append(np.array([i, i+segments, 1]))
+                tris.append(np.array([i+segments, segments+1, 1]))
+#                tris.append(np.array([i, 0, i]))
+
+        return np.array(vertices), np.array(tris)
+
+        print(tris)
+                
+        return np.array(vertices), np.array(tris)
         
     def createBoneMesh(self, boneStartPos, boneEndPos):
         """
@@ -107,8 +183,10 @@ class GraphicsComponent:
         cells = np.array([
           [0, 1, 2, 3, 4, 5, 6, 7],
         ])
+        
+        return self.generate_cone_vertices(0.25, 0.075, dist, 32)
 
-        return (vertices, cells)
+        #return (vertices, cells)
     
     def transformBoneMesh(self, meshVolume, boneStartPos, boneEndPos, quaternion):
         """
@@ -127,9 +205,8 @@ class GraphicsComponent:
                                [rotMat[1, 0], rotMat[1, 1], rotMat[1, 2], boneStartPos[1]],
                                [rotMat[2, 0], rotMat[2, 1], rotMat[2, 2], boneStartPos[2]],
                                [0.0, 0.0, 0.0, 1.0]])
-        
         meshVolume.set_transform(transform)
-    
+ 
     def constructBoneMeshes(self):
         """
         Given some bones, construct and register the actual mesh of the bones
@@ -138,10 +215,9 @@ class GraphicsComponent:
         if (self.volumes == []):
             for i in range(bones_amnt-1):
                 verts, cells = self.createBoneMesh(self.bonePosition[i], self.bonePosition[i+1])
-                vol = ps.register_volume_mesh(("Bone_" + str(self.boneIdx[i])), verts, mixed_cells=cells, enabled=True, 
-                                 color=(0.3, 0.6, 0.8), interior_color=(0.4, 0.7, 0.9),
-                                 edge_color=((0.3, 0.8, 0.3)), edge_width=1.0, 
-                                 material='ceramic', transparency=0.8)
+                vol = ps.register_surface_mesh(("Bone_" + str(self.boneIdx[i])), verts, cells, enabled=True, 
+                          color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), 
+                          smooth_shade=True, edge_width=0.0, material='ceramic')
                 self.transformBoneMesh(vol, self.bonePosition[i], self.bonePosition[i+1], self.boneQuaternion[i])
                 self.volumes.append(vol)
         else:
@@ -179,6 +255,14 @@ class GraphicsComponent:
                                              radius=0.035, enabled=True, 
                                              color=(0.3, 0.6, 0.3),
                                              material='ceramic', transparency=0.9)
+        """
+        Create bone going from 0, 0, 0 in WCS to the root bone:
+        """
+        verts, cells = self.createBoneMesh(np.array([0, 0, 0]), self.bonePosition[0])
+        ps.register_surface_mesh(("FIRSTBONE"), verts, cells, enabled=True, 
+                  color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), 
+                  smooth_shade=True, edge_width=0.0, material='ceramic')
+        
         
     def visualize(self):
         """
@@ -411,7 +495,7 @@ class CallbackHandler:
                 edited, self.m_ikBoneRotationDeg[i] = psim.InputFloat3("Bone rotation", self.m_ikBoneRotationDeg[i])
        
                 #Check for any change in the bone structure.
-                volume = ps.get_volume_mesh("Bone_" + str(self.m_ikBoneName[i]))
+                volume = ps.get_surface_mesh("Bone_" + str(self.m_ikBoneName[i]))
                 self.m_volumeTransform.append(volume.get_transform())
                 self.m_volumePos.append(volume.get_position())
                 
@@ -429,7 +513,7 @@ class CallbackHandler:
                     self.m_ignoreTransformBone = self.m_ikBoneName[i]
                     self.m_ikBonePos[i] = [self.m_volumeTransform[i][0, 3], self.m_volumeTransform[i][1, 3], self.m_volumeTransform[i][2, 3]]
                     """https://www.geometrictools.com/Documentation/EulerAngles.pdf"""
-                    ZYZ = self.extractRotationFromTransform(ps.get_volume_mesh("Bone_" + str(self.m_ikBoneName[i])).get_transform())
+                    ZYZ = self.extractRotationFromTransform(ps.get_surface_mesh("Bone_" + str(self.m_ikBoneName[i])).get_transform())
 
                     self.m_ikBoneRotationDeg[i] = [IK.radians_to_degrees(ZYZ[0]), IK.radians_to_degrees(ZYZ[1]), IK.radians_to_degrees(ZYZ[2])]
                     self.m_ikBoneRotation[i] = [ZYZ[0], ZYZ[1], ZYZ[2]].copy()
