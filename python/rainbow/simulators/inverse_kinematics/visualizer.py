@@ -40,12 +40,15 @@ class GraphicsComponent:
         ps.register_surface_mesh(("SECONDBONE"), verts, cells, enabled=True, 
                   color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), 
                   smooth_shade=True, edge_width=0.0, material='ceramic')
+
+        
     
     def callback(self):
         """
         A callback-function which is called once every frame. Used to handle logic
         when something is shown on screen.
         """
+#        IK.update_skeleton(self.m_skeleton)
         shouldUpdateSkeleton = self.m_callback.update()   
         if shouldUpdateSkeleton:
             self.m_ignoreBoneIdx = self.m_callback.getIgnoreTransformBone()
@@ -62,6 +65,8 @@ class GraphicsComponent:
                 bone.beta = boneRot[i][1]
                 bone.gamma = boneRot[i][2]
             IK.update_skeleton(self.m_skeleton)
+            print(len(self.m_skeleton.bones))
+            IK.solve(self.m_chains, self.m_skeleton)
             self.generateSkeletonMesh(self.m_skeleton, self.m_chains)
             self.updatePointCloud()
 
@@ -127,7 +132,7 @@ class GraphicsComponent:
         :return:               The vertices and indices of vertices forming 
                                triangles, forming a cone.
         """
-        vertices = [np.array([-height, 0.0, 0.0])]
+        vertices = [np.array([height, 0.0, 0.0])]
         tris = []
         steps = 2 * math.pi / segments
         for i in range(segments):
@@ -138,7 +143,7 @@ class GraphicsComponent:
         steps = 2 * math.pi / segments
         for i in range(segments):
             step = i * steps
-            vert = np.array([-height, topRadius * math.cos(step), topRadius * math.sin(step)])
+            vert = np.array([height, topRadius * math.cos(step), topRadius * math.sin(step)])
             vertices.append(vert)
         
         for i in range(segments):
@@ -200,7 +205,7 @@ class GraphicsComponent:
         
         :return:               The updated volume.
         """
-        rotMat = -1*self.convertQuaternionToRotMat(quaternion)
+        rotMat = self.convertQuaternionToRotMat(quaternion)
         transform = np.matrix([[rotMat[0, 0], rotMat[0, 1], rotMat[0, 2], boneStartPos[0]],
                                [rotMat[1, 0], rotMat[1, 1], rotMat[1, 2], boneStartPos[1]],
                                [rotMat[2, 0], rotMat[2, 1], rotMat[2, 2], boneStartPos[2]],
@@ -253,6 +258,11 @@ class GraphicsComponent:
         self.m_pointCloud = ps.register_point_cloud("Debug_Joints", 
                                              np.array(self.bonePosition), 
                                              radius=0.035, enabled=True, 
+                                             color=(0.3, 0.6, 0.3),
+                                             material='ceramic', transparency=0.9)
+        ps.register_point_cloud("Test", 
+                                             np.array(np.array([self.m_chains[0].goal])), 
+                                             radius=0.35, enabled=True, 
                                              color=(0.3, 0.6, 0.3),
                                              material='ceramic', transparency=0.9)
         """

@@ -553,3 +553,18 @@ def compute_finite_difference_hessian(chains, skeleton, h=0.1):
             H[i, j] = __numerical_differentiation_second_derivative(chains, skeleton, i, j, h)
     return H
 
+def compute_gradient_descent(chains, skeleton, iterations, alpha, gamma, epsilon):
+    thetaLast = None
+    for i in range(iterations):
+        J = compute_jacobian(chains, skeleton)
+        gradient = compute_gradient(chains, skeleton, J)
+        thetaK = get_joint_angles(skeleton) - alpha*gradient
+        set_joint_angles(skeleton, thetaK)
+        update_skeleton(skeleton)
+        #Should we continue to iterate?
+        thetaLast = thetaK
+    print(compute_objective(chains, skeleton))
+
+def solve(chains, skeleton):
+    compute_gradient_descent(chains, skeleton, 100, 0.001, 0.01, 0.01)
+
