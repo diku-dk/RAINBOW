@@ -18,29 +18,26 @@ class GraphicsComponent:
     boneQuaternion = []
     boneEulerRot = []
     volumes = []
+    
+
+    
     m_callback = None
     m_skeleton = None
     m_chains = None
     m_pointCloud = None
     
-    m_ignoreBoneIdx = None
-    
     def __init__(self):
-#        verts, cells = self.createBoneMesh(np.array([0.0, 0.0, 0.0]), np.array([2, 0, 0]))
-        verts, faces = self.generate_cone_vertices(1, 2, 0.5, 1)
-        ps.register_surface_mesh(("dummy"), verts, faces, enabled=True, color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), smooth_shade=True, edge_width=0.0, material='ceramic')
+        m_chains = None
                                  
     def updatePointCloud(self):
         """
         The user have called an update to the IK-skeleton. Update the points 
         """
-##        self.m_pointCloud.update_point_positions(np.array(self.bonePosition[1:]))
         self.m_pointCloud.update_point_positions(np.array(self.bonePosition))
         verts, cells = self.createBoneMesh(np.array([0, 0, 0]), self.bonePosition[0])
-        ps.register_surface_mesh(("SECONDBONE"), verts, cells, enabled=True, 
+        ps.register_surface_mesh(("ZeroZeroBone"), verts, cells, enabled=True, 
                   color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), 
                   smooth_shade=True, edge_width=0.0, material='ceramic')
-
         
     
     def callback(self):
@@ -48,24 +45,18 @@ class GraphicsComponent:
         A callback-function which is called once every frame. Used to handle logic
         when something is shown on screen.
         """
-#        IK.update_skeleton(self.m_skeleton)
-        shouldUpdateSkeleton = self.m_callback.update()   
+        shouldUpdateSkeleton, transformationType = self.m_callback.update()   
         if shouldUpdateSkeleton:
-            self.m_ignoreBoneIdx = self.m_callback.getIgnoreTransformBone()
             if (len(self.boneIdx) != len(self.bonePosition) or len(self.boneIdx) != len(self.boneEulerRot)):
                 raise ValueError("Bone information is misaligned.")
-            boneIdxs, boneRot, bonePos = self.m_callback.getBonesInfo()
-            for i in range(len(boneIdxs)):
-                if not (self.m_skeleton.has_bone(self.boneIdx[i])):
-                    raise ValueError("Bone does not exist in skeleton.")
-                bone = self.m_skeleton.bones[self.boneIdx[i]]
-                bone.idx = boneIdxs[i]
-                bone.t = V3.make(bonePos[i][0], bonePos[i][1], bonePos[i][2])
-                bone.alpha = boneRot[i][0]
-                bone.beta = boneRot[i][1]
-                bone.gamma = boneRot[i][2]
+            meshName, goalPos = self.m_callback.getGoalInfo()
+            for i in range(len(meshName)):
+                self.m_chains[i].goal = V3.make(goalPos[i][0], goalPos[i][1], goalPos[i][2])
+                #Only transform the bone, if the user is not handling the goal
+                #with the gizmo.
+                if (transformationType == 1):
+                    self.transformBoneMesh(ps.get_surface_mesh(meshName[i]), goalPos[i], [1, 0, 0, 0])
             IK.update_skeleton(self.m_skeleton)
-            print(len(self.m_skeleton.bones))
             IK.solve(self.m_chains, self.m_skeleton)
             self.generateSkeletonMesh(self.m_skeleton, self.m_chains)
             self.updatePointCloud()
@@ -97,7 +88,7 @@ class GraphicsComponent:
 
     def generate_cone_vertices_single_point(self, radius, height, segments):
         """
-        DEPRECATED: Based on a radius and a single point.
+        Create a cone based on a radius and a single point.
 
         :param radius:         The bottom radius of the cone.
         :param height:         The height of the cone.
@@ -106,19 +97,18 @@ class GraphicsComponent:
         :return:               The vertices and indices of vertices forming 
                                triangles, forming a cone.
         """
-        vertices = [np.array([-height, 0.0, 0.0])]
+        vertices = [np.array([height, 0.0, 0.0])]
         tris = []
         steps = 2 * math.pi / segments
         for i in range(segments):
             step = i * steps
             vert = np.array([0, radius * math.cos(step), radius * math.sin(step)])
-            vert = np.array([height, radius * math.cos(step), radius * math.sin(step)])
             vertices.append(vert)
             if i != segments-1:
                 tris.append(np.array([i, 0, i+1]))
             else:
                 tris.append(np.array([i, 0, 1]))
-#                tris.append(np.array([i, 0, i]))
+        return np.array(vertices), np.array(tris)
 
     def generate_cone_vertices(self, radius, topRadius, height, segments):
         """
@@ -153,12 +143,7 @@ class GraphicsComponent:
             else:
                 tris.append(np.array([i, i+segments, 1]))
                 tris.append(np.array([i+segments, segments+1, 1]))
-#                tris.append(np.array([i, 0, i]))
 
-        return np.array(vertices), np.array(tris)
-
-        print(tris)
-                
         return np.array(vertices), np.array(tris)
         
     def createBoneMesh(self, boneStartPos, boneEndPos):
@@ -190,17 +175,14 @@ class GraphicsComponent:
         ])
         
         return self.generate_cone_vertices(0.25, 0.075, dist, 32)
-
-        #return (vertices, cells)
     
-    def transformBoneMesh(self, meshVolume, boneStartPos, boneEndPos, quaternion):
+    def transformBoneMesh(self, meshVolume, boneStartPos, quaternion):
         """
         Move the vertices for a bone mesh to the desired position by creating a
         transform matrix. 
 
         :param meshVolume:     The polyscope representation of a bone.
         :param boneStartPos:   The start position of a bone.
-        :param boneEndPos:     The end position of a bone.
         :param quaternion:     The quaternion representing the rotation of the bone.
         
         :return:               The updated volume.
@@ -223,12 +205,11 @@ class GraphicsComponent:
                 vol = ps.register_surface_mesh(("Bone_" + str(self.boneIdx[i])), verts, cells, enabled=True, 
                           color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), 
                           smooth_shade=True, edge_width=0.0, material='ceramic')
-                self.transformBoneMesh(vol, self.bonePosition[i], self.bonePosition[i+1], self.boneQuaternion[i])
+                self.transformBoneMesh(vol, self.bonePosition[i], self.boneQuaternion[i])
                 self.volumes.append(vol)
         else:
             for i in range(bones_amnt-1):
-                if not (self.m_ignoreBoneIdx is not None and self.m_ignoreBoneIdx == self.boneIdx[i]):
-                    self.transformBoneMesh(self.volumes[i], self.bonePosition[i], self.bonePosition[i+1], self.boneQuaternion[i])
+                self.transformBoneMesh(self.volumes[i], self.bonePosition[i], self.boneQuaternion[i])
     
     def generateSkeletonMesh(self, skeleton, chains):
         """
@@ -260,11 +241,6 @@ class GraphicsComponent:
                                              radius=0.035, enabled=True, 
                                              color=(0.3, 0.6, 0.3),
                                              material='ceramic', transparency=0.9)
-        ps.register_point_cloud("Test", 
-                                             np.array(np.array([self.m_chains[0].goal])), 
-                                             radius=0.35, enabled=True, 
-                                             color=(0.3, 0.6, 0.3),
-                                             material='ceramic', transparency=0.9)
         """
         Create bone going from 0, 0, 0 in WCS to the root bone:
         """
@@ -273,6 +249,19 @@ class GraphicsComponent:
                   color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), 
                   smooth_shade=True, edge_width=0.0, material='ceramic')
         
+    def initGoals(self):
+        """
+        Initialize the goal meshes
+        """
+        goalNames = []
+        goalPositions = []
+        for i in range(len(self.m_chains)):
+            goalNames.append("Goal_" + str(i))
+            goalPositions.append(self.m_chains[0].goal)
+            verts, faces = self.generate_cone_vertices_single_point(0.25, 2, 32)
+            vol = ps.register_surface_mesh((goalNames[i]), verts, faces, enabled=True, color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), smooth_shade=True, edge_width=0.1, material='ceramic')
+            self.transformBoneMesh(vol, goalPositions[i], [1.0, 0.0, 0.0, 0.0])
+        self.m_callback.initIKBones(goalNames, goalPositions)
         
     def visualize(self):
         """
@@ -282,11 +271,10 @@ class GraphicsComponent:
         
         #Set callback function to give the user functionality for manipulating skeletons
         self.m_callback = CallbackHandler()
-        #TODO: Make better system for IK bones
-        self.m_callback.initIKBones([self.boneIdx[0]], [self.boneEulerRot[0]], [self.bonePosition[0]])
-        ps.set_user_callback(self.callback)
 
-        
+        ps.set_user_callback(self.callback)
+        self.initGoals()
+
         self.createSkeletonJoints()
 #        print(os.path.dirname(os.getcwd()) + "/data/buddha.obj")
 #        verts, _, n, tets, _, _ = igl.read_obj(os.path.dirname(os.getcwd()) + "/data/buddha.obj")
@@ -304,24 +292,20 @@ class GraphicsComponent:
 class CallbackHandler:
     #Private
     m_animComponent = None
-    m_ikBoneNameRef = []
-    m_ikBoneRotationDegRef = []
+    m_meshNameRef = []
     m_ikBonePosRef = []
-    m_ikBoneName = []
+    m_meshName = []
     m_ikBoneRotation = []
-    m_ikBoneRotationDeg = []
     m_ikBonePos = []
 
     m_oldVolumeTransform = []
     m_volumeTransform = []
     m_volumePos = []
     
-    m_ignoreTransformBone = None
-    
     def __init__(self):
         self.m_animComponent = AnimationComponent()
     
-    def initIKBones(self, boneName, boneRot, bonePos):
+    def initIKBones(self, boneName, bonePos):
         """
         Only the bones with IK applied, needs to have their position
         updated/stored. The rest of the bones does not
@@ -332,21 +316,19 @@ class CallbackHandler:
         :param boneRot:        The rotation of an IK-bone
         :param boneName:       The name of an IK-bone 
         """
-        self.m_ikBoneName = boneName
-        self.m_ikBoneRotation = boneRot
-        for i in self.m_ikBoneRotation:
-            self.m_ikBoneRotationDeg.append(np.array([IK.radians_to_degrees(i[0]), IK.radians_to_degrees(i[1]), IK.radians_to_degrees(i[2])]))
+        self.m_meshName = boneName
         self.m_ikBonePos = bonePos
 
-        self.m_ikBoneNameRef = boneName.copy()
-        self.m_ikBoneRotationDegRef = (self.m_ikBoneRotationDeg).copy()
+        self.m_meshNameRef = boneName.copy()
         self.m_ikBonePosRef = bonePos.copy()
-    
-    def updateRotationRad(self):
-        for i in range(len(self.m_ikBoneRotationDeg)):
-            self.m_ikBoneRotation[i][0] = IK.degrees_to_radians(self.m_ikBoneRotationDeg[i][0])
-            self.m_ikBoneRotation[i][1] = IK.degrees_to_radians(self.m_ikBoneRotationDeg[i][1])
-            self.m_ikBoneRotation[i][2] = IK.degrees_to_radians(self.m_ikBoneRotationDeg[i][2])
+
+    def getGoalInfo(self):
+        """
+        Retrieve all info of all IK bones.
+
+        :return:               Return the name, position and rotation of the bone 
+        """
+        return (self.m_meshName, self.m_ikBonePos)
              
     def getBonesInfo(self):
         """
@@ -354,13 +336,10 @@ class CallbackHandler:
 
         :return:               Return the name, position and rotation of the bone 
         """
-        self.updateRotationRad()
-        return (self.m_ikBoneName, self.m_ikBoneRotation, self.m_ikBonePos)
+        return (self.m_meshName, self.m_ikBonePos)
     
     def resetBones(self):
-        self.updateRotationRad()
-        self.m_ikBoneName = (self.m_ikBoneNameRef).copy()
-        self.m_ikBoneRotationDeg = (self.m_ikBoneRotationDegRef).copy()
+        self.m_meshName = (self.m_meshNameRef).copy()
         self.m_ikBonePos = (self.m_ikBonePosRef).copy()
     
         
@@ -412,18 +391,6 @@ class CallbackHandler:
         if (not self.isTransformEqual(v1, v2)):
             return True
         return False
-    
-    def getIgnoreTransformBone(self):
-        """
-        Unfortunately this function, while being ugly, is needed to ensure smooth transform
-        with a gizmo. If this was not here, the user would be unable to move an object with
-        the gizmo.
-         
-        :return:               One IK-bone to ignore, as the user can only move one bone
-                               At a time with the gizmo. If there is no bones to move,
-                               return None.
-        """ 
-        return self.m_ignoreTransformBone
         
     def extractRotationFromTransform(self, rotMat):
         """
@@ -463,9 +430,12 @@ class CallbackHandler:
          
         :return:               True if any changes has been made to the rotation
                                and/or position and the user wants to solve IK/
-                               Reset skeleton. This is so the GraphicsComponent
-                               can recalculate the skeleton with
-                               inverse kinematics.  
+                               Reset skeleton. Furthermore it returns an int 
+                               depending on the type of transformatio happening.
+                               This is so the GraphicsComponent can recalculate 
+                               the skeleton with inverse kinematics.
+                               0 = Should not transform
+                               1 = Should transform
         """ 
         
         #Init:
@@ -478,10 +448,8 @@ class CallbackHandler:
 
         if(psim.Button("Solve IK")):
             # This is reached once when the button is pressed
-            print("Solving IK...")
-            # Annoying hack to allow for the gizmo to function properly
-            self.m_ignoreTransformBone = None 
-            return True
+            print("Solving IK...") 
+            return (True, 1)
 
         # Put next element on same line.
         psim.SameLine() 
@@ -490,22 +458,20 @@ class CallbackHandler:
             # This is reached once when the button is pressed
             print("Reset positions")
             self.resetBones()
-            return True
+            return (True, 1)
         psim.PopItemWidth()
 
-        for i in range(len(self.m_ikBoneName)):
+        for i in range(len(self.m_meshName)):
             psim.SetNextItemOpen(True, psim.ImGuiCond_FirstUseEver)
 
             # The body is executed only when the sub-menu is open. Note the push/pop pair!
-            if(psim.TreeNode("Bone_" + str(self.m_ikBoneName[i]))):
+            if(psim.TreeNode(self.m_meshName[i])):
                 psim.PushItemWidth(150)
                 psim.TextUnformatted("Transform for IK Bones")
                 edited, self.m_ikBonePos[i] = psim.InputFloat3("Bone position", self.m_ikBonePos[i])
-                
-                edited, self.m_ikBoneRotationDeg[i] = psim.InputFloat3("Bone rotation", self.m_ikBoneRotationDeg[i])
-       
+
                 #Check for any change in the bone structure.
-                volume = ps.get_surface_mesh("Bone_" + str(self.m_ikBoneName[i]))
+                volume = ps.get_surface_mesh(self.m_meshName[i])
                 self.m_volumeTransform.append(volume.get_transform())
                 self.m_volumePos.append(volume.get_position())
                 
@@ -520,25 +486,16 @@ class CallbackHandler:
                 hasTransformed += self.checkBoneTransform(self.m_oldVolumeTransform[i], self.m_volumeTransform[i])
 
                 if (hasTransformed != 0):
-                    self.m_ignoreTransformBone = self.m_ikBoneName[i]
                     self.m_ikBonePos[i] = [self.m_volumeTransform[i][0, 3], self.m_volumeTransform[i][1, 3], self.m_volumeTransform[i][2, 3]]
-                    """https://www.geometrictools.com/Documentation/EulerAngles.pdf"""
-                    ZYZ = self.extractRotationFromTransform(ps.get_surface_mesh("Bone_" + str(self.m_ikBoneName[i])).get_transform())
-
-                    self.m_ikBoneRotationDeg[i] = [IK.radians_to_degrees(ZYZ[0]), IK.radians_to_degrees(ZYZ[1]), IK.radians_to_degrees(ZYZ[2])]
-                    self.m_ikBoneRotation[i] = [ZYZ[0], ZYZ[1], ZYZ[2]].copy()
-                    
         
         self.m_oldVolumeTransform = self.m_volumeTransform.copy()
         self.m_volumeTransform = []
         self.m_volumePos = []
         
         if (hasTransformed != 0):
-            return True
-        else:
-            self.m_ignoreTransformBone = None 
+            return (True, 0)
         
-        return False
+        return (False, 0)
 
 
 class Keyframe:

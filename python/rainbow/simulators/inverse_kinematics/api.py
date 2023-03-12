@@ -553,18 +553,78 @@ def compute_finite_difference_hessian(chains, skeleton, h=0.1):
             H[i, j] = __numerical_differentiation_second_derivative(chains, skeleton, i, j, h)
     return H
 
-def compute_gradient_descent(chains, skeleton, iterations, alpha, gamma, epsilon):
+def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamma, epsilon):
+    """
+    This function uses finite difference method to get the gradient of the IK objective function.
+    This is a slow method, and it is subject to numerical approximation error. Hence, it is far
+    better to use the function compute_gradient instead.
+
+    :param chains:          All the IK chains.
+    :param skeleton:        The IK skeleton.
+    :param iterations:      The maximum amount of iterations the algorithm can
+                            run for.
+    :param step_size_alpha: A user-defined step-size, which defines how fast the
+                            algorithm should descent
+    :param gamma:           A user-defined value, which is used to assert, if 
+                            the function is still descending or if it has 
+                            reached a minimum or plateaus.
+    :param epsilon:         A user-defined value and if the norm of the gradient 
+                            is smaller than this value, it is likely the
+                            gradient is close to a minimum           
+    """
+
     thetaLast = None
     for i in range(iterations):
         J = compute_jacobian(chains, skeleton)
         gradient = compute_gradient(chains, skeleton, J)
-        thetaK = get_joint_angles(skeleton) - alpha*gradient
+        thetaK = get_joint_angles(skeleton) - step_size_alpha*gradient
         set_joint_angles(skeleton, thetaK)
         update_skeleton(skeleton)
         #Should we continue to iterate?
+        if (np.linalg.norm(gradient) < epsilon or (thetaLast is not None and np.linalg.norm(thetaK-thetaLast) < gamma)):
+            return
         thetaLast = thetaK
+
     print(compute_objective(chains, skeleton))
 
+def compute_gradient_descent_timed(chains, skeleton, iterations, alpha, gamma, epsilon):
+    from timeit import default_timer
+
+    
+    start = default_timer()
+    duration = default_timer() - start
+    thetaLast = None
+    for i in range(iterations):
+        J = compute_jacobian(chains, skeleton)
+        duration = default_timer() - start
+        print("Duration of J")
+        print(duration)
+        start = default_timer()
+        gradient = compute_gradient(chains, skeleton, J)
+        duration = default_timer() - start
+        print("Duration of gradient")
+        print(duration)
+        start = default_timer()
+        thetaK = get_joint_angles(skeleton) - alpha*gradient
+        duration = default_timer() - start
+        print("Duration of get_joint_angles")
+        print(duration)
+        start = default_timer()
+        set_joint_angles(skeleton, thetaK)
+        duration = default_timer() - start
+        print("Duration of set_joint_angles")
+        print(duration)
+        start = default_timer()
+        update_skeleton(skeleton)
+        duration = default_timer() - start
+        print("Duration of update_skeleton")
+        print(duration)
+        start = default_timer()
+        #Should we continue to iterate?
+        thetaLast = thetaK
+        return
+#    print(compute_objective(chains, skeleton))
+
 def solve(chains, skeleton):
-    compute_gradient_descent(chains, skeleton, 100, 0.001, 0.01, 0.01)
+    compute_gradient_descent(chains, skeleton, 100, 0.005, 0.001, 0.001)
 
