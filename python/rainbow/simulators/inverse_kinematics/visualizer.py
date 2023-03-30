@@ -245,7 +245,7 @@ class GraphicsComponent:
         Create bone going from 0, 0, 0 in WCS to the root bone:
         """
         verts, cells = self.createBoneMesh(np.array([0, 0, 0]), self.bonePosition[0])
-        ps.register_surface_mesh(("FIRSTBONE"), verts, cells, enabled=True, 
+        ps.register_surface_mesh(("_First_Bone"), verts, cells, enabled=True, 
                   color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), 
                   smooth_shade=True, edge_width=0.0, material='ceramic')
         
@@ -291,7 +291,6 @@ class GraphicsComponent:
 
 class CallbackHandler:
     #Private
-    m_animComponent = None
     m_meshNameRef = []
     m_ikBonePosRef = []
     m_meshName = []
@@ -301,9 +300,6 @@ class CallbackHandler:
     m_oldVolumeTransform = []
     m_volumeTransform = []
     m_volumePos = []
-    
-    def __init__(self):
-        self.m_animComponent = AnimationComponent()
     
     def initIKBones(self, boneName, bonePos):
         """
@@ -496,48 +492,3 @@ class CallbackHandler:
             return (True, 0)
         
         return (False, 0)
-
-
-class Keyframe:
-    #Private
-    def __init__(self, pos, rot, frame, bone):
-        m_position = pos
-        m_rotation = rot
-        m_frameNum = frame
-        m_bone = bone
-    
-    def getPosition(self):
-        return self.m_position
-    
-    def getRotation(self):
-        return self.m_rotation
-    
-    def getFrameNum(self):
-        return self.m_frameNum
-    
-    def getBone(self):
-        return self.m_bone
-    
-
-    
-class AnimationComponent:
-    #Private
-    #List of keyframes
-    m_keyframes = []
-    m_currentFrame = 0
-    m_lastFrame = 0
-    
-    
-    def addKeyframe(self, keyframe):
-        self.m_keyframes.append(keyframe)
-        if keyframe.getFrameNum() > m_lastFrame:
-            self.m_lastFrame = keyframe.getFrameNum()
-        
-    def removeKeyframe(self):
-        #Remove the latest keyframe
-        if (len(self.m_keyframes != 0)):
-            self.m_keyframes[len(self.m_keyframes)-1]
-    
-    def update(self, dt):
-        self.m_currentFrame += 1
-        

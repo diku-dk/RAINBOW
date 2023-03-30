@@ -167,7 +167,7 @@ def __make_chain(end_effector, skeleton):
 def make_chains(skeleton):
     """
     A skeleton is basically a tree structure. When manipulating a skeleton with inverse kinematics one does this
-    my specifying a goal for a sol-called end-effector. An end-effector can be any bone in the skeleton. However,
+    my specifying a goal for a so-called end-effector. An end-effector can be any bone in the skeleton. However,
     end-effectors are often taken to be the leaves of the skeleton tree structure.
 
     We create this default set of end-effectors by identifying all leaves in the skeleton.
@@ -237,12 +237,37 @@ def get_end_effector(chain, skeleton):
     q_wcs = skeleton.bones[chain.bones[-1]].q_wcs
     tool = chain.tool
     return t_wcs + Q.rotate(q_wcs, tool)
+    
+def print_jacobian(J):
+    """
+    This function is for debug purposes only and is used to print the Jacobian
+    more human readable form.
+    
+    :param chain:       The Jacobian to print.
+    """
+    print("Dimensions jacobian: " + str(J.shape) + ".")
+    print("Contents of jacobian matrix:")
+    string = "["
+    for i in range(J.shape[0]):
+        string += "["
+        for j in range(J.shape[1]):
+            string += str(J[i][j]) + ", "
+            if ((j+1) % 3 == 0):
+                string += "],\n"
+        string += "],\n"
+    string += "]"
+    print(string)
 
+def normalize(a):
+    vn = np.linalg.norm(a)
+    if vn == 0:
+        return a
+    return a/vn
 
 def compute_jacobian(chains, skeleton):
     """
     Compute the Jacobian of the forward kinematic function. That is the function that computes the
-    end-effector positions in world-space given the cufrrent joint-angle values.
+    end-effector positions in world-space given the current joint-angle values.
 
     :param chains:    The IK chains defining the end-effectors.
     :param skeleton:  The IK skeleton.
@@ -250,6 +275,7 @@ def compute_jacobian(chains, skeleton):
     """
     num_angles = len(skeleton.bones) * 3
     num_coords = len(chains) * 3
+
     J = np.zeros((num_coords, num_angles), dtype=np.float64)
     row_offset = 0
     for chain in chains:
@@ -269,7 +295,6 @@ def compute_jacobian(chains, skeleton):
             w = Q.rotate(q_parent, Q.rotate(q_alpha_beta, bone.get_axis_gamma()))
 
             delta_p = e - bone.t_wcs
-
             J_alpha = V3.cross(u, delta_p)
             J_beta = V3.cross(v, delta_p)
             J_gamma = V3.cross(w, delta_p)
@@ -370,9 +395,11 @@ def compute_gradient(chains, skeleton, J):
     row_offset = 0
     for chain in chains:
         e = get_end_effector(chain, skeleton)
-        r[row_offset:row_offset + 3] = chain.goal - e
+        
+        r[row_offset:row_offset+3] = chain.goal - e
         row_offset += 3
-    g = - np.dot(np.transpose(J), r)
+    
+    g = -np.dot(np.transpose(J), r)
     return g
 
 
@@ -553,6 +580,28 @@ def compute_finite_difference_hessian(chains, skeleton, h=0.1):
             H[i, j] = __numerical_differentiation_second_derivative(chains, skeleton, i, j, h)
     return H
 
+def compute_f_theta(chains, skeleton):
+    """
+    This function is used for computing f(theta) and is needed as a seperate
+    function, to find a good value of the step_size_alpha. This function assumes
+    the skeleton was updated before invocation. 
+
+    :param chains:          All the IK chains.
+    :param skeleton:        The IK skeleton.
+    
+    :return:                f(theta)
+    """
+    r = np.zeros((len(chains) * 3,), dtype=np.float64)
+    row_offset = 0
+    for chain in chains:
+        e = get_end_effector(chain, skeleton)
+        
+        r[row_offset:row_offset+3] = chain.goal - e
+        row_offset += 3
+    
+    f = 0.5*np.dot(np.transpose(r), r)
+    return f
+
 def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamma, epsilon):
     """
     This function uses finite difference method to get the gradient of the IK objective function.
@@ -573,19 +622,45 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
                             gradient is close to a minimum           
     """
 
-    thetaLast = None
+
+
+    
+    thetaLast = get_joint_angles(skeleton)
+#    thetaLast = 0
+    Jacobian = None
+    gradientLast = None
     for i in range(iterations):
-        J = compute_jacobian(chains, skeleton)
-        gradient = compute_gradient(chains, skeleton, J)
-        thetaK = get_joint_angles(skeleton) - step_size_alpha*gradient
+        Jacobian = compute_jacobian(chains, skeleton)
+        gradient = compute_gradient(chains, skeleton, Jacobian)
+
+        #Compute STEP_SIZE_ALPHA
+        alpha = step_size_alpha
+        rho = 0.5
+        beta = 0.0001
+        loop = True
+        while (loop):
+            ftheta = compute_f_theta(chains, skeleton)            
+            #Not a perfect solution, but in order to obtain the end-effector, we
+            #need to update theta, then update the skeleton, to be able to 
+            #extract f(theta).
+            set_joint_angles(skeleton, thetaLast - alpha*gradient)
+            update_skeleton(skeleton)
+            if compute_f_theta(chains, skeleton) <= (ftheta + alpha*beta*ftheta):
+                loop = False
+            else:
+                alpha = rho * alpha
+            set_joint_angles(skeleton, thetaLast)
+            update_skeleton(skeleton)
+            
+        #Compute the actual gradient descent
+        step_size_alpha = alpha
+        thetaK = thetaLast - step_size_alpha*gradient
         set_joint_angles(skeleton, thetaK)
         update_skeleton(skeleton)
         #Should we continue to iterate?
-        if (np.linalg.norm(gradient) < epsilon or (thetaLast is not None and np.linalg.norm(thetaK-thetaLast) < gamma)):
+        if (np.linalg.norm(gradient) < epsilon or (np.linalg.norm(thetaK-thetaLast) < gamma)):
             return
         thetaLast = thetaK
-
-    print(compute_objective(chains, skeleton))
 
 def compute_gradient_descent_timed(chains, skeleton, iterations, alpha, gamma, epsilon):
     from timeit import default_timer
@@ -626,5 +701,7 @@ def compute_gradient_descent_timed(chains, skeleton, iterations, alpha, gamma, e
 #    print(compute_objective(chains, skeleton))
 
 def solve(chains, skeleton):
-    compute_gradient_descent(chains, skeleton, 100, 0.005, 0.001, 0.001)
+    compute_gradient_descent(chains, skeleton, 500, 1, 0.0001, 0.0001)
+#    compute_gradient_descent(chains, skeleton, 500, 0.0005, 0.0001, 0.0001)
+#    compute_gradient_descent(chains, skeleton, 100, 0.005, 0.0001, 0.0001)
 
