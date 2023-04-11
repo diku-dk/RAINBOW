@@ -38,17 +38,30 @@ class GraphicsComponent:
         ps.register_surface_mesh(("ZeroZeroBone"), verts, cells, enabled=True, 
                   color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), 
                   smooth_shade=True, edge_width=0.0, material='ceramic')
+
+    def callback_updateLimits(self):
+        names, lims = self.m_callback.getBoneLimits()
+        if (len(lims) != len(self.m_skeleton.bones)):
+            raise ValueError("Limits misaligned with the bones in the skeleton")
+        for i in range(len(self.m_skeleton.bones)):
+            self.m_skeleton.bones[i].set_limit_alpha(lims[i][0][0], lims[i][1][0])
+            self.m_skeleton.bones[i].set_limit_beta(lims[i][0][1], lims[i][1][1])
+            self.m_skeleton.bones[i].set_limit_gamma(lims[i][0][2], lims[i][1][2])
         
-    
     def callback(self):
         """
         A callback-function which is called once every frame. Used to handle logic
         when something is shown on screen.
         """
+        from timeit import default_timer
+
+        
+        start = default_timer()
         shouldUpdateSkeleton, transformationType = self.m_callback.update()   
         if shouldUpdateSkeleton:
             if (len(self.boneIdx) != len(self.bonePosition) or len(self.boneIdx) != len(self.boneEulerRot)):
                 raise ValueError("Bone information is misaligned.")
+            self.callback_updateLimits()
             meshName, goalPos = self.m_callback.getGoalInfo()
             for i in range(len(meshName)):
                 self.m_chains[i].goal = V3.make(goalPos[i][0], goalPos[i][1], goalPos[i][2])
@@ -60,6 +73,8 @@ class GraphicsComponent:
             IK.solve(self.m_chains, self.m_skeleton)
             self.generateSkeletonMesh(self.m_skeleton, self.m_chains)
             self.updatePointCloud()
+            duration = default_timer() - start
+            print("Elapsed total time including visualizer... " + str(duration))
 
     def convertQuaternionToRotMat(self, quaternion):
         """
@@ -201,15 +216,21 @@ class GraphicsComponent:
         bones_amnt = len(self.boneIdx)
         if (self.volumes == []):
             for i in range(bones_amnt-1):
-                verts, cells = self.createBoneMesh(self.bonePosition[i], self.bonePosition[i+1])
-                vol = ps.register_surface_mesh(("Bone_" + str(self.boneIdx[i])), verts, cells, enabled=True, 
-                          color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), 
-                          smooth_shade=True, edge_width=0.0, material='ceramic')
-                self.transformBoneMesh(vol, self.bonePosition[i], self.boneQuaternion[i])
-                self.volumes.append(vol)
+                #Check if there is any child bones, if not, the mesh should not be created.
+                if (len(self.m_skeleton.bones[self.boneIdx[i]].children) != 0):
+                    verts, cells = self.createBoneMesh(self.bonePosition[i], self.bonePosition[i+1])
+                    vol = ps.register_surface_mesh(("Bone_" + str(self.boneIdx[i])), verts, cells, enabled=True, 
+                              color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), 
+                              smooth_shade=True, edge_width=0.0, material='ceramic')
+                    self.transformBoneMesh(vol, self.bonePosition[i], self.boneQuaternion[i])
+                    self.volumes.append(vol)
+                else:
+                    self.volumes.append(None)
         else:
-            for i in range(bones_amnt-1):
-                self.transformBoneMesh(self.volumes[i], self.bonePosition[i], self.boneQuaternion[i])
+            for i in range(len(self.volumes)):
+                if self.volumes[i] is not None:
+#                if (len(self.m_skeleton.bones[self.boneIdx[i]].children) != 0):
+                    self.transformBoneMesh(self.volumes[i], self.bonePosition[i], self.boneQuaternion[i])
     
     def generateSkeletonMesh(self, skeleton, chains):
         """
@@ -257,12 +278,32 @@ class GraphicsComponent:
         goalPositions = []
         for i in range(len(self.m_chains)):
             goalNames.append("Goal_" + str(i))
-            goalPositions.append(self.m_chains[0].goal)
+            goalPositions.append(self.m_chains[i].goal)
             verts, faces = self.generate_cone_vertices_single_point(0.25, 2, 32)
             vol = ps.register_surface_mesh((goalNames[i]), verts, faces, enabled=True, color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), smooth_shade=True, edge_width=0.1, material='ceramic')
             self.transformBoneMesh(vol, goalPositions[i], [1.0, 0.0, 0.0, 0.0])
         self.m_callback.initIKBones(goalNames, goalPositions)
+    
+    def shiftArrToDegrees(self, rad):
+        for i in range(len(rad)):
+            rad[i] = rad[i] * (180/np.pi)+180
+        return rad
         
+    def initLimits(self, skeleton):
+        """
+        Initalize limits for each bone
+        """
+        names = []
+        limits = []
+        for i in range(len(skeleton.bones)):
+            names.append("Bone_" + str(i))
+            lower = (skeleton.bones[i].get_limit_lower()).copy()
+            upper = (skeleton.bones[i].get_limit_upper()).copy()
+            lower = self.shiftArrToDegrees(lower)
+            upper = self.shiftArrToDegrees(upper)
+            limits.append([lower, upper])
+        self.m_callback.initLimitBones(names, limits)
+            
     def visualize(self):
         """
         Visualize the constructed vertices.
@@ -274,6 +315,7 @@ class GraphicsComponent:
 
         ps.set_user_callback(self.callback)
         self.initGoals()
+        self.initLimits(self.m_skeleton)
 
         self.createSkeletonJoints()
 #        print(os.path.dirname(os.getcwd()) + "/data/buddha.obj")
@@ -301,6 +343,13 @@ class CallbackHandler:
     m_volumeTransform = []
     m_volumePos = []
     
+    #Incoperate limits...
+    m_ordinaryBoneNamesRef = []
+    m_ordinaryBoneLimitsRef = []
+    
+    m_ordinaryBoneNames = []
+    m_ordinaryBoneLimits = []
+    
     def initIKBones(self, boneName, bonePos):
         """
         Only the bones with IK applied, needs to have their position
@@ -317,7 +366,25 @@ class CallbackHandler:
 
         self.m_meshNameRef = boneName.copy()
         self.m_ikBonePosRef = bonePos.copy()
+        
+    def initLimitBones(self, boneNames, boneLimits):
+        """
+        Store the limits of each bone from a skeleton in an array.
 
+        :param boneNames:      The name of a bone 
+        :param boneLimits:     The limiting rotation of a bone stored as 
+                               [[alpha_min, beta_min, gamma_min], [alpha_max, 
+                               beta_max, gamma_max]] in an array
+        """
+        self.m_ordinaryBoneNames = boneNames
+        self.m_ordinaryBoneLimits = boneLimits 
+        
+        self.m_ordinaryBoneNamesRef = boneNames.copy()
+#        self.m_ordinaryBoneLimitsRef = boneLimits.copy()
+        #The only way to get a reference array.
+        for i in range(len(self.m_ordinaryBoneLimits)):
+            self.m_ordinaryBoneLimitsRef.append([(boneLimits[i][0]).copy(), (boneLimits[i][1]).copy()])
+        
     def getGoalInfo(self):
         """
         Retrieve all info of all IK bones.
@@ -325,18 +392,26 @@ class CallbackHandler:
         :return:               Return the name, position and rotation of the bone 
         """
         return (self.m_meshName, self.m_ikBonePos)
-             
-    def getBonesInfo(self):
+        
+    def getBoneLimits(self):
         """
-        Retrieve all info of all IK bones.
-
-        :return:               Return the name, position and rotation of the bone 
+        Retrieve the updated limits of all IK bones.
+        
+        :return:               The names and limits. 
         """
-        return (self.m_meshName, self.m_ikBonePos)
+        return (self.m_ordinaryBoneNames, self.m_ordinaryBoneLimits)
     
     def resetBones(self):
+        #Reset bone orientation
         self.m_meshName = (self.m_meshNameRef).copy()
         self.m_ikBonePos = (self.m_ikBonePosRef).copy()
+        
+        #Reset limits as well
+#        self.m_ordinaryBoneNames = (self.m_ordinaryBoneNamesRef).copy()
+#        self.m_ordinaryBoneLimits = (self.m_ordinaryBoneLimitsRef).copy()
+        for i in range(len(self.m_ordinaryBoneLimits)):
+            self.m_ordinaryBoneLimits[i][0] = (self.m_ordinaryBoneLimitsRef[i][0]).copy()
+            self.m_ordinaryBoneLimits[i][1] = (self.m_ordinaryBoneLimitsRef[i][1]).copy()
     
         
     def compareFloats(self, a, b):
@@ -457,23 +532,25 @@ class CallbackHandler:
             return (True, 1)
         psim.PopItemWidth()
 
-        for i in range(len(self.m_meshName)):
-            psim.SetNextItemOpen(True, psim.ImGuiCond_FirstUseEver)
+        psim.SetNextItemOpen(False, psim.ImGuiCond_FirstUseEver)
+        if(psim.TreeNode("Goal positions")):
+            for i in range(len(self.m_meshName)):
+                psim.SetNextItemOpen(False, psim.ImGuiCond_FirstUseEver)
 
-            # The body is executed only when the sub-menu is open. Note the push/pop pair!
-            if(psim.TreeNode(self.m_meshName[i])):
-                psim.PushItemWidth(150)
-                psim.TextUnformatted("Transform for IK Bones")
-                edited, self.m_ikBonePos[i] = psim.InputFloat3("Bone position", self.m_ikBonePos[i])
+                # The body is executed only when the sub-menu is open. Note the push/pop pair!
+                if(psim.TreeNode(self.m_meshName[i])):
+                    psim.PushItemWidth(150)
+                    psim.TextUnformatted("Transform for IK Goal Bone " + str(self.m_meshName[i]))
+                    edited, self.m_ikBonePos[i] = psim.InputFloat3("Bone position", self.m_ikBonePos[i])
 
-                #Check for any change in the bone structure.
-                volume = ps.get_surface_mesh(self.m_meshName[i])
-                self.m_volumeTransform.append(volume.get_transform())
-                self.m_volumePos.append(volume.get_position())
-                
-                psim.TreePop()
-                psim.PopItemWidth()
-        psim.PopItemWidth()
+                    #Check for any change in the bone structure.
+                    volume = ps.get_surface_mesh(self.m_meshName[i])
+                    self.m_volumeTransform.append(volume.get_transform())
+                    self.m_volumePos.append(volume.get_position())
+                    
+                    psim.PopItemWidth()
+                    psim.TreePop()
+            psim.TreePop()
         
         #Kind of a hack, but is needed to allow for smoothly moving the bones with a gizmo:
         hasTransformed = 0
@@ -490,5 +567,31 @@ class CallbackHandler:
         
         if (hasTransformed != 0):
             return (True, 0)
+
+
+        #Apply limits
+        psim.SetNextItemOpen(False, psim.ImGuiCond_FirstUseEver)
+        if(psim.TreeNode("Bone limits")):
+            for i in range(len(self.m_ordinaryBoneNames)):
+                psim.SetNextItemOpen(False, psim.ImGuiCond_FirstUseEver)
+
+                # The following is only executed when the sub-menu is open.
+                if(psim.TreeNode(self.m_ordinaryBoneNames[i])):
+                    psim.PushItemWidth(150)
+                    psim.TextUnformatted("Limit for bones")
+                    edited, self.m_ordinaryBoneLimits[i][0] = psim.InputFloat3("Minimum bone limit", self.m_ordinaryBoneLimits[i][0])
+                    edited, self.m_ordinaryBoneLimits[i][1] = psim.InputFloat3("Maximum bone limit", self.m_ordinaryBoneLimits[i][1])
+                    
+                    #Check for any change in the bone structure.
+    #                volume = ps.get_surface_mesh(self.m_ordinaryBoneNames[i])
+    #                self.m_volumeTransform.append(volume.get_transform())
+    #                self.m_volumePos.append(volume.get_position())
+                    
+                    psim.PopItemWidth()
+                    psim.TreePop()
+            if(psim.Button("Apply Limits")):
+                # This is reached once when the button is pressed 
+                return (True, 1)
+            psim.TreePop()
         
         return (False, 0)

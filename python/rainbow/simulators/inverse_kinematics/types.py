@@ -1,5 +1,6 @@
 import rainbow.math.quaternion as Q
 import rainbow.math.vector3 as V3
+import math
 import numpy as np
 
 class Bone:
@@ -15,6 +16,12 @@ class Bone:
         self.t = V3.zero()  # Joint vector in parent frame
         self.parent = -1  # Index to parent bone or -1 if bone is root
         self.children = []  # Indices to children bones
+        self.alphaMin = -np.pi
+        self.alphaMax = np.pi
+        self.betaMin = -np.pi
+        self.betaMax = np.pi
+        self.gammaMin = -np.pi
+        self.gammaMax = np.pi
 
     def __str__(self):
         """
@@ -79,6 +86,39 @@ class Bone:
 
     def get_rotation_gamma(self):
         return self.get_rotation(2, self.gamma)
+        
+    def get_limit_alpha(self):
+        return (self.alphaMin, self.alphaMax)
+        
+    def get_limit_beta(self):
+        return (self.betaMin, self.betaMax)
+        
+    def get_limit_gamma(self):
+        return (self.gammaMin, self.gammaMax)
+
+    def set_limit_alpha(self, alphaMin, alphaMax):
+        self.betaMin = alphaMin 
+        self.betaMax = alphaMax
+        
+    def set_limit_beta(self, betaMin, betaMax):
+        self.betaMin = betaMin 
+        self.betaMax = betaMax
+        
+    def set_limit_gamma(self, gammaMin, gammaMax):
+        self.betaMin = gammaMin 
+        self.betaMax = gammaMax
+    
+    def get_limit_lower(self):
+        #conversion = math.pi/180.0
+        
+        #return [self.alphaMax*conversion, self.betaMax*conversion, self.gammaMax*conversion]
+        return [self.alphaMin, self.betaMin, self.gammaMin]
+
+    def get_limit_upper(self):
+        #conversion = math.pi/180.0
+        
+        #return [self.alphaMax*conversion, self.betaMax*conversion, self.gammaMax*conversion]
+        return [self.alphaMax, self.betaMax, self.gammaMax]
 
 
 class Skeleton:

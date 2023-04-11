@@ -30,8 +30,12 @@ def create_skeleton():
     S = Skeleton()
     return S
 
+def shiftDegToRad(t0):
+#    if t0 > 180:
+#        return (np.pi/180)*(t0-360)
+    return (np.pi/180)*(t0-180) 
 
-def create_root(skeleton, alpha, beta, gamma, tx, ty, tz, euler_code='ZYZ'):
+def create_root(skeleton, alpha, beta, gamma, tx, ty, tz, alphaLim, betaLim, gammaLim, euler_code='ZYZ'):
     """
     This function creates a root bone in an empty skeleton. It should be the first function to use
     when populating a skeleton with bones. A skeleton can only have one root bone.
@@ -43,6 +47,9 @@ def create_root(skeleton, alpha, beta, gamma, tx, ty, tz, euler_code='ZYZ'):
     :param tx:            The x-component of the bone vector.
     :param ty:            The y-component of the bone vector.
     :param tz:            The z-component of the bone vector.
+    :param alphaLim:      A pair, containing the alpha minimum and maximum limit
+    :param betaLim:       A pair, containing the beta minimum and maximum limit
+    :param gammaLim:      A pair, containing the gamma minimum and maximum limit
     :param euler_code:    The Euler angle convention used for the joint represented by this bone. This
                           encodes the meaning of the alpha, beta and gamma joint angle values.
     :return:              A reference to the root bone that was created.
@@ -57,11 +64,16 @@ def create_root(skeleton, alpha, beta, gamma, tx, ty, tz, euler_code='ZYZ'):
     root.beta = beta
     root.gamma = gamma
     root.euler_code = euler_code
+    root.alphaMin = shiftDegToRad(alphaLim[0])
+    root.alphaMax = shiftDegToRad(alphaLim[1])
+    root.betaMin = shiftDegToRad(betaLim[0])
+    root.betaMax = shiftDegToRad(betaLim[1])
+    root.gammaMin = shiftDegToRad(gammaLim[0])
+    root.gammaMax = shiftDegToRad(gammaLim[1])
     skeleton.bones.append(root)
     return root
 
-
-def add_bone(skeleton, parent_idx, alpha, beta, gamma, tx, ty, tz, euler_code='ZYZ'):
+def add_bone(skeleton, parent_idx, alpha, beta, gamma, tx, ty, tz, alphaLim, betaLim, gammaLim, euler_code='ZYZ'):
     """
     This function creates a new bone in a skeleton. It needs the index of an existing parent bone to know where to
     create the new bone.
@@ -74,6 +86,9 @@ def add_bone(skeleton, parent_idx, alpha, beta, gamma, tx, ty, tz, euler_code='Z
     :param tx:            The x-component of the bone vector.
     :param ty:            The y-component of the bone vector.
     :param tz:            The z-component of the bone vector.
+    :param alphaLim:      A pair, containing the alpha minimum and maximum limit
+    :param betaLim:       A pair, containing the beta minimum and maximum limit
+    :param gammaLim:      A pair, containing the gamma minimum and maximum limit
     :param euler_code:    The Euler angle convention used for the joint represented by this bone. This
                           encodes the meaning of the alpha, beta and gamma joint angle values.
     :return:              A reference to the new bone that was created in the skeleton.
@@ -90,6 +105,12 @@ def add_bone(skeleton, parent_idx, alpha, beta, gamma, tx, ty, tz, euler_code='Z
     end_effector.alpha = alpha
     end_effector.beta = beta
     end_effector.gamma = gamma
+    end_effector.alphaMin = shiftDegToRad(alphaLim[0])
+    end_effector.alphaMax = shiftDegToRad(alphaLim[1])
+    end_effector.betaMin = shiftDegToRad(betaLim[0])
+    end_effector.betaMax = shiftDegToRad(betaLim[1])
+    end_effector.gammaMin = shiftDegToRad(gammaLim[0])
+    end_effector.gammaMax = shiftDegToRad(gammaLim[1])
     end_effector.euler_code = euler_code
 
     skeleton.bones[parent_idx].children.append(end_effector.idx)
@@ -602,6 +623,14 @@ def compute_f_theta(chains, skeleton):
     f = 0.5*np.dot(np.transpose(r), r)
     return f
 
+def compareArrays(arr1, arr2):
+    for i in range(len(arr1)):
+        if (abs(arr1[i])-abs(arr2[i]) > 0.0001):
+            return False
+    return True
+    
+
+
 def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamma, epsilon):
     """
     This function uses finite difference method to get the gradient of the IK objective function.
@@ -624,11 +653,17 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
 
 
 
+    from timeit import default_timer
+
+    
+    start = default_timer()
     
     thetaLast = get_joint_angles(skeleton)
+    thetaK = np.zeros((len(thetaLast),), dtype=np.float64)
 #    thetaLast = 0
     Jacobian = None
     gradientLast = None
+    objectives = []
     for i in range(iterations):
         Jacobian = compute_jacobian(chains, skeleton)
         gradient = compute_gradient(chains, skeleton, Jacobian)
@@ -638,6 +673,7 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
         rho = 0.5
         beta = 0.0001
         loop = True
+#        iterations = 0
         while (loop):
             ftheta = compute_f_theta(chains, skeleton)            
             #Not a perfect solution, but in order to obtain the end-effector, we
@@ -652,15 +688,52 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
             set_joint_angles(skeleton, thetaLast)
             update_skeleton(skeleton)
             
+#            if (iterations >= 2):
+#                print("Alpha took a lot of time" + str(iterations))
+#                print(alpha)
+#            iterations += 1
+
         #Compute the actual gradient descent
         step_size_alpha = alpha
-        thetaK = thetaLast - step_size_alpha*gradient
+        #thetaK = thetaLast - step_size_alpha*gradient
+        #Apply box constraints to each bone individually.
+        thetaTemp = thetaLast - alpha * gradient
+        comp = np.copy(thetaTemp)
+        for i in range(len(skeleton.bones)):
+            l = skeleton.bones[i].get_limit_lower()
+            u = skeleton.bones[i].get_limit_upper()
+            for j in range(len(l)):
+                 val = thetaTemp[i*3+j]
+#                 val = math.fmod(val, math.pi*2)
+#                 if (val > math.pi*2.0+0.000001):
+#                    val -= math.pi*2
+
+                 if (val > math.pi):
+                     val = math.fmod(val, math.pi)
+                 elif (val < -math.pi):
+                     val = math.fmod(val, -math.pi)
+                 thetaK[i*3+j] = min(u[j], max(l[j], val))
+#                thetaK[i*3+j] = min(u[j], max(l[j], thetaTemp[i*3+j]))
+#                thetaK[i*3+j] = thetaTemp[i*3+j]
+
         set_joint_angles(skeleton, thetaK)
         update_skeleton(skeleton)
+#        objectives.append(compute_objective(chains, skeleton))
+        
+        
         #Should we continue to iterate?
+#        if (np.linalg.norm(gradient) < epsilon or (np.linalg.norm(thetaK)-np.linalg.norm(thetaLast) < gamma)):
         if (np.linalg.norm(gradient) < epsilon or (np.linalg.norm(thetaK-thetaLast) < gamma)):
-            return
-        thetaLast = thetaK
+            break
+        #Python implicit pointers, makes the copy a requirement.
+        thetaLast = np.copy(thetaK)
+    print("Total time elapsed for the IK solver " + str(default_timer() - start))
+#    import matplotlib.pyplot as plt
+#    plt.plot(range(1, len(objectives)+1), np.log(objectives))
+#    plt.xlabel("Iterations")
+#    plt.ylabel("Objective")
+#    plt.title("Convergence plot for the skeleton")
+#    plt.show()
 
 def compute_gradient_descent_timed(chains, skeleton, iterations, alpha, gamma, epsilon):
     from timeit import default_timer
@@ -701,7 +774,7 @@ def compute_gradient_descent_timed(chains, skeleton, iterations, alpha, gamma, e
 #    print(compute_objective(chains, skeleton))
 
 def solve(chains, skeleton):
-    compute_gradient_descent(chains, skeleton, 500, 1, 0.0001, 0.0001)
+    compute_gradient_descent(chains, skeleton, 100, 1, 0.0001, 0.0001)
 #    compute_gradient_descent(chains, skeleton, 500, 0.0005, 0.0001, 0.0001)
 #    compute_gradient_descent(chains, skeleton, 100, 0.005, 0.0001, 0.0001)
 
