@@ -22,6 +22,7 @@ class Bone:
         self.betaMax = np.pi
         self.gammaMin = -np.pi
         self.gammaMax = np.pi
+        self.chainLength = 0
 
     def __str__(self):
         """

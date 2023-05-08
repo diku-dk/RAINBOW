@@ -542,31 +542,32 @@ class CallbackHandler:
                     psim.PushItemWidth(150)
                     psim.TextUnformatted("Transform for IK Goal Bone " + str(self.m_meshName[i]))
                     edited, self.m_ikBonePos[i] = psim.InputFloat3("Bone position", self.m_ikBonePos[i])
-
-                    #Check for any change in the bone structure.
-                    volume = ps.get_surface_mesh(self.m_meshName[i])
-                    self.m_volumeTransform.append(volume.get_transform())
-                    self.m_volumePos.append(volume.get_position())
                     
                     psim.PopItemWidth()
                     psim.TreePop()
             psim.TreePop()
         
         #Kind of a hack, but is needed to allow for smoothly moving the bones with a gizmo:
+        for i in range(len(self.m_meshName)):
+            #Check for any change in the bone structure.
+            volume = ps.get_surface_mesh(self.m_meshName[i])
+            self.m_volumeTransform.append(volume.get_transform())
+            self.m_volumePos.append(volume.get_position())
+
         hasTransformed = 0
         if (self.m_volumeTransform != [] and self.m_oldVolumeTransform != []):
             for i in range(len(self.m_volumeTransform)):
                 hasTransformed += self.checkBoneTransform(self.m_oldVolumeTransform[i], self.m_volumeTransform[i])
-
                 if (hasTransformed != 0):
                     self.m_ikBonePos[i] = [self.m_volumeTransform[i][0, 3], self.m_volumeTransform[i][1, 3], self.m_volumeTransform[i][2, 3]]
         
         self.m_oldVolumeTransform = self.m_volumeTransform.copy()
         self.m_volumeTransform = []
         self.m_volumePos = []
-        
-        if (hasTransformed != 0):
-            return (True, 0)
+
+        #Moved further down to avoid visual glitches from not drawing the gui below:
+        #if (hasTransformed != 0):
+            #return (True, 0)
 
 
         #Apply limits
@@ -594,4 +595,6 @@ class CallbackHandler:
                 return (True, 1)
             psim.TreePop()
         
+        if (hasTransformed != 0):
+            return (True, 0)
         return (False, 0)
