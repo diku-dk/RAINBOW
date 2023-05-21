@@ -1,9 +1,8 @@
-import numpy as np
-
-
 def radians_to_degrees(radians):
-    return 180.0 * radians / np.pi
+#    return 180.0 * radians / 3.141592653589793115997963468544185161590576171875
+    return 0.3183098861837907 * radians
 
 
 def degrees_to_radians(degrees):
-    return degrees * np.pi / 180.0
+#    return degrees * 3.141592653589793115997963468544185161590576171875 / 180.0
+    return degrees * 0.017453292519943295

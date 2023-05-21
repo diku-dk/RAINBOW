@@ -689,7 +689,7 @@ def compute_finite_difference_hessian(chains, skeleton, h=0.1):
 def compute_f_theta(chains, skeleton):
     """
     This function is used for computing f(theta) and is needed as a seperate
-    function, to find a good value of the step_size_alpha. This function assumes
+    function, and is used with the wolfe conditions. This function assumes
     the skeleton was updated before invocation. 
 
     :param chains:          All the IK chains.
@@ -716,8 +716,28 @@ def compareArrays(arr1, arr2):
     
 def compute_step_size_alpha(chains, skeleton, gradient, thetaLast, ftheta, step_size_alpha, rho, c):
     """
-    TODO PROPER DOCUMENT"""
+    This function uses back-tracking line-search to iteratively find a better value of step-size-alpha,
+    which is used to traverse the gradient faster.
+
+    :param chains:          All the IK chains.
+    :param skeleton:        The IK skeleton.
+    :param gradient:        The computed gradient in iteration theta^k
+    :param thetaLast:       The previously computed gradient in iteration theta^k-1
+    :param ftheta:          This is used for computing f(theta) and is needed as a seperate
+                            function, and is used with the wolfe conditions.
+    :param step_size_alpha: A user-defined step-size, which defines how fast the
+                            algorithm should descent
+    :param rho:             Used for finding the best value of step_size_alpha
+                            in each iteration. This is the parameter which controls
+                            how much alpha decreases.
+    :param c:               A parameter which makes the back-tracking line-search
+                            for step_size_alpha "relaxed"
+
+    :return:                The updated step_size_alpha
+    """
     loop = True
+    #Small optimization, to have it before the loop, as it does not need to be 
+    #recomputed each iteration.
     p = -gradient
     deltaFk = np.dot(np.transpose(gradient), p)
     while (loop):
@@ -736,9 +756,8 @@ def compute_step_size_alpha(chains, skeleton, gradient, thetaLast, ftheta, step_
 
 def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamma, epsilon, rho, c):
     """
-    This function uses finite difference method to get the gradient of the IK objective function.
-    This is a slow method, and it is subject to numerical approximation error. Hence, it is far
-    better to use the function compute_gradient instead.
+    This function uses an iterative approach to computing the gradient descent,
+    and has functionality for limiting bones.
 
     :param chains:          All the IK chains.
     :param skeleton:        The IK skeleton.
@@ -751,36 +770,21 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
                             reached a minimum or plateaus.
     :param epsilon:         A user-defined value and if the norm of the gradient 
                             is smaller than this value, it is likely the
-                            gradient is close to a minimum           
+                            gradient is close to a minimum
+    :param rho:             Used for finding the best value of step_size_alpha
+                            in each iteration. This is the parameter which controls
+                            how much alpha decreases.
+    :param c:               A parameter which makes the back-tracking line-search
+                            for step_size_alpha "relaxed"
     """
-
-
-    
     start = default_timer()
     elapsedTime = 0.0
-
-    """update_skeleton(skeleton)
-    angles = get_joint_angles(skeleton)
-    for i in range(len(skeleton.bones)):
-        l = skeleton.bones[i].get_limit_lower()
-        u = skeleton.bones[i].get_limit_upper()
-        for j in range(len(l)):
-             val = angles[i*3+j]
-
-             if (val > math.pi):
-                 val = math.fmod(val, math.pi)
-             elif (val < -math.pi):
-                 val = math.fmod(val, -math.pi)
-             angles[i*3+j] = min(u[j], max(l[j], val))
-    set_joint_angles(skeleton, angles)"""
     
     update_skeleton(skeleton)
     thetaLast = get_joint_angles(skeleton)
-    thetaK = np.zeros((len(thetaLast),), dtype=np.float64)
+    thetaK = np.zeros((len(thetaLast),), dtype=np.float64)  
     objectives = []
     its = 0
-    maxLoopIts = 0
-    LoopItsObjective = []
     for i in range(iterations):
         its += 1
         Jacobian = compute_jacobian(chains, skeleton)
@@ -800,6 +804,7 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
             for j in range(len(l)):
                  val = thetaTemp[i*3+j]
 
+                 #Clamp the the rotations between -180 and 180.
                  if (val > math.pi):
                      val = math.fmod(val, math.pi)
                  elif (val < -math.pi):
@@ -817,24 +822,24 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
         #Python implicit pointers, makes the copy a requirement.
         thetaLast = np.copy(thetaK)
 
-    """    print("Total iterations for the solver: " + str(its))
+    print("Total iterations for the solver: " + str(its))
     print("Total time elapsed for the IK solver " + str(default_timer() - start))
-    print("Total time elapsed for finding step size alpha" + str(elapsedTime))
-    print("Value of rho: " + str(rho))
-    print("Value of c: " + str(c))"""
+    """
+    #Uncomment this code block to plot convergence for the solver. 
     import matplotlib.pyplot as plt
     plt.semilogy(range(1, len(objectives)+1), objectives)
     
     plt.title("Convergence plot for an arm. Constant alpha = 0.001")
     plt.xlabel("Iterations")
     plt.ylabel("Objective")
-    #plt.show()
+    plt.show()"""
+    
+    #This return is for the tests only.
+    return objectives
 
 def solveVariables(chains, skeleton, iterations, step_size_alpha, gamma, epsilon, rho, c):
-    compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamma, epsilon, rho, c)
+    return compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamma, epsilon, rho, c)
     
 def solve(chains, skeleton):
     compute_gradient_descent(chains, skeleton, 200, 0.37, 0.0001, 0.05, 0.21, 0.0001)
-#    compute_gradient_descent(chains, skeleton, 500, 0.0005, 0.0001, 0.0001)
-#    compute_gradient_descent(chains, skeleton, 100, 0.005, 0.0001, 0.0001)
 

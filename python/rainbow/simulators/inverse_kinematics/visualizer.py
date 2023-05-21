@@ -621,11 +621,6 @@ class CallbackHandler:
         self.m_volumeTransform = []
         self.m_volumePos = []
 
-        #Moved further down to avoid visual glitches from not drawing the gui below:
-        #if (hasTransformed != 0):
-            #return (True, 0)
-
-
         #Apply limits
         psim.SetNextItemOpen(False, psim.ImGuiCond_FirstUseEver)
         if(psim.TreeNode("Bone limits")):
