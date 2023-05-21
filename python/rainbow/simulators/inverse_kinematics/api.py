@@ -2,8 +2,10 @@ import rainbow.math.vector3 as V3
 import rainbow.math.quaternion as Q
 from rainbow.simulators.inverse_kinematics.types import *
 from rainbow.math.angle import *
-import numpy as np
-
+#import numpy as np
+#from numba import njit
+import random
+from timeit import default_timer
 
 def __is_valid_euler_code(euler_code):
     """
@@ -33,7 +35,8 @@ def create_skeleton():
 def shiftDegToRad(t0):
 #    if t0 > 180:
 #        return (np.pi/180)*(t0-360)
-    return (np.pi/180)*(t0-180) 
+#    return (np.pi/180)*(t0-180) 
+    return (np.pi/180)*(t0) 
 
 def set_chain_length(chains, lengths):
     """
@@ -711,7 +714,25 @@ def compareArrays(arr1, arr2):
             return False
     return True
     
-
+def compute_step_size_alpha(chains, skeleton, gradient, thetaLast, ftheta, step_size_alpha, rho, c):
+    """
+    TODO PROPER DOCUMENT"""
+    loop = True
+    p = -gradient
+    deltaFk = np.dot(np.transpose(gradient), p)
+    while (loop):
+        #Not a perfect solution, but in order to obtain the end-effector, we
+        #need to update theta, then update the skeleton, to be able to 
+        #extract f(theta).
+        #f(x_k + αp_k)
+        set_joint_angles(skeleton, thetaLast + step_size_alpha*p)
+        update_skeleton(skeleton)
+        #f(x_k) + cα∇f_k^T p_k
+        if compute_f_theta(chains, skeleton) > (ftheta + c*step_size_alpha*deltaFk):
+            step_size_alpha = rho * step_size_alpha
+        else:
+            loop = False
+    return step_size_alpha
 
 def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamma, epsilon, rho, c):
     """
@@ -734,19 +755,28 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
     """
 
 
-
-    from timeit import default_timer
-
     
     start = default_timer()
     elapsedTime = 0.0
+
+    """update_skeleton(skeleton)
+    angles = get_joint_angles(skeleton)
+    for i in range(len(skeleton.bones)):
+        l = skeleton.bones[i].get_limit_lower()
+        u = skeleton.bones[i].get_limit_upper()
+        for j in range(len(l)):
+             val = angles[i*3+j]
+
+             if (val > math.pi):
+                 val = math.fmod(val, math.pi)
+             elif (val < -math.pi):
+                 val = math.fmod(val, -math.pi)
+             angles[i*3+j] = min(u[j], max(l[j], val))
+    set_joint_angles(skeleton, angles)"""
     
-    thetaLast = get_joint_angles(skeleton)
     update_skeleton(skeleton)
+    thetaLast = get_joint_angles(skeleton)
     thetaK = np.zeros((len(thetaLast),), dtype=np.float64)
-#    thetaLast = 0
-    Jacobian = None
-    gradientLast = None
     objectives = []
     its = 0
     maxLoopIts = 0
@@ -757,75 +787,13 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
         gradient = compute_gradient(chains, skeleton, Jacobian)
         
         #Compute STEP_SIZE_ALPHA
-        alpha = step_size_alpha
-#        rho = 0.75
-#        c = 0.001
-        loop = True
-#        iterations = 0
-        timeStart = default_timer()
         ftheta = compute_f_theta(chains, skeleton)
-        theta = get_joint_angles(skeleton)
-        loopIts = 0
-        maxLoopIts = 0
-        aaa = []
-        while (loop):
-            #Not a perfect solution, but in order to obtain the end-effector, we
-            #need to update theta, then update the skeleton, to be able to 
-            #extract f(theta).
-            p = -gradient
-            #f(x_k + αp_k)
-            set_joint_angles(skeleton, thetaLast + alpha*p)
-            update_skeleton(skeleton)
-            #f(x_k) + cα∇f_k^T p_k
-            if compute_f_theta(chains, skeleton) >= (ftheta + c*alpha*np.dot(np.transpose(gradient), p)):
-                aaa.append(alpha)
-                alpha = rho * alpha
-            else:
-                loop = False
-                if (maxLoopIts < loopIts):
-                    LoopItsObjective = np.copy(aaa)
-                    maxLoopIts = loopIts
-                    loopIts = 0
-            loopIts += 1
-        
-        """     itss = 0
-        r = np.zeros((len(chains) * 3,), dtype=np.float64)
-        row_offset = 0
-        for chain in chains:
-            e = get_end_effector(chain, skeleton)
-            
-            r[row_offset:row_offset+3] = chain.goal - e
-            row_offset += 3
-        deltatheta = np.dot(np.transpose(np.dot(np.transpose(Jacobian), Jacobian)), np.dot(np.transpose(Jacobian), r))
-
-        while (loop):
-            ftheta = compute_f_theta(chains, skeleton)
-            #deltatheta = ∇f(θ)
-            #deltatheta = gradient
-            
-            #θ + τk ∆θ
-            set_joint_angles(skeleton, get_joint_angles(skeleton) + alpha * deltatheta)
-            update_skeleton(skeleton)
-            #f (θ + τk ∆θ)
-            fthetaplust = compute_f_theta(chains, skeleton)
-            
-            #f(θ + τ^k ∆θ) < f(θ) + α∇f(θ)^T*∆θ * τ ^k
-            if (fthetaplust < ftheta + beta*np.dot(np.transpose(gradient), deltatheta)*alpha):
-                loop = False
-            else:
-                alpha = rho*alpha
-            if itss > 10:
-                loop = False
-            itss += 1"""
-
-        elapsedTime += default_timer() - timeStart
+        alpha = compute_step_size_alpha(chains, skeleton, gradient, thetaLast, ftheta, step_size_alpha, rho, c)
+        timeStart = default_timer()
 
         #Compute the actual gradient descent
-#        step_size_alpha = alpha
-        #thetaK = thetaLast - step_size_alpha*gradient
         #Apply box constraints to each bone individually.
         thetaTemp = thetaLast - alpha * gradient
-        comp = np.copy(thetaTemp)
         for i in range(len(skeleton.bones)):
             l = skeleton.bones[i].get_limit_lower()
             u = skeleton.bones[i].get_limit_upper()
@@ -837,112 +805,36 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
                  elif (val < -math.pi):
                      val = math.fmod(val, -math.pi)
                  thetaK[i*3+j] = min(u[j], max(l[j], val))
-        thetaK = np.copy(thetaTemp)
+
 
         set_joint_angles(skeleton, thetaK)
         update_skeleton(skeleton)
         objectives.append(compute_objective(chains, skeleton).copy())
         
-        
-        #Should we continue to iterate?
-#        if (np.linalg.norm(gradient) < epsilon or (np.linalg.norm(thetaK)-np.linalg.norm(thetaLast) < gamma)):
+        #Has the gradient descent reached a minimum, or are we close enough to a minimum?
         if (np.linalg.norm(gradient) < epsilon or (np.linalg.norm(thetaK-thetaLast) < gamma)):
-            #print(np.linalg.norm(gradient))
             break
         #Python implicit pointers, makes the copy a requirement.
         thetaLast = np.copy(thetaK)
 
-    print_jacobian(Jacobian)
-    print("Total iterations for the solver: " + str(its))
+    """    print("Total iterations for the solver: " + str(its))
     print("Total time elapsed for the IK solver " + str(default_timer() - start))
     print("Total time elapsed for finding step size alpha" + str(elapsedTime))
     print("Value of rho: " + str(rho))
-    print("Value of c: " + str(c))
-    print("Max iterations of alpha: " + str(maxLoopIts))
+    print("Value of c: " + str(c))"""
     import matplotlib.pyplot as plt
-    #plt.plot(range(1, len(objectives)+1), np.log(objectives))
-    plt.semilogy(range(1, len(objectives)+1), objectives.copy())
+    plt.semilogy(range(1, len(objectives)+1), objectives)
     
-    """    x_values1=range(1, len(objectives)+1)
-    y_values1=np.log(objectives)
-
-    x_values2=range(1, maxLoopIts+1)
-    y_values2=np.log(LoopItsObjective)
-    
-    fig=plt.figure()
-    ax=fig.add_subplot(111, label="1")
-    ax2=fig.add_subplot(111, label="2", frame_on=False)
-    ax3=fig.add_subplot(111, label="3", frame_on=False)
-
-    ax.plot(x_values1, y_values1, color="C0")
-    ax.set_xlabel("Iterations", color="C0")
-    ax.set_ylabel("Objective", color="C0")
-    ax.tick_params(axis='x', colors="C0")
-    ax.tick_params(axis='y', colors="C0")
-
-    ax2.scatter(x_values2, y_values2, color="C1")
-    ax2.xaxis.tick_top()
-    ax2.yaxis.tick_right()
-    ax2.set_xlabel('Iterations', color="C3") 
-    ax2.set_ylabel('Value of step_size_alpha', color="C3")       
-    ax2.xaxis.set_label_position('top') 
-    ax2.yaxis.set_label_position('right') 
-    ax2.tick_params(axis='x', colors="C3")
-    ax2.tick_params(axis='y', colors="C3")
-    
-    
-    ax3.plot(x_values2, y_values2, color="C3")
-    ax3.set_xticks([])
-    ax3.set_yticks([])"""
-
+    plt.title("Convergence plot for an arm. Constant alpha = 0.001")
     plt.xlabel("Iterations")
     plt.ylabel("Objective")
-    plt.title("Convergence plot for the skeleton with back-tracking line-search")
-#    plt.show()
-
-def compute_gradient_descent_timed(chains, skeleton, iterations, alpha, gamma, epsilon):
-    from timeit import default_timer
-
-    
-    start = default_timer()
-    duration = default_timer() - start
-    thetaLast = None
-    for i in range(iterations):
-        J = compute_jacobian(chains, skeleton)
-        duration = default_timer() - start
-        print("Duration of J")
-        print(duration)
-        start = default_timer()
-        gradient = compute_gradient(chains, skeleton, J)
-        duration = default_timer() - start
-        print("Duration of gradient")
-        print(duration)
-        start = default_timer()
-        thetaK = get_joint_angles(skeleton) - alpha*gradient
-        duration = default_timer() - start
-        print("Duration of get_joint_angles")
-        print(duration)
-        start = default_timer()
-        set_joint_angles(skeleton, thetaK)
-        duration = default_timer() - start
-        print("Duration of set_joint_angles")
-        print(duration)
-        start = default_timer()
-        update_skeleton(skeleton)
-        duration = default_timer() - start
-        print("Duration of update_skeleton")
-        print(duration)
-        start = default_timer()
-        #Should we continue to iterate?
-        thetaLast = thetaK
-        return
-#    print(compute_objective(chains, skeleton))
+    #plt.show()
 
 def solveVariables(chains, skeleton, iterations, step_size_alpha, gamma, epsilon, rho, c):
     compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamma, epsilon, rho, c)
     
 def solve(chains, skeleton):
-    compute_gradient_descent(chains, skeleton, 300, 1, 0.0001, 0.0001, 0.15, 0.0001)
+    compute_gradient_descent(chains, skeleton, 200, 0.37, 0.0001, 0.05, 0.21, 0.0001)
 #    compute_gradient_descent(chains, skeleton, 500, 0.0005, 0.0001, 0.0001)
 #    compute_gradient_descent(chains, skeleton, 100, 0.005, 0.0001, 0.0001)
 

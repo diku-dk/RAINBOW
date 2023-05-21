@@ -161,6 +161,21 @@ class GraphicsComponent:
 
         return np.array(vertices), np.array(tris)
         
+    def eulerAnglesToRotMat(self, alpha, beta, gamma):
+        c1 = cos(alpha)
+        c2 = cos(beta)
+        c3 = cos(gamma)
+        s1 = sin(alpha)
+        s2 = sin(beta)
+        s3 = sin(gamma)
+        mat = np.matrix([[c1*c2*c3-s1*s3, -c3*s1-c1*c2*s3, c1*s2],
+                         [c1*s3+c2*c3*s1, c1*c3-c2*s1*s3, s1*s2],
+                         [-c3*s2, s2*s3, c2]])
+        return mat
+        
+    def cmpFlt(self, a):
+        return (abs(a) > 0.000001)
+        
     def createBoneMesh(self, boneStartPos, boneEndPos):
         """
         Create the vertices for a bone mesh at the desired position. 
@@ -172,24 +187,55 @@ class GraphicsComponent:
         :return:               The position of the vertices and the corresponding cells.
         """
 
-        dist = math.dist(boneStartPos, boneEndPos) 
-        extend = 0.075
-        vertices = np.array([
-            [0, -extend, -extend],
-            [0, -extend, extend],
-            [0, extend, extend],
-            [0, extend, -extend],
-            [-dist, -extend, -extend],
-            [-dist, -extend, extend],
-            [-dist, extend, extend],
-            [-dist, extend, -extend]
-        ])
-
-        cells = np.array([
-          [0, 1, 2, 3, 4, 5, 6, 7],
-        ])
+        dist = math.dist(boneStartPos, boneEndPos)
         
-        return self.generate_cone_vertices(0.25, 0.075, dist, 32)
+        forward = boneStartPos-boneEndPos
+        normalized = np.linalg.norm(forward)
+        forward = forward / normalized
+#        print(angle)
+        
+        
+        verts = self.generate_cone_vertices(0.25, 0.075, dist, 32)
+#        print(verts[0])
+        
+        up = None
+        mat = None
+        if self.cmpFlt(forward[0]) == True:
+            up = np.array([0, 1, 0])
+        else:
+            up = np.array([0, 0, 1])
+        right = np.cross(up, forward)
+        right = right / np.linalg.norm(right)
+        up = np.cross(right, forward)
+        up = up / np.linalg.norm(up)
+        mat = np.matrix([[up[0], up[1], up[2]],
+                         [right[0], right[1], right[2]],
+                         [forward[0], forward[1], forward[2]]])
+        """        x_1 = np.array([1, 0, 0])
+        x_2 = x_1
+        y_1 = np.array([0, 1, 0])
+        y_2 = y_1
+        z_1 = np.array([0, 0, 1])
+        z_2 = z_1
+        mat = x_2*np.transpose(x_1) + y_2*np.transpose(y_1) + z_2*np.transpose(z_1)
+        proj = up*(np.dot(right, mat))
+        print(proj)
+        print(mat.shape) """
+#        mat = self.eulerAnglesToRotMat(math.atan2(forward[2], forward[0]), math.asin(-forward[1]), math.atan2(right[1], up[1]))
+        """if (self.cmpFloat(direction[0])):
+            mat = self.eulerAnglesToRotMat(IK.degrees_to_radians(direction[0]*270.0*-1), 0.0, 0.0)
+        if (self.cmpFloat(direction[1])):
+            mat = self.eulerAnglesToRotMat(0.0, IK.degrees_to_radians(direction[1]*90.0), 0.0)
+        if (self.cmpFloat(direction[2])):
+            mat = self.eulerAnglesToRotMat(0.0, 0.0, IK.degrees_to_radians(direction[2]*90.0))"""
+        if (forward[0] == 1):
+            mat = self.eulerAnglesToRotMat(0.0, IK.degrees_to_radians(forward[0]*180.0), 0.0)
+        else:         
+            mat = self.eulerAnglesToRotMat(IK.degrees_to_radians(forward[1]*90.0), 0.0, 0.0)
+        for i in range(len(verts[0])):
+            verts[0][i] = verts[0][i]*mat
+#        print(forward)
+        return verts
     
     def transformBoneMesh(self, meshVolume, boneStartPos, quaternion):
         """
@@ -235,6 +281,7 @@ class GraphicsComponent:
     def generateSkeletonMesh(self, skeleton, chains):
         """
         Given a skeleton, store the position and oritation of the contained bones
+        Requires to be invocated before solving.
 
         :param skeleton:       A skeleton class defined consisting of bones.
         """
@@ -252,6 +299,15 @@ class GraphicsComponent:
             self.boneIdx.append(i.idx)
             self.boneEulerRot.append(np.array([i.alpha, i.beta, i.gamma]))
         self.constructBoneMeshes()
+        
+    def update_mesh(self, skeleton, chains):
+        """
+        Given a skeleton, store the position and oritation of the contained bones
+        Requires to be invocated after solving.
+
+        :param skeleton:       A skeleton class defined consisting of bones.
+        """
+        self.generateSkeletonMesh(skeleton, chains)
     
     def createSkeletonJoints(self):
         """
@@ -280,13 +336,13 @@ class GraphicsComponent:
             goalNames.append("Goal_" + str(i))
             goalPositions.append(self.m_chains[i].goal)
             verts, faces = self.generate_cone_vertices_single_point(0.25, 2, 32)
-            vol = ps.register_surface_mesh((goalNames[i]), verts, faces, enabled=True, color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), smooth_shade=True, edge_width=0.1, material='ceramic')
+            vol = ps.register_surface_mesh((goalNames[i]), verts, faces, enabled=True, color=(0.1, 1.0, 0.1), edge_color=((0.3, 0.8, 0.3)), smooth_shade=True, edge_width=0.1, material='candy')
             self.transformBoneMesh(vol, goalPositions[i], [1.0, 0.0, 0.0, 0.0])
         self.m_callback.initIKBones(goalNames, goalPositions)
     
     def shiftArrToDegrees(self, rad):
         for i in range(len(rad)):
-            rad[i] = rad[i] * (180/np.pi)+180
+            rad[i] = rad[i] * (180/np.pi)
         return rad
         
     def initLimits(self, skeleton):

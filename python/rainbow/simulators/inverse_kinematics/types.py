@@ -1,6 +1,7 @@
 import rainbow.math.quaternion as Q
 import rainbow.math.vector3 as V3
 import math
+from math import cos, sin
 import numpy as np
 
 class Bone:
@@ -64,11 +65,17 @@ class Bone:
 
     def get_rotation(self, idx, radians):
         if self.euler_code[idx] == 'X':
-            return Q.Rx(radians)
+            c = cos(radians * 0.5)
+            s = sin(radians * 0.5)
+            return np.array([c, s, 0.0, 0.0])
         if self.euler_code[idx] == 'Y':
-            return Q.Ry(radians)
+            c = cos(radians * 0.5)
+            s = sin(radians * 0.5)
+            return np.array([c, 0.0, s, 0.0])
         if self.euler_code[idx] == 'Z':
-            return Q.Rz(radians)
+            c = cos(radians * 0.5)
+            s = sin(radians * 0.5)
+            return np.array([c, 0.0, 0.0, s])
 
     def get_axis_alpha(self):
         return self.get_axis(0)
