@@ -7,6 +7,7 @@ import math
 
 import rainbow.simulators.inverse_kinematics.api as IK
 import rainbow.math.vector3 as V3
+import rainbow.math.quaternion as Q
 
 
 from math import *
@@ -18,7 +19,8 @@ class GraphicsComponent:
     boneQuaternion = []
     boneEulerRot = []
     volumes = []
-    
+    toolPositions = []
+    toolRotations = []
 
     
     m_callback = None
@@ -191,12 +193,15 @@ class GraphicsComponent:
         
         forward = boneStartPos-boneEndPos
         normalized = np.linalg.norm(forward)
-        forward = forward / normalized
-#        print(angle)
+        if (forward[0] > 0.000000001):
+            forward[0] = forward[0] / normalized
+        if (forward[1] > 0.000000001):
+            forward[1] = forward[1] / normalized
+        if (forward[2] > 0.000000001):
+            forward[2] = forward[2] / normalized
         
         
         verts = self.generate_cone_vertices(0.25, 0.075, dist, 32)
-#        print(verts[0])
         
         up = None
         mat = None
@@ -205,36 +210,30 @@ class GraphicsComponent:
         else:
             up = np.array([0, 0, 1])
         right = np.cross(up, forward)
-        right = right / np.linalg.norm(right)
+        if (right[0] > 0.000000001):
+            right[0] = right[0] / np.linalg.norm(right)
+        if (right[1] > 0.000000001):
+            right[1] = right[1] / np.linalg.norm(right)
+        if (right[2] > 0.000000001):
+            right[2] = right[2] / np.linalg.norm(right)
+        #right = right / np.linalg.norm(right)
         up = np.cross(right, forward)
-        up = up / np.linalg.norm(up)
+        #up = up / np.linalg.norm(up)
+        if (up[0] > 0.000000001):
+            up[0] = up[0] / np.linalg.norm(up)
+        if (up[1] > 0.000000001):
+            up[1] = up[1] / np.linalg.norm(up)
+        if (up[2] > 0.000000001):
+            up[2] = up[2] / np.linalg.norm(up)
         mat = np.matrix([[up[0], up[1], up[2]],
                          [right[0], right[1], right[2]],
                          [forward[0], forward[1], forward[2]]])
-        """        x_1 = np.array([1, 0, 0])
-        x_2 = x_1
-        y_1 = np.array([0, 1, 0])
-        y_2 = y_1
-        z_1 = np.array([0, 0, 1])
-        z_2 = z_1
-        mat = x_2*np.transpose(x_1) + y_2*np.transpose(y_1) + z_2*np.transpose(z_1)
-        proj = up*(np.dot(right, mat))
-        print(proj)
-        print(mat.shape) """
-#        mat = self.eulerAnglesToRotMat(math.atan2(forward[2], forward[0]), math.asin(-forward[1]), math.atan2(right[1], up[1]))
-        """if (self.cmpFloat(direction[0])):
-            mat = self.eulerAnglesToRotMat(IK.degrees_to_radians(direction[0]*270.0*-1), 0.0, 0.0)
-        if (self.cmpFloat(direction[1])):
-            mat = self.eulerAnglesToRotMat(0.0, IK.degrees_to_radians(direction[1]*90.0), 0.0)
-        if (self.cmpFloat(direction[2])):
-            mat = self.eulerAnglesToRotMat(0.0, 0.0, IK.degrees_to_radians(direction[2]*90.0))"""
         if (forward[0] == 1):
             mat = self.eulerAnglesToRotMat(0.0, IK.degrees_to_radians(forward[0]*180.0), 0.0)
         else:         
             mat = self.eulerAnglesToRotMat(IK.degrees_to_radians(forward[1]*90.0), 0.0, 0.0)
         for i in range(len(verts[0])):
             verts[0][i] = verts[0][i]*mat
-#        print(forward)
         return verts
     
     def transformBoneMesh(self, meshVolume, boneStartPos, quaternion):
@@ -278,6 +277,29 @@ class GraphicsComponent:
 #                if (len(self.m_skeleton.bones[self.boneIdx[i]].children) != 0):
                     self.transformBoneMesh(self.volumes[i], self.bonePosition[i], self.boneQuaternion[i])
     
+    def generateToolVectors(self, skeleton, chains):
+        for i in range(len(chains)):
+            if (chains[i].tool[0] + chains[i].tool[1] + chains[i].tool[2] > 0.1):
+                bone = skeleton.bones[chains[i].bones[-1]]
+                q_alpha = bone.get_rotation_alpha()
+                q_beta = bone.get_rotation_beta()
+                q_gamma = bone.get_rotation_gamma()
+                q_bone = Q.prod(q_alpha, Q.prod(q_beta, q_gamma))
+
+                t_parent = V3.zero()
+                q_parent = Q.identity()
+                t_parent = bone.t_wcs
+                q_parent = bone.q_wcs
+                t_wcs = t_parent + Q.rotate(q_parent, chains[i].tool)
+                q_wcs = Q.prod(q_parent, q_bone)
+                
+                verts, cells = self.createBoneMesh(bone.t_wcs, t_wcs)
+                vol = ps.register_surface_mesh(("Tool" + str(i)), verts, cells, enabled=True, 
+                          color=(0.2, 1.0, 0.5), edge_color=((0.3, 0.8, 0.3)), 
+                          smooth_shade=True, edge_width=0.0, material='ceramic')              
+            
+                self.transformBoneMesh(vol, bone.t_wcs, q_wcs)
+        
     def generateSkeletonMesh(self, skeleton, chains):
         """
         Given a skeleton, store the position and oritation of the contained bones
@@ -298,7 +320,10 @@ class GraphicsComponent:
             self.boneQuaternion.append(i.q_wcs)
             self.boneIdx.append(i.idx)
             self.boneEulerRot.append(np.array([i.alpha, i.beta, i.gamma]))
+
+        self.generateToolVectors(skeleton, chains)
         self.constructBoneMeshes()
+        
         
     def update_mesh(self, skeleton, chains):
         """

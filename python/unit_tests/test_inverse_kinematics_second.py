@@ -197,7 +197,47 @@ class TestInverseKinematicsSecond(unittest.TestCase):
             chains[0].goal = V3.make(random.uniform(-2.95, 2.95), random.uniform(-2.95, 2.95), random.uniform(-2.95, 2.95))
             if len(IK.solveVariables(chains, skeleton, 200, 0.38, 0.0001, 0.05, 0.21, 0.0001)) > 200:
                 self.assertTrue(IK.compute_objective(chains, skeleton) < 0.05)
+                
+    def test_full_limits(self):
+        for i in range(10):
+            skeleton = IK.create_skeleton()
+            B0 = IK.create_root(skeleton, alpha=0.0, beta=0.0, gamma=0.0, tx=1.0, ty=0.0, tz=0.0, alphaLim=(0, 30), betaLim=(0, 30), gammaLim=(0, 30))
+            B1 = IK.add_bone(skeleton, parent_idx=B0.idx, alpha=IK.degrees_to_radians(0.0), beta=0.0, gamma=0.0, tx=1.0, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
+            B2 = IK.add_bone(skeleton, parent_idx=B1.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=1.0, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
+            B3 = IK.add_bone(skeleton, parent_idx=B2.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=1.0, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
 
+            IK.update_skeleton(skeleton)
+            chains = IK.make_chains(skeleton)
+            chains[0].goal = V3.make(random.uniform(-3.05, 3.05), random.uniform(-3.05, 3.05), random.uniform(-3.05, 3.05))
+            IK.solveVariables(chains, skeleton, 100, 0.38, 0.0001, 0.05, 0.21, 0.0001)
+            bone = skeleton.bones[0]
+            self.assertTrue(bone.alphaMin > -0.0001)
+            self.assertTrue(bone.alphaMax < 30.0001)
+            self.assertTrue(bone.betaMin > -0.0001)
+            self.assertTrue(bone.betaMax < 30.0001)
+            self.assertTrue(bone.gammaMin > -0.0001)
+            self.assertTrue(bone.gammaMax < 30.0001)
+            
+    def test_full_limits_all_bones(self):
+        for i in range(10):
+            skeleton = IK.create_skeleton()
+            B0 = IK.create_root(skeleton, alpha=0.0, beta=0.0, gamma=0.0, tx=1.0, ty=0.0, tz=0.0, alphaLim=(0, 30), betaLim=(0, 30), gammaLim=(0, 30))
+            B1 = IK.add_bone(skeleton, parent_idx=B0.idx, alpha=IK.degrees_to_radians(0.0), beta=0.0, gamma=0.0, tx=1.0, ty=0.0, tz=0.0, alphaLim=(0, 30), betaLim=(0, 30), gammaLim=(0, 30))
+            B2 = IK.add_bone(skeleton, parent_idx=B1.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=1.0, ty=0.0, tz=0.0, alphaLim=(0, 30), betaLim=(0, 30), gammaLim=(0, 30))
+            B3 = IK.add_bone(skeleton, parent_idx=B2.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=1.0, ty=0.0, tz=0.0, alphaLim=(0, 30), betaLim=(0, 30), gammaLim=(0, 30))
+
+            IK.update_skeleton(skeleton)
+            chains = IK.make_chains(skeleton)
+            chains[0].goal = V3.make(random.uniform(-3.05, 3.05), random.uniform(-3.05, 3.05), random.uniform(-3.05, 3.05))
+            IK.solveVariables(chains, skeleton, 100, 0.38, 0.0001, 0.05, 0.21, 0.0001)
+            for j in range(len(skeleton.bones)):
+                bone = skeleton.bones[j]
+                self.assertTrue(bone.alphaMin > -0.0001)
+                self.assertTrue(bone.alphaMax < 30.0001)
+                self.assertTrue(bone.betaMin > -0.0001)
+                self.assertTrue(bone.betaMax < 30.0001)
+                self.assertTrue(bone.gammaMin > -0.0001)
+                self.assertTrue(bone.gammaMax < 30.0001)
             
 if __name__ == '__main__':
     unittest.main()

@@ -1,9 +1,10 @@
-import numpy as np
 import rainbow.math.matrix3 as M3
 import rainbow.math.vector3 as V3
 import rainbow.math.angle as ANGLE
 import rainbow.util.parse_string as parse
-from math import cos, sin, sqrt, pi, atan2, acos
+from math import pi, cos, sin, sqrt, atan2, acos
+import numpy as np
+import cython
 
 def make(qs, qx, qy, qz):
     return np.array([qs, qx, qy, qz], dtype=np.float64)
@@ -28,7 +29,6 @@ def check_string(lower_value):
     return parse.parse_string_to_keywords_check(lower_value)
 
 def from_string(value):
-
     value_lower = value.lower()
 
     assert check_string(value_lower)
@@ -79,30 +79,30 @@ def unit(q):
         return from_array(q / l)
     return identity()
 
-
 def Ru(radians, axis):
-    c = cos(radians / 2.0)
-    s = sin(radians / 2.0)
+    c = cos(radians * 0.5)
+    s = sin(radians * 0.5)
     n = axis / np.linalg.norm(axis)
-    return from_array([c, s * n[0], s * n[1], s * n[2]])
-
+    return np.array([c, s * n[0], s * n[1], s * n[2]], dtype=np.float64)
+#    return from_array([c, s * n[0], s * n[1], s * n[2]])
 
 def Rx(radians):
-    c = cos(radians / 2.0)
-    s = sin(radians / 2.0)
-    return from_array([c, s, 0.0, 0.0])
-
+    c = cos(radians * 0.5)
+    s = sin(radians * 0.5)
+    return np.array([c, s, 0.0, 0.0])
+#    return from_array([c, s, 0.0, 0.0])
 
 def Ry(radians):
-    c = cos(radians / 2.0)
-    s = sin(radians / 2.0)
-    return from_array([c, 0.0, s, 0.0])
-
+    c = cos(radians * 0.5)
+    s = sin(radians * 0.5)
+    return np.array([c, 0.0, s, 0.0], dtype=np.float64)
+#    return from_array([c, 0.0, s, 0.0])
 
 def Rz(radians):
-    c = cos(radians / 2.0)
-    s = sin(radians / 2.0)
-    return from_array([c, 0.0, 0.0, s])
+    c = cos(radians * 0.5)
+    s = sin(radians * 0.5)
+    return np.array([c, 0.0, 0.0, s], dtype=np.float64)
+#    return from_array([c, 0.0, 0.0, s])
 
 
 def to_matrix(Q):
@@ -180,9 +180,23 @@ def from_matrix(M):
 
 
 def conjugate(Q):
-    return from_array([Q[0], -Q[1], -Q[2], -Q[3]])
+    return np.array([Q[0], -Q[1], -Q[2], -Q[3]], dtype=np.float64)
 
 
+"""def prod(Qa, Qb):
+    a = Qa[0]
+    A = Qa[1:]
+    b = Qb[0]
+    B = Qb[1:]
+    qs = a * b - np.dot(A, B)
+    qv = a * B + A * b + np.cross(A, B, axis=0)
+    return np.array([qs, qv[0], qv[1], qv[2]], dtype=np.float64)
+
+def rotate(q, r):
+    qr = np.array([0.0, r[0], r[1], r[2]], dtype=np.float64)
+    return prod(prod(q, qr), conjugate(q))[1:]"""
+    
+    
 def prod(Qa, Qb):
     a = Qa[0]
     A = Qa[1:]
@@ -190,12 +204,26 @@ def prod(Qa, Qb):
     B = Qb[1:]
     qs = a * b - np.dot(A, B)
     qv = a * B + A * b + np.cross(A, B, axis=0)
-    return from_array([qs, qv[0], qv[1], qv[2]])
-
+    return np.array([qs, qv[0], qv[1], qv[2]], dtype=np.float64)
 
 def rotate(q, r):
-    qr = from_array([0.0, r[0], r[1], r[2]])
-    return prod(prod(q, qr), conjugate(q))[1:]
+    qr = np.array([0.0, r[0], r[1], r[2]], dtype=np.float64)
+    a = q[0]
+    A = q[1:]
+    b = qr[0]
+    B = qr[1:]
+    qs = a * b - np.dot(A, B)
+    qv = a * B + A * b + np.cross(A, B, axis=0)
+    
+    a = qs
+    A = np.array([qv[0], qv[1], qv[2]], dtype=np.float64)
+    qr = conjugate(q)
+    b = qr[0]
+    B = qr[1:]
+    qs = a * b - np.dot(A, B)
+    qv = a * B + A * b + np.cross(A, B, axis=0)    
+
+    return np.array([qv[0], qv[1], qv[2]], dtype=np.float64)
 
 
 def prod_array(Qa, Qb):

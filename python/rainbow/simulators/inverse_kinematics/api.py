@@ -793,6 +793,7 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
         #Compute STEP_SIZE_ALPHA
         ftheta = compute_f_theta(chains, skeleton)
         alpha = compute_step_size_alpha(chains, skeleton, gradient, thetaLast, ftheta, step_size_alpha, rho, c)
+        
         timeStart = default_timer()
 
         #Compute the actual gradient descent
@@ -822,8 +823,8 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
         #Python implicit pointers, makes the copy a requirement.
         thetaLast = np.copy(thetaK)
 
-    print("Total iterations for the solver: " + str(its))
-    print("Total time elapsed for the IK solver " + str(default_timer() - start))
+    #print("Total iterations for the solver: " + str(its))
+    #print("Total time elapsed for the IK solver " + str(default_timer() - start))
     """
     #Uncomment this code block to plot convergence for the solver. 
     import matplotlib.pyplot as plt
@@ -841,5 +842,5 @@ def solveVariables(chains, skeleton, iterations, step_size_alpha, gamma, epsilon
     return compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamma, epsilon, rho, c)
     
 def solve(chains, skeleton):
-    compute_gradient_descent(chains, skeleton, 200, 0.37, 0.0001, 0.05, 0.21, 0.0001)
+    compute_gradient_descent(chains, skeleton, 200, 0.38, 0.0001, 0.05, 0.21, 0.0001)
 
