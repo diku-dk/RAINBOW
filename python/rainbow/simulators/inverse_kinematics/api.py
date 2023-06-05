@@ -753,6 +753,48 @@ def compute_step_size_alpha(chains, skeleton, gradient, thetaLast, ftheta, step_
         else:
             loop = False
     return step_size_alpha
+    
+def compute_step_size_alpha_ret(chains, skeleton, gradient, thetaLast, ftheta, step_size_alpha, rho, c):
+    """
+    This function uses back-tracking line-search to iteratively find a better value of step-size-alpha,
+    which is used to traverse the gradient faster.
+
+    :param chains:          All the IK chains.
+    :param skeleton:        The IK skeleton.
+    :param gradient:        The computed gradient in iteration theta^k
+    :param thetaLast:       The previously computed gradient in iteration theta^k-1
+    :param ftheta:          This is used for computing f(theta) and is needed as a seperate
+                            function, and is used with the wolfe conditions.
+    :param step_size_alpha: A user-defined step-size, which defines how fast the
+                            algorithm should descent
+    :param rho:             Used for finding the best value of step_size_alpha
+                            in each iteration. This is the parameter which controls
+                            how much alpha decreases.
+    :param c:               A parameter which makes the back-tracking line-search
+                            for step_size_alpha "relaxed"
+
+    :return:                The updated step_size_alpha
+    """
+    loop = True
+    #Small optimization, to have it before the loop, as it does not need to be 
+    #recomputed each iteration.
+    p = -gradient
+    deltaFk = np.dot(np.transpose(gradient), p)
+    currAlpha = []
+    while (loop):
+        #Not a perfect solution, but in order to obtain the end-effector, we
+        #need to update theta, then update the skeleton, to be able to 
+        #extract f(theta).
+        #f(x_k + αp_k)
+        set_joint_angles(skeleton, thetaLast + step_size_alpha*p)
+        update_skeleton(skeleton)
+        #f(x_k) + cα∇f_k^T p_k
+        if compute_f_theta(chains, skeleton) > (ftheta + c*step_size_alpha*deltaFk):
+            step_size_alpha = rho * step_size_alpha
+            currAlpha.append(step_size_alpha)
+        else:
+            loop = False
+    return (step_size_alpha, currAlpha)
 
 def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamma, epsilon, rho, c):
     """
@@ -785,6 +827,8 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
     thetaK = np.zeros((len(thetaLast),), dtype=np.float64)  
     objectives = []
     its = 0
+    valLength = 0
+    currVal = []
     for i in range(iterations):
         its += 1
         Jacobian = compute_jacobian(chains, skeleton)
@@ -792,8 +836,11 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
         
         #Compute STEP_SIZE_ALPHA
         ftheta = compute_f_theta(chains, skeleton)
-        alpha = compute_step_size_alpha(chains, skeleton, gradient, thetaLast, ftheta, step_size_alpha, rho, c)
-        
+#        alpha = compute_step_size_alpha(chains, skeleton, gradient, thetaLast, ftheta, step_size_alpha, rho, c)
+        alpha, vals = compute_step_size_alpha_ret(chains, skeleton, gradient, thetaLast, ftheta, step_size_alpha, rho, c)
+        if (len(vals) > valLength):
+            currVal = vals
+            valLength = len(vals)        
         timeStart = default_timer()
 
         #Compute the actual gradient descent
@@ -823,8 +870,8 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
         #Python implicit pointers, makes the copy a requirement.
         thetaLast = np.copy(thetaK)
 
-    #print("Total iterations for the solver: " + str(its))
-    #print("Total time elapsed for the IK solver " + str(default_timer() - start))
+    print("Total iterations for the solver: " + str(its))
+    print("Total time elapsed for the IK solver " + str(default_timer() - start))
     """
     #Uncomment this code block to plot convergence for the solver. 
     import matplotlib.pyplot as plt
@@ -834,6 +881,52 @@ def compute_gradient_descent(chains, skeleton, iterations, step_size_alpha, gamm
     plt.xlabel("Iterations")
     plt.ylabel("Objective")
     plt.show()"""
+    
+    
+    currVal.insert(0, 0.38)
+    
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import ScalarFormatter
+    import matplotlib.ticker
+    
+    x_values1=np.array(range(1, len(objectives)+1))
+    y_values1=np.log2(objectives)
+
+    x_values2=np.array(range(1, valLength+2))
+    y_values2=np.log(currVal)
+    
+    x_values3=x_values2
+    y_values3=y_values2
+#    print(np.log10(currVal))
+
+
+    fig=plt.figure()
+    fig.suptitle("Convergence plot for a skeleton and step-size-alpha")
+    ax=fig.add_subplot(111, label="1")
+    ax2=fig.add_subplot(111, label="2", frame_on=False)
+    ax3=fig.add_subplot(111, label="3", frame_on=False)
+
+    ax.plot(x_values1, y_values1, color="C0")
+    ax.set_xlabel("Iterations", color="C0")
+    ax.set_ylabel("Objective", color="C0")
+    ax.tick_params(axis='x', colors="C0")
+    ax.tick_params(axis='y', colors="C0")
+    
+    ax2.plot(x_values2, y_values2, color="C1")
+    ax2.xaxis.tick_top()
+    ax2.yaxis.tick_right()
+    ax2.set_xlabel('Iterations for step-size-alpha', color="C1") 
+    ax2.set_ylabel('Step-size-alpha-value', color="C1")       
+    ax2.xaxis.set_label_position('top') 
+    ax2.yaxis.set_label_position('right') 
+    ax2.tick_params(axis='x', colors="C1")
+    ax2.tick_params(axis='y', colors="C1")
+
+#    ax3.plot(x_values3, y_values3, color="C3")
+    ax3.set_xticks([])
+    ax3.set_yticks([])
+    
+#    plt.show()
     
     #This return is for the tests only.
     return objectives
