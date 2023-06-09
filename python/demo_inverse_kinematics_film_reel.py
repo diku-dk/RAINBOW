@@ -17,15 +17,13 @@ def show_simple_setup():
     B3 = IK.add_bone(skeleton, parent_idx=B2.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=0.0, ty=1.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
     B4 = IK.add_bone(skeleton, parent_idx=B3.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=0.0, ty=1.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
     
-    E0 = IK.add_bone(skeleton, parent_idx=B3.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=0.0, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
-    E1 = IK.add_bone(skeleton, parent_idx=E0.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=0.75, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
-    E2 = IK.add_bone(skeleton, parent_idx=E1.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=1.0, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
-    E3 = IK.add_bone(skeleton, parent_idx=E2.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=1.0, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))   
+    E0 = IK.add_bone(skeleton, parent_idx=B3.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=0.5, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
+    E1 = IK.add_bone(skeleton, parent_idx=E0.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=1.0, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
+    E2 = IK.add_bone(skeleton, parent_idx=E1.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=1.0, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))   
 
-    F0 = IK.add_bone(skeleton, parent_idx=B3.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=0.0, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
-    F1 = IK.add_bone(skeleton, parent_idx=F0.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=-0.75, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
+    F0 = IK.add_bone(skeleton, parent_idx=B3.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=-0.5, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
+    F1 = IK.add_bone(skeleton, parent_idx=F0.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=-1.0, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
     F2 = IK.add_bone(skeleton, parent_idx=F1.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=-1.0, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
-    F3 = IK.add_bone(skeleton, parent_idx=F2.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=-1.0, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
     
     """    E0 = IK.add_bone(skeleton, parent_idx=B3.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=1.0, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))
     E1 = IK.add_bone(skeleton, parent_idx=E0.idx, alpha=0.0, beta=0.0, gamma=0.0, tx=1.0, ty=0.0, tz=0.0, alphaLim=(-180, 180), betaLim=(-180, 180), gammaLim=(-180, 180))

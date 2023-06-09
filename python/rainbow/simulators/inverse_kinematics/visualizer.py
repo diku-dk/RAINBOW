@@ -200,7 +200,6 @@ class GraphicsComponent:
         if (forward[2] > 0.000000001):
             forward[2] = forward[2] / normalized
         
-        
         verts = self.generate_cone_vertices(0.25, 0.075, dist, 32)
         
         up = None
@@ -213,7 +212,7 @@ class GraphicsComponent:
         if (right[0] > 0.000000001):
             right[0] = right[0] / np.linalg.norm(right)
         if (right[1] > 0.000000001):
-            right[1] = right[1] / np.linalg.norm(right)
+            right[1] = right[1] / np.linalg.norm(right) 
         if (right[2] > 0.000000001):
             right[2] = right[2] / np.linalg.norm(right)
         #right = right / np.linalg.norm(right)
@@ -228,7 +227,7 @@ class GraphicsComponent:
         mat = np.matrix([[up[0], up[1], up[2]],
                          [right[0], right[1], right[2]],
                          [forward[0], forward[1], forward[2]]])
-        if (forward[0] == 1):
+        if (forward[0] > 0.999):
             mat = self.eulerAnglesToRotMat(0.0, IK.degrees_to_radians(forward[0]*180.0), 0.0)
         else:         
             mat = self.eulerAnglesToRotMat(IK.degrees_to_radians(forward[1]*90.0), 0.0, 0.0)
@@ -253,6 +252,22 @@ class GraphicsComponent:
                                [rotMat[2, 0], rotMat[2, 1], rotMat[2, 2], boneStartPos[2]],
                                [0.0, 0.0, 0.0, 1.0]])
         meshVolume.set_transform(transform)
+        
+    def drawBonesBetweenChains(self, skeleton, chains):
+        """
+        Given some chains, if the distance is more than 0.0001, draw bones between chains.
+        """
+        for i in range(len(chains)-1):
+            chain = chains[i]
+            for j in range(len(chain.bones)-2):
+                if (abs(chain.bones[j]-chain.bones[j+1]) > 1):
+                    vec = skeleton.bones[chain.bones[j]].t_wcs-skeleton.bones[chain.bones[j+1]].t_wcs
+                    if (abs(vec[0]) > 0.0001 or abs(vec[1]) > 0.0001 or abs(vec[2]) > 0.0001):
+                        verts, cells = self.createBoneMesh(skeleton.bones[chain.bones[j]].t_wcs, skeleton.bones[chain.bones[j+1]].t_wcs)
+                        vol = ps.register_surface_mesh(("ConstantBone" + str(chain.bones[j]) + "_" + str(i)), verts, cells, enabled=True, 
+                                  color=(1.0, 1.0, 1.0), edge_color=((0.3, 0.8, 0.3)), 
+                                  smooth_shade=True, edge_width=0.0, material='ceramic')
+                        self.transformBoneMesh(vol, skeleton.bones[chain.bones[j]].t_wcs, Q.identity())
  
     def constructBoneMeshes(self):
         """
@@ -314,6 +329,7 @@ class GraphicsComponent:
         self.boneEulerRot = []
         self.m_skeleton = skeleton
         self.m_chains = chains
+        self.drawBonesBetweenChains(skeleton, chains)
         
         for i in skeleton.bones:
             self.bonePosition.append(i.t_wcs)
