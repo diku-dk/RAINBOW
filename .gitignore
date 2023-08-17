@@ -137,3 +137,6 @@ dmypy.json
 cpp/external/Eigen3/
 __init__.py
 data/test.mat
+.polyscope.ini
+imgui.ini
+playground.py
