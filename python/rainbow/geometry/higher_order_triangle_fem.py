@@ -193,7 +193,7 @@ class TriangleShapeFunction:
         :param P:   The order of the triangle.
         :param N:   The order corresponding to the barycentric coordinate that we evaluate wrt to.
         :param w:   The barycentric coordinate at which the Lagrangian shape function is evaluated.
-        :return:    The value of the Lagrange shape function of order M at the bary-centric coordinate w.
+        :return:    The value of the Lagrange shape function of order M at the barycentric coordinate w.
         """
         value = 1.0
         for n in range(N):
@@ -430,7 +430,7 @@ class Field:
         The initializer will not allocate the values of the field. We supply a series of factory
         functions that allocates and initialize the actual field values.
 
-        :param mesh:   The mesh that the field is associated with. The filed lives on the nodes of the mesh.
+        :param mesh:   The mesh that the field is associated with. The field lives on the nodes of the mesh.
         :param shape:  A tuple that indicates the shape (aka dimension) of the field.
         """
         # TODO 2022-12-15 Kenny review: Add code to test for valid input values of mesh and shape arguments.
@@ -447,7 +447,7 @@ class Field:
         :return:     The field value at location w in triangle with index idx.
         """
         e = self.mesh.encodings[idx]
-        # TODO 2022-12-15 Kenny review: Here we could reuses indices if the mesh keeps them at creation time.
+        # TODO 2022-12-15 Kenny review: Here we could reuse indices if the mesh keeps them at creation time.
         #  Currently the code is hardwired to assume that indices are not stored. Hence, they must be recomputed.
         indices = TriangleLayout.get_global_indices(encoding=e, P=self.mesh.layout.P)
         return Field.IsoParametric.interpolate_value(self.values, indices, self.mesh.element.shape_functions, w)
@@ -461,10 +461,21 @@ class Field:
         :return:     The field gradient value at location w in triangle with index idx.
         """
         e = self.mesh.encodings[idx]
-        # TODO 2022-12-15 Kenny review: Here we could reuses indices if the mesh keeps them at creation time.
+        # TODO 2022-12-15 Kenny review: Here we could reuse indices if the mesh keeps them at creation time.
         #  Currently the code is hardwired to assume that indices are not stored. Hence, they must be recomputed.
         indices = TriangleLayout.get_global_indices(encoding=e, P=self.mesh.layout.P)
         return Field.IsoParametric.interpolate_gradient(self.values, indices, self.mesh.element.shape_functions, w)
+
+    def get_spatial_gradient(self, idx, w):
+        """
+        This method will retrieve the spatial gradient
+
+        :param idx:
+        :param w:
+        :return:
+        """
+
+        
 
 
 class _TriangleMeshFactory:

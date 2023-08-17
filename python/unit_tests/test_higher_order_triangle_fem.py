@@ -526,19 +526,20 @@ class TestHigherOrderTriangleFEM(unittest.TestCase):
                 w1 = sym.Symbol('w1')
                 w2 = sym.Symbol('w2')
                 phi_expr = sym.expand(phi.value([w0, w1, w2]))
-                # Then we compute a symbolic derivative of that shape function, observe we keep it as partial derivatives.
+                # Then we compute a symbolic derivative of that shape function, observe we handle it by keeping
+                # the individual partial derivatives that makes the gradient.
                 dphi_d0_expr = sym.diff(phi_expr, w0)
                 dphi_d1_expr = sym.diff(phi_expr, w1)
                 dphi_d2_expr = sym.diff(phi_expr, w2)
                 for w in samples:
-                    # From our expressions of the symbolic partical derivatives we can now substitute the barycentric
+                    # From our expressions of the symbolic partial derivatives we can now substitute the barycentric
                     # coordinates to evaluate the exact value of the partial derivatives.
                     d0 = dphi_d0_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
                     d1 = dphi_d1_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
                     d2 = dphi_d2_expr.subs([(w0, w[0]), (w1, w[1]), (w2, w[2])])
                     # We now use our recursive "fast" way of evaluation the gradient value.
                     gradient = phi.gradient(w)
-                    # Finally, we can compute the symbolic values to the actual computed values
+                    # Finally, we can compare the symbolic values to the actual computed values
                     self.assertTrue(TEST.is_array_equal([d0, d1, d2], gradient))
         # Now we can just run our test scenarios with increasing orders of the shape function.
         test_order(P=1)
