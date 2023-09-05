@@ -210,7 +210,7 @@ def solve(J, WJT, b, mu, friction_solver, engine, stats, debug_on, prefix):
         stats[prefix + "lambda"] = np.zeros(
             [engine.params.max_iterations] + list(b.shape), dtype=np.float64
         )
-        stats[prefix + "reject"] = np.zeros(engine.params.max_iterations, dtype=np.bool)
+        stats[prefix + "reject"] = np.zeros(engine.params.max_iterations, dtype=bool)
         stats[prefix + "exitcode"] = 0
         stats[prefix + "iterations"] = engine.params.max_iterations
         timer.start()
