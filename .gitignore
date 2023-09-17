@@ -137,3 +137,10 @@ dmypy.json
 cpp/external/Eigen3/
 __init__.py
 data/test.mat
+
+
+# usd* file
+*.usd*
+
+# demo study file
+demo_study.ipynb
