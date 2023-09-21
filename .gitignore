@@ -142,5 +142,6 @@ data/test.mat
 # usd* file
 *.usd*
 
-# demo study file
-demo_study.ipynb
+# log file
+nohup.out
+*.prof
