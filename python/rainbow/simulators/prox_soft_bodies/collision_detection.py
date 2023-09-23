@@ -1,10 +1,14 @@
 import rainbow.geometry.grid3 as GRID
+import rainbow.cuda.geometry.grid3 as CUDAGRID
 import rainbow.geometry.kdop_bvh as BVH
 import rainbow.geometry.barycentric as BC
 from rainbow.simulators.prox_soft_bodies.types import *
 from rainbow.util.timer import Timer
 import numpy as np
 from itertools import combinations
+from numba import cuda
+
+import rainbow.cuda.collision_detection.compute_contacts as CUDA_COMPUTE_CONTACTS
 
 
 def _update_bvh(engine, stats, debug_on):
@@ -117,7 +121,9 @@ def _xform_contact_to_world(p, n, XA, XB, X0B):
     omegaA = BC.compute_barycentric_tetrahedron(XA[0], XA[1], XA[2], XA[3], p)
     D = XB[0:3] - XB[3]
     D0 = X0B[0:3] - X0B[3]
+
     n = D.dot(np.linalg.solve(D0, n))
+    
     return p, n, omegaA, omegaB
 
 
@@ -132,6 +138,7 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
     :return:            A dictionary with profiling and timing measurements.
     """
+
     contact_optimization_timer = None
     model_space_update_timer = None
     contact_point_generation_timer = None
@@ -140,7 +147,7 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
         contact_optimization_timer = Timer("contact_optimization")
         contact_point_generation_timer = Timer("contact_point_generation")
 
-    # Loop over all triangles from body A that are colliding with body B
+     # Loop over all triangles from body A that are colliding with body B
     for k in range(len(results)):
         idx_triA, idx_triB = results[k]  # Get the triangle face indices
         idx_tetA = bodyA.owners[idx_triA][0]  # Get index of tetrahedron that f_a comes from
@@ -150,6 +157,7 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
             contact_optimization_timer.start()
             model_space_update_timer.start()
 
+
         # Transform triangle A into model coordinates of body B.
         P = bodyA.x[bodyA.surface[idx_triA], :]  # Triangle face A vertices in world space
         XB = bodyB.x[bodyB.T[idx_tetB], :]  # Tetrahedron B vertices in world space
@@ -157,6 +165,7 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
         P0 = _xform_triangle_to_model_space(
             P, XB, X0B
         )  # Vertices of triangle A in the body space of body B.
+
 
         if debug_on:
             model_space_update_timer.end()
@@ -183,6 +192,7 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
             # Pick the triangle vertex 's_i' which minimizes the dot product with
             # the current gradient at 'x_i'. That is the vertex with "largest" descent.
             objectives = [np.dot(s_i, GRID.get_gradient(bodyB.grid, x_i)) for s_i in P0]
+
             vertex = np.argmin(objectives)
             s_i = P0[vertex]
             # Knowing that 's_i' has a "better" descent direction we update 'x_i' by "dragging" it
@@ -226,6 +236,7 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
                     engine.contact_points.append(cp)
         if debug_on:
             contact_point_generation_timer.end()
+
     # Before we exit we just make sure we collect any stats and timings.
     if debug_on:
         if "model_space_update" not in stats:
@@ -239,10 +250,191 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
         stats["contact_point_generation"] += contact_point_generation_timer.total
     return stats
 
+def _uniform_padding(listss, padding_value):
+    valid_lists = [l for l in listss if l is not None]
+
+    if len(valid_lists) == 0:
+        return listss
+
+    max_len = max(len(l) for l in valid_lists)
+
+    return [np.pad(sub_list,
+                   ((0, max_len - len(sub_list)), (0, 0)),
+                   mode='constant',
+                    constant_values=padding_value)
+            for sub_list in valid_lists]
+
+def _assemble_body_data_for_gpu(body):
+    return {
+                'idx': body.idx,
+                'owners': body.owners,
+                'x': body.x,
+                'x0': body.x0,
+                'surface': body.surface,
+                'T': body.T,
+                'grid_min_coord': body.grid.min_coord,
+                'grid_max_coord': body.grid.max_coord,
+                'grid_spacing': body.grid.spacing,
+                'grid_I': body.grid.I,
+                'grid_J': body.grid.J,
+                'grid_K': body.grid.K,
+                'grid_values': body.grid.values
+            }
+
+def _contact_point_computing_gpu(overlaps, engine, stats, debug_on):
+
+    contact_optimization_timer = None
+    model_space_update_timer = None
+    contact_point_generation_timer = None
+    if debug_on:
+        # model_space_update_timer = Timer("model_space_update")
+        # contact_optimization_timer = Timer("contact_optimization")
+        contact_point_generation_timer = Timer("contact_point_generation")
+
+    bodyA_idxs = []
+    bodyB_idxs = []
+    resultss = []
+    body_dict = {}
+    body_max_idx = 0
+
+    for key, results in overlaps.items():
+        for triA, triB in results:
+            bodyA = key[0]
+            bodyB = key[1]
+
+            if bodyA.idx > body_max_idx:
+                body_max_idx = bodyA.idx
+            if bodyB.idx > body_max_idx:
+                body_max_idx = bodyB.idx
+
+            if bodyA.idx not in body_dict:
+                body_dict[bodyA.idx] = _assemble_body_data_for_gpu(bodyA)
+            
+            if bodyB.idx not in body_dict:
+                body_dict[bodyB.idx] = _assemble_body_data_for_gpu(bodyB)
+
+            bodyA_idxs.append(bodyA.idx)
+            bodyB_idxs.append(bodyB.idx)
+            resultss.append((triA, triB))
+
+            bodyA_idxs.append(bodyB.idx)
+            bodyB_idxs.append(bodyA.idx)
+            resultss.append((triB, triA))
+    
+    if len(resultss) == 0:
+        return stats
+
+    ## Prepare data for GPU
+    ownerss =  [None] * (body_max_idx + 1)
+    xs =  [None] * (body_max_idx + 1)
+    x0s =  [None] * (body_max_idx + 1)
+    surfaces =  [None] * (body_max_idx + 1)
+    Ts =  [None] * (body_max_idx + 1)
+    grid_min_coords =  [None] * (body_max_idx + 1)
+    grid_max_coords =  [None] * (body_max_idx + 1)
+    grid_spacings =  [None] * (body_max_idx + 1)
+    grid_Is =  [None] * (body_max_idx + 1)
+    grid_Js =  [None] * (body_max_idx + 1)
+    grid_Ks =  [None] * (body_max_idx + 1)
+    grid_valuess =  [None] * (body_max_idx + 1)
+
+    for idx, body in body_dict.items():
+        ownerss[idx] = body['owners']
+        xs[idx] = body['x']
+        x0s[idx] = body['x0']
+        surfaces[idx] = body['surface']
+        Ts[idx] = body['T']
+        grid_min_coords[idx] = body['grid_min_coord']
+        grid_max_coords[idx] = body['grid_max_coord']
+        grid_spacings[idx] = body['grid_spacing']
+        grid_Is[idx] = body['grid_I']
+        grid_Js[idx] = body['grid_J']
+        grid_Ks[idx] = body['grid_K']
+        grid_valuess[idx] = body['grid_values']
+
+
+    ownerss = _uniform_padding(ownerss, -1)
+    xs = _uniform_padding(xs, -np.inf)
+    x0s = _uniform_padding(x0s, -np.inf)
+    surfaces = _uniform_padding(surfaces, -1)
+    Ts = _uniform_padding(Ts, -1)
+
+    ownerss = np.array(ownerss, dtype=np.int32)
+    xs = np.array(xs, dtype=np.float64)
+    x0s = np.array(x0s, dtype=np.float64)
+    surfaces = np.array(surfaces, dtype=np.int32)
+    Ts = np.array(Ts, dtype=np.int32)
+    grid_min_coords = np.array(grid_min_coords, dtype=np.float64)
+    grid_max_coords = np.array(grid_max_coords, dtype=np.float64)
+    grid_spacings = np.array(grid_spacings, dtype=np.float64)
+    grid_Is = np.array(grid_Is, dtype=np.int32)
+    grid_Js = np.array(grid_Js, dtype=np.int32)
+    grid_Ks = np.array(grid_Ks, dtype=np.int32)
+    grid_valuess = np.array(grid_valuess, dtype=np.float64)
+
+    d_bodyA_idxs = cuda.to_device(bodyA_idxs)
+    d_bodyB_idxs = cuda.to_device(bodyB_idxs)
+    d_resultss = cuda.to_device(resultss)
+    d_ownerss = cuda.to_device(ownerss)
+    d_xs = cuda.to_device(xs)
+    d_x0s = cuda.to_device(x0s)
+    d_surfaces = cuda.to_device(surfaces)
+    d_Ts = cuda.to_device(Ts)
+    d_grid_min_coords = cuda.to_device(grid_min_coords)
+    d_grid_max_coords = cuda.to_device(grid_max_coords)
+    d_grid_spacings = cuda.to_device(grid_spacings)
+    d_grid_Is = cuda.to_device(grid_Is)
+    d_grid_Js = cuda.to_device(grid_Js)
+    d_grid_Ks = cuda.to_device(grid_Ks)
+    d_grid_valuess = cuda.to_device(grid_valuess)
+
+    threads_per_block = 256
+    blocks_per_grid = (len(resultss) + threads_per_block - 1) // threads_per_block
+
+    res_dtype = np.dtype([
+        ('idx_tetB', np.int32),
+        ('idx_tetA', np.int32),
+        ('omegaB', (np.float64, 4)),
+        ('omegaA', (np.float64, 4)),
+        ('p', (np.float64, 3)),
+        ('unit_n', (np.float64, 3)),
+        ('gap', np.float64)
+    ])
+    result_gpu = cuda.device_array(len(resultss), dtype=res_dtype)
+
+    CUDA_COMPUTE_CONTACTS.contact_points_computing_kernel[blocks_per_grid, threads_per_block](d_bodyA_idxs, d_bodyB_idxs, d_resultss, d_ownerss, d_xs, d_x0s, d_surfaces, d_Ts, d_grid_min_coords, d_grid_max_coords, d_grid_spacings, d_grid_Is, d_grid_Js, d_grid_Ks, d_grid_valuess, engine.params.contact_optimization_max_iterations, engine.params.contact_optimization_tolerance, engine.params.envelope, 0.5, result_gpu)
+
+    
+    cuda.synchronize() ## wait for GPU data 
+    result_to_cpu = result_gpu.copy_to_host() ## copy GPU data to CPU
+
+    ## generate contact points
+    for res in result_to_cpu:
+        if (res['idx_tetB'] < 0) and (res['idx_tetA'] < 0):
+            continue
+        cp = ContactPoint(
+                bodyB, bodyA,
+                res['idx_tetB'], res['idx_tetA'],
+                res['omegaB'], res['omegaA'],
+                res['p'], res['unit_n'], res['gap']
+            )
+        engine.contact_points.append(cp)
+
+    if debug_on:
+        # if "model_space_update" not in stats:
+        #     stats["model_space_update"] = 0
+        # stats["model_space_update"] += model_space_update_timer.total
+        # if "contact_optimization" not in stats:
+        #     stats["contact_optimization"] = 0
+        # stats["contact_optimization"] += contact_optimization_timer.total
+        if "contact_point_generation" not in stats:
+            stats["contact_point_generation"] = 0
+        stats["contact_point_generation"] += contact_point_generation_timer.total
+        
+    return stats
 
 def _contact_determination(overlaps, engine, stats, debug_on):
     """
-
     :param overlaps:    A dictionary of triangles from one body that overlaps another body.
     :param engine:      The current engine instance we are working with.
     :param stats:       A dictionary where to add more profiling and timing measurements.
@@ -253,7 +445,20 @@ def _contact_determination(overlaps, engine, stats, debug_on):
     if debug_on:
         contact_determination_timer = Timer("contact_determination", 8)
         contact_determination_timer.start()
+
     engine.contact_points = []
+
+    ## contact points computing on GPU
+    if cuda.is_available() and engine.params.use_gpu:
+        _contact_point_computing_gpu(overlaps, engine, stats, debug_on)
+
+        if debug_on:
+            contact_determination_timer.end()
+            stats["contact_determination"] = contact_determination_timer.elapsed
+
+        return stats
+
+    ## contact points computing on CPU
     for key, results in overlaps.items():
         # TODO 2022-12-31 Kenny: The code currently computes a lot of redundant contacts due
         #  to BVH traversal may return a triangle as part of several pairs. We only need

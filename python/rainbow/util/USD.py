@@ -1,4 +1,4 @@
-from pxr import Usd, UsdGeom, Gf, Vt
+from pxr import Usd, UsdGeom, Gf, Vt, Sdf
 import numpy as np
 
 class USD:
@@ -16,11 +16,17 @@ class USD:
         self.meshes = dict()
         self.file_path = file_path
 
-    def add_mesh(self, name, V, T):
+    def add_mesh(self, name, V, T, color=None):
         mesh = UsdGeom.Mesh.Define(self.stage, '/scene/xform/{}'.format(name))
         mesh.CreatePointsAttr(V)
         mesh.CreateFaceVertexCountsAttr([len(face) for face in T])
         mesh.CreateFaceVertexIndicesAttr(np.concatenate(T))
+
+        if color is not None:
+            color_primvar = mesh.CreateDisplayColorPrimvar()
+            color_primvar.Set([(Gf.Vec3f(color[0], color[1], color[2]))], Usd.TimeCode.Default())
+            color_primvar.SetInterpolation(UsdGeom.Tokens.uniform) 
+    
         self.meshes[name] = mesh
     
     def update_mesh_positions(self, name, V, time):

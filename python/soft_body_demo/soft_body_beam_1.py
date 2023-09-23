@@ -39,7 +39,7 @@ def run():
     ]
 
     for material in materials:
-        create_scene(material=material['material'], model=material['model'], usd_save_path=f"soft_body_beam_1_{material['model']}.usda", time_step=material['time_step'])
+        create_scene(material=material['material'], model=material['model'], T = 2.0, usd_save_path=f"soft_body_beam_1_{material['model']}.usda", time_step=material['time_step'])
     
     # create_scene(material='rubber', model='SNH', usd_save_path=f"soft_body_beam_snh.usda")
     # create_scene(material='rubber', model='COR', usd_save_path=f"soft_body_beam_cor.usda")

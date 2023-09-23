@@ -145,3 +145,9 @@ data/test.mat
 # log file
 nohup.out
 *.prof
+
+# nvidia nsight
+*.nsys-rep
+
+# local test file
+local_test*.*
