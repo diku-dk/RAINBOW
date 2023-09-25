@@ -43,8 +43,9 @@ def create_soft_material(engine, name=None, model_name='SVK', friction=0.5):
     API.create_surfaces_interaction(engine,'soft_mat1','soft_mat1', friction)
 
 # create the soft beam into a scene
-def create_soft_beam(engine, geo, gravity=-10, material='soft_mat1', name='beam'):
+def create_soft_beam(engine, geo, gravity=-10, material='soft_mat1', name='beam', y_offset=0.0):
     V_beam, T_beam = VM.create_beam(*geo) # geometry 
+    V_beam[:,1] += y_offset
     API.create_soft_body(engine, name, V_beam, T_beam)
     API.set_type(engine, name, "Free")
     API.set_gravity(engine, name, (0,gravity,0))

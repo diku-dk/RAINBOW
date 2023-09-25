@@ -6,7 +6,7 @@ from rainbow.simulators.prox_soft_bodies.types import *
 from rainbow.util.timer import Timer
 import numpy as np
 from itertools import combinations
-from numba import cuda
+from numba import cuda, jit
 
 import rainbow.cuda.collision_detection.compute_contacts as CUDA_COMPUTE_CONTACTS
 
@@ -488,6 +488,31 @@ def _contact_determination(overlaps, engine, stats, debug_on):
         stats["contact_determination"] = contact_determination_timer.elapsed
     return stats
 
+def _cp_unique_id(cp):
+    # 这是一个简单的标识生成器，它基于bodyA, bodyB和p来生成唯一的标识
+    return (cp.bodyA, cp.bodyB, tuple(cp.p))
+
+def _optimize_contact_reduction(engine, stats, debug_on):
+    if debug_on:
+        reduction_timer = Timer("contact_point_reduction", 8)
+        reduction_timer.start()
+
+    seen_ids = set()
+    reduced_list = []
+
+    for cp in engine.contact_points:
+        uid = _cp_unique_id(cp)
+        if uid not in seen_ids:
+            reduced_list.append(cp)
+            seen_ids.add(uid)
+
+    engine.contact_points = reduced_list
+
+    if debug_on:
+        reduction_timer.end()
+        stats["contact_point_reduction"] = reduction_timer.elapsed
+
+    return stats
 
 def _contact_reduction(engine, stats, debug_on):
     """
@@ -505,6 +530,10 @@ def _contact_reduction(engine, stats, debug_on):
      :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
      :return:            A dictionary with profiling and timing measurements.
     """
+    
+    if engine.params.speedup:
+        return _optimize_contact_reduction(engine, stats, debug_on)
+
     reduction_timer = None
     if debug_on:
         reduction_timer = Timer("contact_point_reduction", 8)

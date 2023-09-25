@@ -253,6 +253,7 @@ class Parameters:
         )
         self.resolution = 64  # The number of grid cells along each axis in the signed distance fields.
         self.use_gpu = True  # Boolean flag that indicates if we should use GPU computing or not.
+        self.speedup = True  
 
 
 class Engine:

@@ -6,9 +6,10 @@ def create_scene(material=None, model='SVK', T = 10.0, usd_save_path="soft_body_
     viewer = VIEWER.Viewer()
 
     create_soft_material(scene, material, model) 
+    scene.materials['soft_mat1'].c = 0.5
 
-    create_soft_beam(scene, (2, 2, 2, 0.5, 0.5, 0.5), name="cube")
-    create_soft_beam(scene, (20, 2, 10, 4, 0.05, 4), name="surface")
+    create_soft_beam(scene, (4, 4, 4, 0.5, 0.5, 0.5), name="cube", y_offset=0.275)
+    create_soft_beam(scene, (10, 2, 10, 4, 0.05, 4), name="surface")
 
     API.create_dirichlet_conditions(scene, 'surface', lambda x: x[0] + 1.9)
     API.create_dirichlet_conditions(scene, 'surface', lambda x: 1.9 - x[0])
