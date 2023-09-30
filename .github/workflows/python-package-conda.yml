@@ -3,7 +3,6 @@
 name: Testing your commit on libRAINBOW
 
 on:
-  workflow_dispatch:
   push:
     branches: [ main ]
   pull_request:
