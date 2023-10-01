@@ -283,6 +283,54 @@ def _contact_determination(overlaps, engine, stats, debug_on):
         stats["contact_determination"] = contact_determination_timer.elapsed
     return stats
 
+def _cp_unique_id(cp) -> tuple:
+    """ This function returns a unique id for a contact point.
+    Args:
+        cp (ContactPoint): A instance of the ContactPoint
+
+    Returns:
+        tuple: A unique id for the contact point
+    """
+    return (cp.bodyA, cp.bodyB, tuple(cp.p))
+
+def _optimize_contact_reduction(engine, stats, debug_on):
+    """ During contact point computation it may happen that different colliding triangles of one body results
+    in the same contact point locations wrt to the other signed distance field of the other body. Imagine a spiky
+    polygonal cone pointing into a spherical shape. Here all triangles of the spike will result in the same
+    contact point at the spiky tip. If the spiky polygonal cone has N triangle faces on the spike then we
+     will have N redundant contact points. This redundancy is usually bad for other numerical sub-routines for
+    computing impacts or contact forces. Hence, the purpose of this step is to eliminate redundant
+    contact point information. One may think of this as a kind of post-filtering process to clean up the
+     contact point information.
+
+    Args:
+        engine (Engine): The current engine instance we are working with.
+        stats (dict):  A dictionary where to add more profiling and timing measurements.
+        debug_on (bool): Boolean flag for toggling debug (aka profiling) info on and off.
+
+    Returns:
+        dict: A dictionary with profiling and timing measurements.
+    """
+    if debug_on:
+        reduction_timer = Timer("contact_point_reduction", 8)
+        reduction_timer.start()
+
+    seen_ids = set()
+    reduced_list = []
+
+    for cp in engine.contact_points:
+        uid = _cp_unique_id(cp)
+        if uid not in seen_ids:
+            reduced_list.append(cp)
+            seen_ids.add(uid)
+
+    engine.contact_points = reduced_list
+
+    if debug_on:
+        reduction_timer.end()
+        stats["contact_point_reduction"] = reduction_timer.elapsed
+
+    return stats
 
 def _contact_reduction(engine, stats, debug_on):
     """
@@ -300,6 +348,9 @@ def _contact_reduction(engine, stats, debug_on):
      :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
      :return:            A dictionary with profiling and timing measurements.
     """
+    if engine.params.speedup:
+        return _optimize_contact_reduction(engine, stats, debug_on)
+    
     reduction_timer = None
     if debug_on:
         reduction_timer = Timer("contact_point_reduction", 8)
