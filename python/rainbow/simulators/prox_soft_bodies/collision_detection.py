@@ -2,8 +2,10 @@ import rainbow.geometry.grid3 as GRID
 import rainbow.geometry.kdop_bvh as BVH
 import rainbow.geometry.barycentric as BC
 from rainbow.simulators.prox_soft_bodies.types import *
+import rainbow.cuda.collision_detection.compute_contacts as CUDA_COMPUTE_CONTACTS
 from rainbow.util.timer import Timer
 import numpy as np
+from numba import cuda
 from itertools import combinations
 
 
@@ -240,6 +242,171 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
     return stats
 
 
+def _uniform_padding(listss, padding_value):
+    valid_lists = [l for l in listss if l is not None]
+
+    if len(valid_lists) == 0:
+        return listss
+
+    max_len = max(len(l) for l in valid_lists)
+
+    return [np.pad(sub_list,
+                   ((0, max_len - len(sub_list)), (0, 0)),
+                   mode='constant',
+                    constant_values=padding_value)
+            for sub_list in valid_lists]
+
+
+def _assemble_body_data_to_gpu(data_lists, bodyA, bodyB, triA, triB):
+    data_lists['bodyA_idxs'].append(bodyA.idx)
+    data_lists['bodyB_idxs'].append(bodyB.idx)
+    data_lists['overlap_results'].append((triA, triB))
+    data_lists['B_values'].append(bodyB.grid.values)
+    data_lists['A_owners'].append(bodyA.owners)
+    data_lists['B_owners'].append(bodyB.owners)
+    data_lists['A_xs'].append(bodyA.x)
+    data_lists['B_xs'].append(bodyB.x)
+    data_lists['B_x0s'].append(bodyB.x0)
+    data_lists['A_surfaces'].append(bodyA.surface)
+    data_lists['A_Ts'].append(bodyA.T)
+    data_lists['B_Ts'].append(bodyB.T)
+    data_lists['B_grid_min_coords'].append(bodyB.grid.min_coord)
+    data_lists['B_grid_max_coords'].append(bodyB.grid.max_coord)
+    data_lists['B_grid_spacings'].append(bodyB.grid.spacing)
+    data_lists['B_grid_Is'].append(bodyB.grid.I)
+    data_lists['B_grid_Js'].append(bodyB.grid.J)
+    data_lists['B_grid_Ks'].append(bodyB.grid.K)
+
+def _contact_point_gpu(overlaps, engine, stats, debug_on):
+
+    contact_optimization_timer = None
+    model_space_update_timer = None
+    contact_point_generation_timer = None
+    if debug_on:
+        # model_space_update_timer = Timer("model_space_update")
+        # contact_optimization_timer = Timer("contact_optimization")
+        contact_point_generation_timer = Timer("contact_point_generation")
+
+    data_lists = {
+        'bodyA_idxs': [],
+        'bodyB_idxs': [],
+        'overlap_results': [],
+        'B_values': [],
+        'A_owners': [],
+        'B_owners': [],
+        'A_xs': [],
+        'B_xs': [],
+        'B_x0s': [],
+        'A_surfaces': [],
+        'A_Ts': [],
+        'B_Ts': [],
+        'B_grid_min_coords': [],
+        'B_grid_max_coords': [],
+        'B_grid_spacings': [],
+        'B_grid_Is': [],
+        'B_grid_Js': [],
+        'B_grid_Ks': []
+    }
+
+    for key, results in overlaps.items():
+        for triA, triB in results:
+            bodyA, bodyB = key
+            _assemble_body_data_to_gpu(data_lists, bodyA, bodyB, triA, triB)
+            _assemble_body_data_to_gpu(data_lists, bodyB, bodyA, triB, triA)
+
+    data_length = len(data_lists["overlap_results"])
+    if data_length == 0:
+        return stats
+    
+    data_lists['A_owners'] = _uniform_padding(data_lists['A_owners'], -1)
+    data_lists['B_owners'] = _uniform_padding(data_lists['B_owners'], -1)
+    data_lists['A_xs'] = _uniform_padding(data_lists['A_xs'], -np.inf)
+    data_lists['B_xs'] = _uniform_padding(data_lists['B_xs'], -np.inf)
+    data_lists['B_x0s'] = _uniform_padding(data_lists['B_x0s'], -np.inf)
+    data_lists['A_surfaces'] = _uniform_padding(data_lists['A_surfaces'], -1)
+    data_lists['A_Ts'] = _uniform_padding(data_lists['A_Ts'], -1)
+    data_lists['B_Ts'] = _uniform_padding(data_lists['B_Ts'], -1)
+
+    type_map = {
+        'bodyA_idxs': np.int32,
+        'bodyB_idxs': np.int32,
+        'overlap_results': np.int32,
+        'B_values': np.float64,
+        'A_owners': np.int32,
+        'B_owners': np.int32,
+        'A_xs': np.float64,
+        'B_xs': np.float64,
+        'B_x0s': np.float64,
+        'A_surfaces': np.int32,
+        'A_Ts': np.int32,
+        'B_Ts': np.int32,
+        'B_grid_min_coords': np.float64,
+        'B_grid_max_coords': np.float64,
+        'B_grid_spacings': np.float64,
+        'B_grid_Is': np.int32,
+        'B_grid_Js': np.int32,
+        'B_grid_Ks': np.int32
+    }
+
+    d_data = {}
+    for key, data in data_lists.items():
+        array_data = np.array(data, dtype=type_map.get(key))
+        d_data[f'd_{key}'] = cuda.to_device(array_data)
+
+    threads_per_block = engine.params.gpu_grid_size
+    blocks_per_grid = (data_length + threads_per_block - 1) // threads_per_block
+
+    result_dtype = np.dtype([
+        ('idx_tetB', np.int32),
+        ('idx_tetA', np.int32),
+        ('omegaB', (np.float64, 4)),
+        ('omegaA', (np.float64, 4)),
+        ('p', (np.float64, 3)),
+        ('unit_n', (np.float64, 3)),
+        ('gap', np.float64)
+    ])
+    result_gpu = cuda.device_array(data_length, dtype=result_dtype)
+
+    CUDA_COMPUTE_CONTACTS.contact_points_computing_kernel[blocks_per_grid, threads_per_block](
+        d_data['d_bodyA_idxs'], d_data['d_bodyB_idxs'], d_data['d_overlap_results'],
+        d_data['d_B_values'], d_data['d_A_owners'], d_data['d_B_owners'],
+        d_data['d_A_xs'], d_data['d_B_xs'], d_data['d_B_x0s'], d_data['d_A_surfaces'],
+        d_data['d_A_Ts'], d_data['d_B_Ts'],
+        d_data['d_B_grid_min_coords'], d_data['d_B_grid_max_coords'], d_data['d_B_grid_spacings'],
+        d_data['d_B_grid_Is'], d_data['d_B_grid_Js'], d_data['d_B_grid_Ks'],
+        engine.params.contact_optimization_max_iterations, 
+        engine.params.contact_optimization_tolerance,
+        engine.params.envelope, 0.5, result_gpu)
+
+    cuda.synchronize() ## wait for GPU data 
+    result_to_cpu = result_gpu.copy_to_host() ## copy GPU data to CPU
+
+    ## generate contact points
+    for res in result_to_cpu:
+        if (res['idx_tetB'] < 0) and (res['idx_tetA'] < 0):
+            continue
+        cp = ContactPoint(
+                bodyB, bodyA,
+                res['idx_tetB'], res['idx_tetA'],
+                res['omegaB'], res['omegaA'],
+                res['p'], res['unit_n'], res['gap']
+            )
+        engine.contact_points.append(cp)
+
+    if debug_on:
+        # if "model_space_update" not in stats:
+        #     stats["model_space_update"] = 0
+        # stats["model_space_update"] += model_space_update_timer.total
+        # if "contact_optimization" not in stats:
+        #     stats["contact_optimization"] = 0
+        # stats["contact_optimization"] += contact_optimization_timer.total
+        if "contact_point_generation" not in stats:
+            stats["contact_point_generation"] = 0
+        stats["contact_point_generation"] += contact_point_generation_timer.total
+        
+    return stats
+
+
 def _contact_determination(overlaps, engine, stats, debug_on):
     """
 
@@ -253,7 +420,18 @@ def _contact_determination(overlaps, engine, stats, debug_on):
     if debug_on:
         contact_determination_timer = Timer("contact_determination", 8)
         contact_determination_timer.start()
+
     engine.contact_points = []
+
+    ## contact points computing on GPU
+    if cuda.is_available() and engine.params.use_gpu:
+        _contact_point_gpu(overlaps, engine, stats, debug_on)
+
+        if debug_on:
+            contact_determination_timer.end()
+            stats["contact_determination"] = contact_determination_timer.elapsed
+
+        return stats
     for key, results in overlaps.items():
         # TODO 2022-12-31 Kenny: The code currently computes a lot of redundant contacts due
         #  to BVH traversal may return a triangle as part of several pairs. We only need
