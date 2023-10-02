@@ -32,10 +32,12 @@ class TestUSD(unittest.TestCase):
         self.usd_instance.add_mesh(
             self.sample_mesh_name, self.sample_vertex_positions, self.sample_triangle_faces)
         new_positions = np.array(
-            [[0.1, 0.1, 0.1], [1.1, 0.1, 0.1], [0.1, 1.1, 0.1]])
+            [[0.1, 0.1, 0.1], [1.1, 0.1, 0.1], [0.1, 1.1, 0.1]], dtype=np.float64)
         time_stamp = 1.0
         self.usd_instance.set_mesh_positions(
             self.sample_mesh_name, new_positions, time_stamp)
+        updated_positions = self.usd_instance.get_mesh_positions(self.sample_mesh_name, time_stamp)
+        self.assertTrue(np.allclose(new_positions, updated_positions, rtol=1e-5, atol=1e-10))
 
     def test_set_mesh_positions_with_invalid_name(self):
         """ Test if the mesh does not exist, an error will be raised.
