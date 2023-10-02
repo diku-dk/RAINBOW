@@ -11,6 +11,7 @@ import rainbow.geometry.grid3 as GRID
 import rainbow.cuda.unit_tests.test_geometry_grid3_kernel as TEST_GRID3K
 
 
+@unittest.skipIf(not cuda.is_available(), "CUDA not available")
 def simpelfunc(coord):
     _, _, z = coord[0], coord[1], coord[2]
     return z

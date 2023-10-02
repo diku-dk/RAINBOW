@@ -10,6 +10,7 @@ import rainbow.cuda.unit_tests.test_math_linalg_kernel as TEST_LinAlgK
 import rainbow.util.test_tools as TEST
 
 
+@unittest.skipIf(not cuda.is_available(), "CUDA not available")
 class TestLinAlgCuda(unittest.TestCase):
     
     def test_cramer_solver(self):

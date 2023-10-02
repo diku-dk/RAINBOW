@@ -10,6 +10,7 @@ import rainbow.cuda.unit_tests.test_math_vec_kernel as TEST_VK
 import rainbow.util.test_tools as TEST
 
 
+@unittest.skipIf(not cuda.is_available(), "CUDA not available")
 class TestVec3Cuda(unittest.TestCase):
     
     def test_vec3_add(self):

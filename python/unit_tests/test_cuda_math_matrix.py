@@ -10,6 +10,7 @@ import rainbow.util.test_tools as TEST
 import rainbow.cuda.unit_tests.test_math_matrix_kernel as TEST_MK
 
 
+@unittest.skipIf(not cuda.is_available(), "CUDA not available")
 class TestMatrixCuda(unittest.TestCase):
     
     def test_mat33_T(self):

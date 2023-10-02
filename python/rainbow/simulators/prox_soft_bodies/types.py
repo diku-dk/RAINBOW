@@ -252,7 +252,7 @@ class Parameters:
             0.1  # Any geometry within this distance generates a contact point.
         )
         self.resolution = 64  # The number of grid cells along each axis in the signed distance fields.
-        self.use_gpu = True # Boolean flag that indicates if we should use the GPU or not.
+        self.use_gpu = False # Boolean flag that indicates if we should use the GPU or not.
         self.gpu_grid_size = 256 # The number of threads per block to use on the GPU.
 
 

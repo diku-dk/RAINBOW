@@ -11,6 +11,7 @@ import rainbow.geometry.grid3 as GRID
 import rainbow.cuda.unit_tests.test_geometry_barycentric_kernel as TEST_BCK
 
 
+@unittest.skipIf(not cuda.is_available(), "CUDA not available")
 class TestGrid3Cuda(unittest.TestCase):
     
     def test_compute_barycentric_tetrahedron(self):
