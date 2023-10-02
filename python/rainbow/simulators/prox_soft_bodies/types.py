@@ -252,7 +252,6 @@ class Parameters:
             0.1  # Any geometry within this distance generates a contact point.
         )
         self.resolution = 64  # The number of grid cells along each axis in the signed distance fields.
-        self.speedup = True
 
 
 class Engine:
