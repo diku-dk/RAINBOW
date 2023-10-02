@@ -48,16 +48,6 @@ def compute_omega_device(p, X, omega):
     BC.compute_barycentric_tetrahedron_device(X[0], X[1], X[2], X[3], p, omega)
 
 
-# @cuda.jit(device=True)
-# def compute_omegaB_device(p, X0B, omegaB):
-#     BC.compute_barycentric_tetrahedron_device(X0B[0], X0B[1], X0B[2], X0B[3], p, omegaB)
-
-
-# @cuda.jit(device=True)
-# def compute_omegaA_device(p, XA, omegaA):
-#     BC.compute_barycentric_tetrahedron_device(XA[0], XA[1], XA[2], XA[3], p, omegaA)
-
-
 @cuda.jit(device=True)
 def compute_p_device(p, X, omega, result):
     """ Compute the contact point in the world space of a body
