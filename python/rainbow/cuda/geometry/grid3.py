@@ -149,7 +149,6 @@ def get_gradient_device(p: float64[:], min_coord: float64[:], spacing: float64[:
 def is_inside_device(p: float64[:], min_coord: float64[:], max_coord: float64[:], boundary: float64) -> boolean:
     """ This function test if the given spatial 3D point is inside the given grid and the boundary value.
 
-
     Args:
         p (float64[:]): The 3D spatial point.
         min_coord (float64[:]): The minimum corner of the grid.

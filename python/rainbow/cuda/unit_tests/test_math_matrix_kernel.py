@@ -87,6 +87,7 @@ def mat33_dot_vec3_kernel(M: float64[:, :, :], V3: float64[:, :], result: float6
     tid = cuda.threadIdx.x
     Matrix.mat33_dot_vec3(M[tid, :, :], V3[tid, :], result[tid, :])
 
+
 @cuda.jit
 def mat43_T_kernel(M: float64[:, :, :], result: float64[:, :, :]):
     """ Unit test kernel function for mat43_T_device
