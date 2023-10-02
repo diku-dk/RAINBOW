@@ -92,5 +92,6 @@ class TestVec3Cuda(unittest.TestCase):
         result_device.copy_to_host(result_host)
         self.assertTrue(TEST.is_array_equal(result_host, expected))
 
+
 if __name__ == '__main__':
     unittest.main()
