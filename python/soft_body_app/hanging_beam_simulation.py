@@ -28,5 +28,6 @@ def run():
     app.initialize_usd('./hanging_beam_simulation.usda')
     app.simulate(T = 5.0, update_viewer = False, non_update_bodies = ["wall"])
 
+
 if __name__ == "__main__":
     run()

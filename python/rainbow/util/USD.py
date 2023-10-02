@@ -1,4 +1,4 @@
-from pxr import Usd, UsdGeom, Gf, Vt
+from pxr import Usd, UsdGeom, Vt
 import numpy as np
 from numpy.typing import ArrayLike
 
@@ -70,7 +70,7 @@ class USD:
         """ Set the total animation time of the scene
 
         Args:
-            duration (_type_): The total animation time of the scene
+            duration (float): The total animation time of the scene
         """
         self.stage.SetStartTimeCode(0)
         self.stage.SetEndTimeCode(duration)

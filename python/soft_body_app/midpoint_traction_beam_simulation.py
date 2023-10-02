@@ -34,5 +34,6 @@ def run():
     app.initialize_usd('./midpoint_traction_beam_simulation.usda')
     app.simulate(T = 5.0, update_viewer = False)
 
+
 if __name__ == "__main__":
     run()

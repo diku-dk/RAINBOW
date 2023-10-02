@@ -13,7 +13,7 @@ def run():
     app = SoftBodyApplication(time_step=0.0001)
 
     # Create a soft material named "default_material"
-    app.create_soft_material("default_material", model_name="SNH")
+    app.create_soft_material("default_material")
     app.set_friction_coefficient("default_material", "default_material", 0.5)
     app.set_damping_coefficient("default_material", 0.5)
 
@@ -29,6 +29,7 @@ def run():
     app.initialize_viewer()
     app.initialize_usd('./soft_sheet.usda')
     app.simulate(T = 5.0, update_viewer = False)
+
 
 if __name__ == "__main__":
     run()
