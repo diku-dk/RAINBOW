@@ -243,6 +243,15 @@ def _compute_contacts(engine, stats, bodyA, bodyB, results, debug_on):
 
 
 def _uniform_padding(listss, padding_value):
+    """ Pad the listss to the same length, means that the length of each sub list is the same.
+
+    Args:
+        listss (List[List]): A nested list.
+        padding_value (DataType): A padding value, which is used to pad the list.
+
+    Returns:
+        List[List]: the padded listss, which has the same length of each sub list.
+    """
     valid_lists = [l for l in listss if l is not None]
 
     if len(valid_lists) == 0:
@@ -258,6 +267,15 @@ def _uniform_padding(listss, padding_value):
 
 
 def _assemble_body_data_to_gpu(data_lists, bodyA, bodyB, triA, triB):
+    """ Assemble body data to a data list for GPU computing.
+
+    Args:
+        data_lists (List): The data list for GPU computing.
+        bodyA (SoftBody): A SofyBody instance.
+        bodyB (SoftBody): A SofyBody instance.
+        triA (int): The index of triangle in bodyA.
+        triB (int): The index of triangle in bodyB.
+    """
     data_lists['bodyA_idxs'].append(bodyA.idx)
     data_lists['bodyB_idxs'].append(bodyB.idx)
     data_lists['overlap_results'].append((triA, triB))
@@ -277,14 +295,21 @@ def _assemble_body_data_to_gpu(data_lists, bodyA, bodyB, triA, triB):
     data_lists['B_grid_Js'].append(bodyB.grid.J)
     data_lists['B_grid_Ks'].append(bodyB.grid.K)
 
-def _contact_point_gpu(overlaps, engine, stats, debug_on):
 
-    contact_optimization_timer = None
-    model_space_update_timer = None
+def _contact_point_gpu(overlaps, engine, stats, debug_on):
+    """ The GPU version of contact point computing, it flattens the data and send to GPU, then call the kernel function.
+
+    Args:
+        overlaps (dict): A dictionary of triangles from one body that overlaps another body.
+        engine (Engine):  The current engine instance we are working with.
+        stats (dict): A dictionary where to add more profiling and timing measurements.
+        debug_on (bool): Boolean flag for toggling debug (aka profiling) info on and off.
+
+    Returns:
+        dict:  A dictionary with profiling and timing measurements.
+    """
     contact_point_generation_timer = None
     if debug_on:
-        # model_space_update_timer = Timer("model_space_update")
-        # contact_optimization_timer = Timer("contact_optimization")
         contact_point_generation_timer = Timer("contact_point_generation")
 
     data_lists = {
@@ -348,14 +373,17 @@ def _contact_point_gpu(overlaps, engine, stats, debug_on):
         'B_grid_Ks': np.int32
     }
 
+    # copy data to GPU
     d_data = {}
     for key, data in data_lists.items():
         array_data = np.array(data, dtype=type_map.get(key))
         d_data[f'd_{key}'] = cuda.to_device(array_data)
 
+    # setting up GPU computing (grid and block)
     threads_per_block = engine.params.gpu_grid_size
     blocks_per_grid = (data_length + threads_per_block - 1) // threads_per_block
 
+    # setting up result from GPU (data type and size)
     result_dtype = np.dtype([
         ('idx_tetB', np.int32),
         ('idx_tetA', np.int32),
@@ -367,6 +395,7 @@ def _contact_point_gpu(overlaps, engine, stats, debug_on):
     ])
     result_gpu = cuda.device_array(data_length, dtype=result_dtype)
 
+    # call GPU kernel function
     CUDA_COMPUTE_CONTACTS.contact_points_computing_kernel[blocks_per_grid, threads_per_block](
         d_data['d_bodyA_idxs'], d_data['d_bodyB_idxs'], d_data['d_overlap_results'],
         d_data['d_B_values'], d_data['d_A_owners'], d_data['d_B_owners'],
@@ -378,8 +407,9 @@ def _contact_point_gpu(overlaps, engine, stats, debug_on):
         engine.params.contact_optimization_tolerance,
         engine.params.envelope, 0.5, result_gpu)
 
-    cuda.synchronize() ## wait for GPU data 
-    result_to_cpu = result_gpu.copy_to_host() ## copy GPU data to CPU
+    # wait for GPU data and copy to CPU
+    cuda.synchronize() 
+    result_to_cpu = result_gpu.copy_to_host() 
 
     ## generate contact points
     for res in result_to_cpu:
@@ -394,12 +424,6 @@ def _contact_point_gpu(overlaps, engine, stats, debug_on):
         engine.contact_points.append(cp)
 
     if debug_on:
-        # if "model_space_update" not in stats:
-        #     stats["model_space_update"] = 0
-        # stats["model_space_update"] += model_space_update_timer.total
-        # if "contact_optimization" not in stats:
-        #     stats["contact_optimization"] = 0
-        # stats["contact_optimization"] += contact_optimization_timer.total
         if "contact_point_generation" not in stats:
             stats["contact_point_generation"] = 0
         stats["contact_point_generation"] += contact_point_generation_timer.total
@@ -430,8 +454,9 @@ def _contact_determination(overlaps, engine, stats, debug_on):
         if debug_on:
             contact_determination_timer.end()
             stats["contact_determination"] = contact_determination_timer.elapsed
-
         return stats
+    
+    # contact points computing on CPU, if GPU is not available or the flag is Flase
     for key, results in overlaps.items():
         # TODO 2022-12-31 Kenny: The code currently computes a lot of redundant contacts due
         #  to BVH traversal may return a triangle as part of several pairs. We only need
