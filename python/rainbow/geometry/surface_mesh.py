@@ -101,7 +101,7 @@ def profile_sweep(profile, slices):
     F = 2 * J * (N - 2)  # Total number of triangle faces
 
     V = np.zeros((K, 3), dtype=np.float64)
-    T = np.zeros((F, 3), dtype=np.int)
+    T = np.zeros((F, 3), dtype=int)
 
     # Make a 2D grid of vertices by sweeping profile around y-axis
     dtheta = 2.0 * np.pi / J  # The angle of each slice
@@ -253,7 +253,7 @@ def create_cuboid(p0, p1, p2, p3, p4, p5, p6, p7):
     :return:
     """
     V = np.zeros((8, 3), dtype=np.float64)
-    T = np.zeros((12, 3), dtype=np.int)
+    T = np.zeros((12, 3), dtype=int)
 
     V[0, :] = p0
     V[1, :] = p1
@@ -342,7 +342,7 @@ def create_convex_hull(points):
     N = len(H.points)  # Number of vertices
     K = len(H.vertices)  # Number of triangles
     V = np.zeros((N, 3), dtype=np.float64)
-    T = np.zeros((K, 3), dtype=np.int)
+    T = np.zeros((K, 3), dtype=int)
     for idx, p in enumerate(H.points):
         V[idx, :] = p
     for idx, v in enumerate(H.vertices):
