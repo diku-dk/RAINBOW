@@ -137,3 +137,12 @@ dmypy.json
 cpp/external/Eigen3/
 __init__.py
 data/test.mat
+
+# usd*.files
+*.usd*
+
+# Profiling files
+*.prof
+
+# nohup log
+nohup.out
