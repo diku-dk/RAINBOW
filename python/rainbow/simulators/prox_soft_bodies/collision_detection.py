@@ -284,17 +284,6 @@ def _contact_determination(overlaps, engine, stats, debug_on):
     return stats
 
 
-def _cp_unique_id(cp) -> tuple:
-    """ This function returns a unique id for a ContactPoint instance.
-    Args:
-        cp (ContactPoint): A instance of the ContactPoint
-
-    Returns:
-        tuple: A unique id for the contact point
-    """
-    return (cp.bodyA, cp.bodyB, tuple(cp.p))
-
-
 def _contact_reduction(engine, stats, debug_on):
     """ During contact point computation it may happen that different colliding triangles of one body results
     in the same contact point locations wrt to the other signed distance field of the other body. Imagine a spiky
@@ -322,7 +311,7 @@ def _contact_reduction(engine, stats, debug_on):
     reduced_list = []
 
     for cp in engine.contact_points:
-        uid = _cp_unique_id(cp)
+        uid = (cp.bodyA, cp.bodyB, tuple(cp.p))
         if uid not in seen_ids:
             reduced_list.append(cp)
             seen_ids.add(uid)
