@@ -136,7 +136,11 @@ class SoftBodyApplication:
         It's essential to differentiate between two types of rendering happening in our simulation:
         - Interactive rendering: Which is handled by the `update_viewer` function, wherein the viewer tries to 
         keep up with the simulator's time-step, providing a real-time visual feedback during the simulation process.
-        - Offline rendering: Which is not performed in this function but it si supported with the `USD` class, which refers to saving (or "baking") the simulation data into a USD file for potential future rendering or movie creation. The FPS (frames per second) control in this context would pertain to the movie creation process from the saved USD file. For example, we can bake the simulation data at 60 FPS to a USD file and then import it into Blender to render a movie at 60 FPS.
+        - Offline rendering: Which is not performed in this function but it si supported with the `USD` class, 
+        which refers to saving (or "baking") the simulation data into a USD file for potential future rendering or movie creation. 
+        The FPS (frames per second) control in this context would pertain to the movie creation process from the saved USD file. 
+        For example, we can bake the simulation data at 60 FPS to a USD file and then import it into Blender to render a movie at 
+        60 FPS.
         
         Args:
             non_update_bodies (Sequence[str], optional): Those bodies should not be update in the scene. Defaults to [].
