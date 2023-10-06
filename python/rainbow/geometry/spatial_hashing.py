@@ -75,6 +75,11 @@ class HashGird:
         cell_size (np.array): 1D numpy array containing the 3D dimensions 
             of a cell in the grid (x, y, z).
 
+        offset_table_size(int): The size of the offset table(Phi)
+        M0(Identity Matrix): A linear transfomation matrix used to map the domain(U) to the hash tbale(H)
+        M1(Identity Matrix): A linear transfomation matrix used to map the domain(U) to the offset table(Phi)
+        Phi(List[[int, int, int]]): The offset table used to remove the collision of the hash function
+
     Methods:
         set_hash_table_size(hash_table_size: int, update: bool = True)
             Sets the size of the hash table and optionally updates the 
@@ -101,12 +106,12 @@ class HashGird:
     """
 
     def __init__(self) -> None:
-        self.hash_table_size = 199999
+        self.hash_table_size = 1000
         self.hash_tbale = dict()
-        self.cell_size = np.array([1.0, 1.0, 1.0])
+        self.cell_size = 0.0
         
-        # Prefect Hashing Setup, refer to https://dl.acm.org/doi/10.1145/1141911.1141926
-        self.offset_table_size = 100
+        # Prefect Hashing Setup, them will be used in the get_prefect_hash_value function
+        self.offset_table_size = 1000
         self.M0 = np.eye(3, dtype=int)
         self.M1 = np.eye(3, dtype=int)
         self.Phi = np.random.randint(self.hash_table_size, size=(self.offset_table_size,) * 3)
@@ -120,19 +125,24 @@ class HashGird:
         """
         self.hash_table_size = hash_table_size if update else self.hash_table_size + hash_table_size
 
-    def set_cell_size(self, cell_size_x: float, cell_size_y: float, cell_size_z: float):
+    def set_cell_size(self, cell_size: float):
         """ Set the x, y, z axis length of a cell
 
         Args:
-            cell_size_x (float): the cell size of X aixs
-            cell_size_y (float): the cell size of Y axis
-            cell_size_z (float): the cell size of Z axis
+            cell_size (float): the cell size 
         """
-        self.cell_size = [cell_size_x, cell_size_y, cell_size_z]
+        self.cell_size = cell_size
     
     def get_prefect_hash_value(self, i: int, j: int, k: int) -> int:
-        """ Get the prefect hash value of the cell, 
-            regarding the prefect hash, refer to https://dl.acm.org/doi/10.1145/1141911.1141926
+        """ Get the prefect hash value of the cell.
+            The hash function h(p) is computed as follows:
+            h(p) = (h_0(p) + Phi(h_1(p))) % m
+            where:
+            h_0(p): is the primary hash function used to calculate the hash value,
+            h_1(p): is a secondary hash function used to calculate the offset,
+            Phi: is the offset table,
+            m: is the size of the hash table.
+            For more information, refer to the 3rd section of this paper: https://dl.acm.org/doi/10.1145/1141911.1141926 
 
         Args:
             i (int): The i index of the cell of X axis
@@ -172,3 +182,14 @@ class HashGird:
             overlaps = self.hash_tbale[hv].object_list
             self.hash_tbale[hv].add((tri_idx, body_name, tri_aabb), time_stamp)
         return overlaps
+    
+    @classmethod
+    def compute_optial_cell_size(cls, V, T):
+        edges = []
+        for t in T:
+            edges.append(V[t[1]] - V[t[0]])
+            edges.append(V[t[2]] - V[t[1]])
+            edges.append(V[t[0]] - V[t[2]])
+        edges = np.array(edges)
+        edge_lengths = np.linalg.norm(edges, axis=1)
+        return np.mean(edge_lengths)

@@ -1,10 +1,11 @@
 import rainbow.geometry.grid3 as GRID
 import rainbow.geometry.kdop_bvh as BVH
 import rainbow.geometry.barycentric as BC
+from rainbow.geometry.aabb import AABB
 from rainbow.simulators.prox_soft_bodies.types import *
 from rainbow.util.timer import Timer
 import numpy as np
-from itertools import combinations
+from itertools import combinations, product
 
 
 def _update_bvh(engine, stats, debug_on):
@@ -36,6 +37,65 @@ def _update_bvh(engine, stats, debug_on):
         update_bvh_timer.end()
         stats["update_bvh"] = update_bvh_timer.elapsed
     return stats
+
+
+def _spatial_hashing_narrow_phase(engine, stats, debug_on):
+    """ Use spatial hashing to find the overlapping triangles
+
+    Args:
+        engine (Engine): The current engine instance we are working with.
+        stats (dict): A dictionary where to add more profiling and timing measurements.
+        debug_on (bool): Boolean flag for toggling debug (aka profiling) info on and off.
+
+    Returns:
+        (List, dict):  A tuple with body pair overlap information and a dictionary with profiling and
+                        timing measurements.
+    """
+    narrow_phase_timer = None
+    if debug_on:
+        narrow_phase_timer = Timer("narrow_phase", 8)
+        narrow_phase_timer.start()
+    
+    cell_size = engine.hash_grid.cell_size
+    if cell_size <= 0.0:
+        raise ValueError("Cell size must be greater than zero")
+    
+    time_stamp = engine.params.time_stamp
+    results = {}
+
+    for body in engine.bodies.values():
+        tri_vertices = body.x[body.surface, :]
+        # Compute the AABB of each triangle by vectorizing the min/max operation
+        tri_aabb_min = np.min(tri_vertices, axis=1)
+        tri_aabb_max = np.max(tri_vertices, axis=1)
+        cell_min = (tri_aabb_min / cell_size).astype(int)
+        cell_max = (tri_aabb_max / cell_size).astype(int) + 1
+
+        # Traverse the cells in the AABB of each triangle and insert the triangle into the hash table
+        for tri_idx, (c_min, c_max) in enumerate(zip(cell_min, cell_max)):
+            cell_ranges = [range(cmi, cma) for cmi, cma in zip(c_min, c_max)]
+            for i, j, k in product(*cell_ranges):
+                tri_aabb = AABB(tri_aabb_min[tri_idx], tri_aabb_max[tri_idx])
+                overlaps = engine.hash_grid.insert(i, j, k, tri_idx, body.name, 
+                                                   tri_aabb, 
+                                                   time_stamp)
+                # Check all triangles in the cell to see if they overlap with the current triangle
+                if len(overlaps) > 0:
+                    for overlap in overlaps:
+                        overlap_tri_idx, overlap_body_name, overlap_tri_aabb = overlap
+                        if overlap_body_name != body.name and (AABB.is_overlap(tri_aabb, overlap_tri_aabb)):
+                            if (body, engine.bodies[overlap_body_name]) not in results:
+                                results[(body, engine.bodies[overlap_body_name])] = np.array([[tri_idx, overlap_tri_idx]], dtype=np.int32)
+                            else:
+                                results[(body, engine.bodies[overlap_body_name])] = np.vstack([results[(body, engine.bodies[overlap_body_name])], [tri_idx, overlap_tri_idx]])
+    if debug_on:
+        narrow_phase_timer.end()
+        stats["narrow_phase"] = narrow_phase_timer.elapsed
+        stats["number_of_overlaps"] = np.sum(
+            [len(result) for result in results.values()]
+        )
+
+    return results, stats
 
 
 def _narrow_phase(engine, stats, debug_on):
@@ -344,8 +404,11 @@ def run_collision_detection(engine, stats, debug_on):
     if debug_on:
         collision_detection_timer = Timer("collision_detection")
         collision_detection_timer.start()
-    stats = _update_bvh(engine, stats, debug_on)
-    overlaps, stats = _narrow_phase(engine, stats, debug_on)
+    if engine.params.use_spatial_hashing:
+        overlaps, stats = _spatial_hashing_narrow_phase(engine, stats, debug_on)
+    else:
+        stats = _update_bvh(engine, stats, debug_on)
+        overlaps, stats = _narrow_phase(engine, stats, debug_on)
     stats = _contact_determination(overlaps, engine, stats, debug_on)
     stats = _contact_reduction(engine, stats, debug_on)
     if debug_on:
