@@ -8,12 +8,12 @@ concerned with making it convenient to test array-like data types.
 
 def is_array_equal(arr1, arr2, dec=8):
     """
-    2022-04-06 Kenny TODO: Write proper documentation.
+    Checks if two arrays are almost equal by comparing each element up to a specified decimal place.
 
-    :param arr1:
-    :param arr2:
-    :param dec:
-    :return:
+    :param arr1: First input array to compare.
+    :param arr2: Second input array to compare against the first array.
+    :param dec: The desired precision in decimal places. Default is 8.
+    :return: True if the arrays are almost equal, False otherwise.
     """
     return None == np.testing.assert_allclose(arr1, arr2, rtol=10**-dec, atol=10**-dec)
 
