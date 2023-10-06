@@ -6,7 +6,7 @@ concerned with making it convenient to test array-like data types.
 """
 
 
-def is_array_equal(arr1, arr2):
+def is_array_equal(arr1, arr2, dec=8):
     """
     2022-04-06 Kenny TODO: Write proper documentation.
 
@@ -15,7 +15,7 @@ def is_array_equal(arr1, arr2):
     :param dec:
     :return:
     """
-    return None == np.testing.assert_allclose(arr1, arr2, rtol=1e-5, atol=1e-8)
+    return None == np.testing.assert_allclose(arr1, arr2, rtol=10**-dec, atol=10**-dec)
 
 
 def is_array_not_equal(arr1, arr2):
