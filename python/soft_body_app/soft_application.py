@@ -1,9 +1,12 @@
 import os
 import sys
 import numpy as np
-from tqdm import tqdm
 from numpy.typing import ArrayLike
 from typing import Callable, Sequence
+
+# tqdm is used for generating an progress bar in for loops, 
+# enhancing visual feedback. It will be used to visualize the similation progress.
+from tqdm import tqdm
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
