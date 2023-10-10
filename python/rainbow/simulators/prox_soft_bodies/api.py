@@ -89,11 +89,11 @@ def create_soft_body(engine, body_name, V, T) -> None:
 
     # setting up the hash grid
     engine.hash_grid.set_hash_table_size(len(body.surface), False)
-    # the optimal cell size is 2.2 times the average edge length of the surface mesh by our experiments
+ 
     if engine.hash_grid.cell_size == 0:
-        engine.hash_grid.cell_size = HashGird.compute_optial_cell_size(body.x0, body.surface) * 2.2
+        engine.hash_grid.cell_size = HashGird.compute_optial_cell_size(body.x0, body.surface)
     else :
-        engine.hash_grid.cell_size = (HashGird.compute_optial_cell_size(body.x0, body.surface)+engine.hash_grid.cell_size)/2 * 2.2
+        engine.hash_grid.cell_size = (HashGird.compute_optial_cell_size(body.x0, body.surface)+engine.hash_grid.cell_size)/2 
 
 
 def create_dirichlet_conditions(engine, body_name, phi) -> None:

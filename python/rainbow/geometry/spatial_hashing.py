@@ -185,6 +185,15 @@ class HashGird:
     
     @classmethod
     def compute_optial_cell_size(cls, V, T):
+        """ Aim to compute the optimal cell size for the spatial hashing, which is the average edge length of the mesh
+
+        Args:
+            V (list): The vertices of the mesh
+            T (list): The triangles of the mesh
+
+        Returns:
+            float: The optimal cell size : 2.2 * average edge length
+        """
         edges = []
         for t in T:
             edges.append(V[t[1]] - V[t[0]])
@@ -192,4 +201,6 @@ class HashGird:
             edges.append(V[t[0]] - V[t[2]])
         edges = np.array(edges)
         edge_lengths = np.linalg.norm(edges, axis=1)
-        return np.mean(edge_lengths)
+        
+        # the optimal cell size is 2.2 times the average edge length of the surface mesh by our experiments
+        return np.mean(edge_lengths) * 2.2
