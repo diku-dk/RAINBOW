@@ -1,6 +1,7 @@
 import numpy as np
 from typing import List
 
+
 class AABB:
     """
     Axis-Aligned Bounding Box (AABB) for 3D spatial objects.
@@ -47,16 +48,21 @@ class AABB:
         return cls(min_point, max_point)
     
     @classmethod
-    def is_overlap(cls, aabb1: 'AABB', aabb2: 'AABB') -> bool:
+    def is_overlap(cls, aabb1: 'AABB', aabb2: 'AABB', boundary: float = 0.0) -> bool:
         """ Test two aabb instance are overlap or not
 
         Args:
-            aabb1 (AABB): _description_
-            aabb2 (AABB): _description_
+            aabb1 (AABB): The AABB instance of one object 
+            aabb2 (AABB): The AABB instance of one object 
+            boundary (float): which is used to expand the aabb, hence we should use a positive floating point, Defaults to 0.0.
 
         Returns:
             bool: Return True if both of aabb instances are overlap, otherwise return False
         """
+        aabb1.min_point -= boundary
+        aabb1.max_point += boundary
+        aabb2.min_point -= boundary
+        aabb2.max_point += boundary
         return not (aabb1.max_point[0] < aabb2.min_point[0] or aabb1.min_point[0] > aabb2.max_point[0] or
                     aabb1.max_point[1] < aabb2.min_point[1] or aabb1.min_point[1] > aabb2.max_point[1] or
                     aabb1.max_point[2] < aabb2.min_point[2] or aabb1.min_point[2] > aabb2.max_point[2])

@@ -6,6 +6,7 @@ from rainbow.simulators.prox_soft_bodies.types import *
 from rainbow.util.timer import Timer
 import numpy as np
 from itertools import combinations, product
+from collections import defaultdict
 
 
 def _update_bvh(engine, stats, debug_on):
@@ -61,7 +62,7 @@ def _spatial_hashing_narrow_phase(engine, stats, debug_on):
         raise ValueError("Cell size must be greater than zero")
     
     time_stamp = engine.params.time_stamp
-    results = {}
+    results = defaultdict(set)
 
     for body in engine.bodies.values():
         tri_vertices = body.x[body.surface, :]
@@ -84,16 +85,16 @@ def _spatial_hashing_narrow_phase(engine, stats, debug_on):
                     for overlap in overlaps:
                         overlap_tri_idx, overlap_body_name, overlap_tri_aabb = overlap
                         if overlap_body_name != body.name and (AABB.is_overlap(tri_aabb, overlap_tri_aabb)):
-                            if (body, engine.bodies[overlap_body_name]) not in results:
-                                results[(body, engine.bodies[overlap_body_name])] = np.array([[tri_idx, overlap_tri_idx]], dtype=np.int32)
-                            else:
-                                results[(body, engine.bodies[overlap_body_name])] = np.vstack([results[(body, engine.bodies[overlap_body_name])], [tri_idx, overlap_tri_idx]])
+                            results[(body, engine.bodies[overlap_body_name])].add((tri_idx, overlap_tri_idx))
+
     if debug_on:
         narrow_phase_timer.end()
         stats["narrow_phase"] = narrow_phase_timer.elapsed
         stats["number_of_overlaps"] = np.sum(
             [len(result) for result in results.values()]
         )
+
+    results = {key: np.array(list(value), dtype=np.int32) for key, value in results.items()}
 
     return results, stats
 
