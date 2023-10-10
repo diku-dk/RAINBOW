@@ -1,6 +1,6 @@
 # Inspired by:
 # https://autobencoder.com/2020-08-24-conda-actions/
-name: Testing your commit on libRAINBOW
+name: Testing your commit on RAINBOW
 
 on:
   push:
@@ -33,6 +33,7 @@ jobs:
             conda install pyparsing
             conda install -c anaconda ipython_genutils 
             conda install -c conda-forge meshplot
+            pip install usd-core
             coverage run  -m unittest python/unit_tests/test_*.py
             coverage report
       - name: Format the code
