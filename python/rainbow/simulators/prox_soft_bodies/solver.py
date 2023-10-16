@@ -174,8 +174,7 @@ class Native:
             u_mi = p[3] - p[0]
             # Verify that the tetrahedron is well-defined
             if np.dot(u_mi, np.cross(u_ji, u_ki)) <= 0:
-                # raise RuntimeError("compute_D(): Degenerate tetrahedron found", e)
-                print("compute_D(): Degenerate tetrahedron found", e)
+                raise RuntimeError("compute_D(): Degenerate tetrahedron found", e)
             # Create edge-vector matrix
             D[e] = M3.make(
                 u_ji[0],
