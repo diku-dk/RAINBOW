@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List
+from numpy.typing import ArrayLike
 
 
 class AABB:
@@ -11,11 +11,11 @@ class AABB:
     which represent opposite corners of the box.
 
     Attributes:
-        min_point (List[float]): The smallest x, y, z coordinates from the bounding box.
-        max_point (List[float]): The largest x, y, z coordinates from the bounding box.
+        min_point (ArrayLike): The smallest x, y, z coordinates from the bounding box.
+        max_point (ArrayLike): The largest x, y, z coordinates from the bounding box.
 
     Methods:
-        create_from_vertices(vertices: List[List[float]]) -> 'AABB'
+        create_from_vertices(vertices: ArrayLike) -> 'AABB'
             Class method to create an AABB instance from a list of vertices.
 
         is_overlap(aabb1: 'AABB', aabb2: 'AABB') -> bool
@@ -28,13 +28,12 @@ class AABB:
         >>> AABB.is_overlap(aabb1, aabb2)
         True
     """
-    
-    def __init__(self, min_point: List[float], max_point: List[float]) -> None:
-        self.min_point = min_point
-        self.max_point = max_point
+    def __init__(self, min_point: ArrayLike, max_point: ArrayLike) -> None:
+        self.min_point = np.array(min_point, dtype=np.float64)
+        self.max_point = np.array(max_point, dtype=np.float64)
         
     @classmethod
-    def create_from_vertices(cls, vertices: List[List[float]]) -> 'AABB':
+    def create_from_vertices(cls, vertices: ArrayLike) -> 'AABB':
         """ Create AABB instance from vertices, such as triangle vertices
 
         Args:
@@ -59,10 +58,15 @@ class AABB:
         Returns:
             bool: Return True if both of aabb instances are overlap, otherwise return False
         """
-        aabb1.min_point -= boundary
-        aabb1.max_point += boundary
-        aabb2.min_point -= boundary
-        aabb2.max_point += boundary
-        return not (aabb1.max_point[0] < aabb2.min_point[0] or aabb1.min_point[0] > aabb2.max_point[0] or
-                    aabb1.max_point[1] < aabb2.min_point[1] or aabb1.min_point[1] > aabb2.max_point[1] or
-                    aabb1.max_point[2] < aabb2.min_point[2] or aabb1.min_point[2] > aabb2.max_point[2])
+        if boundary != 0.0:
+            aabb1_min_copy = np.copy(aabb1.min_point)
+            aabb1_max_copy = np.copy(aabb1.max_point)
+            aabb2_min_copy = np.copy(aabb2.min_point)
+            aabb2_max_copy = np.copy(aabb2.max_point)
+            aabb1_min_copy -= boundary
+            aabb1_max_copy += boundary
+            aabb2_min_copy -= boundary
+            aabb2_max_copy += boundary
+            return not (np.any(aabb1_max_copy < aabb2_min_copy) or np.any(aabb1_min_copy > aabb2_max_copy))
+        else:
+            return not (np.any(aabb1.max_point < aabb2.min_point) or np.any(aabb1.min_point > aabb2.max_point))

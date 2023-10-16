@@ -40,6 +40,85 @@ def _update_bvh(engine, stats, debug_on):
     return stats
 
 
+def _is_share_vertex(tri1, tri2):
+    """ Test if two triangles of a same body share a vertex.
+
+    Args:
+        tri1 (ArrayLike): coordinates of the first triangle
+        tri2 (ArrayLike): coordinates of the second triangle
+    
+    Returns:
+        bool: True if the two triangles share a vertex, False otherwise
+    """
+    return len(np.intersect1d(np.array(tri1), np.array(tri2))) > 0
+
+
+def _triangle_intersection(tri1, tri2):
+    """ Test if two triangles of a same body intersect
+        To achieve performance, this function is adapted from Moller-Trumbore intersection algorithm,
+        which is described in https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm.
+        The idea is to check if the intersection point of the two triangles is inside both triangles.
+        Steps:
+        1. Check if the two triangles are parallel or not, if they are parallel, return False
+        2. Check if the intersection point is inside the first triangle, if not, return False
+        3. Check if the intersection point is inside the second triangle, if inside, return True, otherwise return False
+        
+    Args:
+        tri1 (ArrayLike): coordinates of the first triangle
+        tri2 (ArrayLike): coordinates of the second triangle
+
+    Returns:
+        bool: True if the two triangles intersect, False otherwise
+    """
+    v1, v2, v3 = tri1
+    u1, u2, u3 = tri2
+
+    e1 = v2 - v1
+    e2 = v3 - v1
+    normal_tri2 = np.cross(u2 - u1, u3 - u1)
+    a = np.dot(e1, normal_tri2)
+
+    # Check if the two triangles are parallel or not
+    if a > -np.finfo(float).eps and a < np.finfo(float).eps:
+        return False 
+
+    # Check the intersection point is inside the triangle(tri1)
+    f = 1.0/a
+    s = u1 - v1
+    u = f * np.dot(s, normal_tri2)
+    if u < 0.0 or u > 1.0:
+        return False
+
+    q = np.cross(s, e1)
+    v = f * np.dot(u2 - u1, q)
+    if v < 0.0 or u + v > 1.0:
+        return False
+
+    # Check the intersection point is also inside the other triangle(tri2)
+    t = f * np.dot(e2, q)
+    if t > np.finfo(float).eps:
+        return True
+
+    return False
+
+
+def _is_self_collision(tri1, tri2, tri1_aabb, tri2_aabb):
+    """ Check if two triangles of a same body are self-colliding
+
+    Args:
+        tri1 (ArrayLike): coordinates of the first triangle
+        tri2 (ArrayLike): coordinates of the second triangle
+        tri1_aabb (AABB): the AABB of the first triangle
+        tri2_aabb (AABB): the AABB of the second triangle
+
+    Returns:
+        bool: True if the two triangles are self-colliding, False otherwise
+    """
+    return (not _is_share_vertex(tri1, tri2) and
+            AABB.is_overlap(tri1_aabb, tri2_aabb) and
+            _triangle_intersection(tri1, tri2))
+
+
 def _spatial_hashing_narrow_phase(engine, stats, debug_on):
     """ Use spatial hashing to find the overlapping triangles
 
@@ -77,15 +156,21 @@ def _spatial_hashing_narrow_phase(engine, stats, debug_on):
             cell_ranges = [range(cmi, cma) for cmi, cma in zip(c_min, c_max)]
             for i, j, k in product(*cell_ranges):
                 tri_aabb = AABB(tri_aabb_min[tri_idx], tri_aabb_max[tri_idx])
-                overlaps = engine.hash_grid.insert(i, j, k, tri_idx, body.name, 
+                overlaps = engine.hash_grid.insert(i, j, k, tri_idx, body.idx, 
                                                    tri_aabb, 
                                                    time_stamp)
                 # Check all triangles in the cell to see if they overlap with the current triangle
                 if len(overlaps) > 0:
-                    for overlap in overlaps:
-                        overlap_tri_idx, overlap_body_name, overlap_tri_aabb = overlap
-                        if overlap_body_name != body.name and (AABB.is_overlap(tri_aabb, overlap_tri_aabb)):
-                            results[(body, engine.bodies[overlap_body_name])].add((tri_idx, overlap_tri_idx))
+                    for overlap_tri_idx, overlap_body_idx, overlap_tri_aabb  in overlaps:
+                        overlap_body = list(engine.bodies.values())[overlap_body_idx]
+                        if overlap_body_idx == body.idx:
+                            # Potential self-collision
+                            if _is_self_collision(body.x[body.surface[tri_idx]], overlap_body.x[overlap_body.surface[overlap_tri_idx]], tri_aabb, overlap_tri_aabb):
+                                results[(body, overlap_body)].add((tri_idx, overlap_tri_idx))
+                        else:
+                            # Potential collision with another body
+                            if AABB.is_overlap(tri_aabb, overlap_tri_aabb):
+                                results[(body, overlap_body)].add((tri_idx, overlap_tri_idx))
 
     if debug_on:
         narrow_phase_timer.end()

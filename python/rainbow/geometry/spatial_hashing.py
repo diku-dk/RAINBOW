@@ -81,9 +81,10 @@ class HashGird:
         Phi(List[[int, int, int]]): The offset table used to remove the collision of the hash function
 
     Methods:
-        set_hash_table_size(hash_table_size: int, update: bool = True)
-            Sets the size of the hash table and optionally updates the 
-            current hash table size.
+        set_hash_table_size(hash_table_size: int)
+            Sets the size of the hash table
+        increment_hash_table_size(increment_size: int)
+            Increments the size of the hash table
         set_cell_size(cell_size_x: float, cell_size_y: float, cell_size_z: float)
             Sets the 3D dimensions of a cell in the grid.
         get_hash_value(i: int, j: int, k: int) -> int
@@ -110,20 +111,28 @@ class HashGird:
         self.hash_tbale = dict()
         self.cell_size = 0.0
         
-        # Prefect Hashing Setup, them will be used in the get_prefect_hash_value function
+        # Perfect Hashing Setup: These parameters are configured and subsequently used in the get_prefect_hash_value function.
         self.offset_table_size = 1000
         self.M0 = np.eye(3, dtype=int)
         self.M1 = np.eye(3, dtype=int)
         self.Phi = np.random.randint(self.hash_table_size, size=(self.offset_table_size,) * 3)
+        self.mod_value = 1e9 + 7
     
-    def set_hash_table_size(self, hash_table_size: int, update = True):
-        """ Set the size of the hash table, if update is True, the hash table size will be updated, otherwise the hash table size will be added by the given hash table size
+    def set_hash_table_size(self, hash_table_size: int):
+        """ Set the size of the hash table
 
         Args:
             hash_table_size (int32): The size of the hash table
-            update (bool, optional): If it is true the hash table size will be updated, otherwise the hash table size will be added by the given hash table size. Defaults to True.
         """
-        self.hash_table_size = hash_table_size if update else self.hash_table_size + hash_table_size
+        self.hash_table_size = hash_table_size
+    
+    def increment_hash_table_size(self, increment_size: int):
+        """ Increment the size of the hash table
+
+        Args:
+            increment_size (int32): The size of the hash table
+        """
+        self.hash_table_size = self.hash_table_size + increment_size
 
     def set_cell_size(self, cell_size: float):
         """ Set the x, y, z axis length of a cell
@@ -156,9 +165,10 @@ class HashGird:
         h0 = np.dot(p, self.M0) % self.hash_table_size
         h1 = np.dot(p, self.M1) % self.offset_table_size
         hv = (h0 + self.Phi[tuple(h1)]) % self.hash_table_size
-        return int(''.join(map(str, hv.flatten())))
 
-    def insert(self, i: int, j: int, k: int, tri_idx: int, body_name: str, tri_aabb: 'AABB', time_stamp: int) -> list:
+        return int(np.sum(hv) % self.mod_value)
+
+    def insert(self, i: int, j: int, k: int, tri_idx: int, body_idx: int, tri_aabb: 'AABB', time_stamp: int) -> list:
         """ Insert a triangle into the hash table, and return the list of object of the cell
 
         Args:
@@ -166,7 +176,7 @@ class HashGird:
             j (int): The j index of the cell of Y axis
             k (int): The k index of the cell of Z axis
             tri_idx (int): The index of the triangle of the body
-            body_name (str): The name of the body
+            body_idx (int): The index of the body
             tri_aabb (AABB): The AABB of the triangle
             time_stamp (int): The time stamp of the simulation program
 
@@ -177,10 +187,10 @@ class HashGird:
         hv = self.get_prefect_hash_value(i, j, k)
         if hv not in self.hash_tbale:
             self.hash_tbale[hv] = HashCell()
-            self.hash_tbale[hv].add((tri_idx, body_name, tri_aabb), time_stamp)
+            self.hash_tbale[hv].add((tri_idx, body_idx, tri_aabb), time_stamp)
         else:
             overlaps = self.hash_tbale[hv].object_list
-            self.hash_tbale[hv].add((tri_idx, body_name, tri_aabb), time_stamp)
+            self.hash_tbale[hv].add((tri_idx, body_idx, tri_aabb), time_stamp)
         return overlaps
     
     @classmethod
