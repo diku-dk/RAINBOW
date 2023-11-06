@@ -335,7 +335,6 @@ def solve(J, WJT, b, mu, friction_solver, engine, stats, debug_on, prefix):
     for iteration in range(engine.params.max_iterations):
         if engine.params.proximal_solver['parallel']:
             x = sweep_parallel(K, J, WJT, b, mu, r, x, friction_solver)
-                # w = delta_w
         else:
             x = sweep(K, J, WJT, b, mu, r, x, friction_solver)
 
