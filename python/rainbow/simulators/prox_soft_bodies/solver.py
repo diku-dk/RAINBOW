@@ -1,6 +1,8 @@
 import rainbow.simulators.prox_soft_bodies.mechanics as MECH
 import rainbow.simulators.prox_soft_bodies.collision_detection as CD
-import rainbow.simulators.prox_rigid_bodies.gauss_seidel as GS
+import rainbow.simulators.prox_soft_bodies.prox as PROX
+import rainbow.simulators.prox_soft_bodies.jacobi_parallel as JP
+import rainbow.simulators.prox_soft_bodies.gauss_seidel_parallel as GS
 import rainbow.math.vector3 as V3
 import rainbow.math.matrix3 as M3
 import numpy as np
@@ -974,9 +976,14 @@ def apply_post_stabilization(J, WJT, engine, stats, debug_on):
         return stats
 
     mu = np.zeros(K, dtype=np.float64)
-    sol, stats = GS.solve(
-        J, WJT, g, mu, GS.prox_origin, engine, stats, debug_on, "post_stabilization_"
-    )
+    if engine.params.proximal_solver['scheme'] == "jacobi":
+        sol, stats = JP.solve(
+            J, WJT, g, mu, PROX.prox_origin, engine, stats, debug_on, "post_stabilization_"
+        )
+    if engine.params.proximal_solver['scheme'] == "gauss_seidel":
+        sol, stats = GS.solve(
+            J, WJT, g, mu, PROX.prox_origin, engine, stats, debug_on, "post_stabilization_"
+        )
     delta_x = WJT.dot(sol)
 
     # --- Convert from 3N-by-1 into N-by-3 vector format -----------------
@@ -1114,9 +1121,15 @@ class SemiImplicitStepper:
 
             mu = get_friction_coefficient_vector(engine)
             b = J.dot(u_prime)
-            sol, stats = GS.solve(
-                J, WJT, b, mu, GS.prox_sphere, engine, stats, debug_on, "gauss_seidel_"
-            )
+            if engine.params.proximal_solver['scheme'] == "jacobi":
+                sol, stats = JP.solve(
+                    J, WJT, b, mu, PROX.prox_sphere, engine, stats, debug_on, "jacobi_"
+                )
+            if engine.params.proximal_solver['scheme'] == "gauss_seidel":
+                sol, stats = GS.solve(
+                    J, WJT, b, mu, PROX.prox_sphere, engine, stats, debug_on, "gauss_seidel_"
+                )
+
             WPc = WJT.dot(sol)
 
         # --- Convert from 3N-by-1 into N-by-3 vector format -----------------
