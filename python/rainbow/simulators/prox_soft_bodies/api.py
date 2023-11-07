@@ -1,12 +1,14 @@
 from typing import List, Dict
 import rainbow.geometry.grid3 as GRID
 import rainbow.geometry.kdop_bvh as BVH
+import rainbow.geometry.spatial_hashing as HASH_GRID
 import rainbow.math.functions as FUNC
 import rainbow.math.vector3 as V3
 import rainbow.geometry.surface_mesh as SURF_MESH
 import rainbow.geometry.volume_mesh as MESH
 import rainbow.simulators.prox_soft_bodies.solver as SOLVER
 from rainbow.simulators.prox_soft_bodies.types import *
+
 import numpy as np
 
 
@@ -69,22 +71,33 @@ def create_soft_body(engine, body_name, V, T) -> None:
     body.x = np.array(mesh.V, copy=True, dtype=np.float64)
     body.u = np.zeros(V.shape, dtype=np.float64)
 
-    # Create bounding volume hierarchy data-structure (BVH), this will always be updated to live in
-    # spatial coordinates and is tested against the signed distance field (who lives in constant material space) to
-    # generate contact points.
-    body.bvh = BVH.make_bvh(
-        body.x,
-        body.surface,
-        engine.params.K,
-        engine.params.bvh_chunk_size,
-        engine.params.envelope,
-    )
+    
+    # If we use spatial hashing we need to setup the hash grid, otherwise we create a BVH
+    if engine.params.use_spatial_hashing:
+        engine.hash_grid.increment_hash_table_size(len(body.surface))
+    
+        if engine.hash_grid.cell_size == 0:
+            engine.hash_grid.cell_size = HASH_GRID.HashGird.compute_optial_cell_size(body.x0, body.surface)
+        else :
+            engine.hash_grid.cell_size = (HASH_GRID.HashGird.compute_optial_cell_size(body.x0, body.surface)+engine.hash_grid.cell_size)/2 
+    else:
+        # Create bounding volume hierarchy data-structure (BVH), this will always be updated to live in
+        # spatial coordinates and is tested against the signed distance field (who lives in constant material space) to
+        # generate contact points.
+        body.bvh = BVH.make_bvh(
+            body.x,
+            body.surface,
+            engine.params.K,
+            engine.params.bvh_chunk_size,
+            engine.params.envelope,
+        )
 
     # To have proper global indexing into assembled matrices and vectors we need to know this body nodel
     # index offset into this global space.
     body.offset = engine.number_of_nodes
     engine.number_of_nodes += len(body.x0)
 
+    
 
 def create_dirichlet_conditions(engine, body_name, phi) -> None:
     """
