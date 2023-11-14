@@ -252,11 +252,7 @@ class Parameters:
             0.1  # Any geometry within this distance generates a contact point.
         )
         self.resolution = 64  # The number of grid cells along each axis in the signed distance fields.
-        self.proximal_solver = {
-            "scheme": "gauss_seidel", # or "jacobi", "jacboi_hybrid"
-            "parallel": False, # This a boolean flag that indicates if we should use parallelization or not.
-        }
-
+        self.proximal_solver = "gauss_seidel" # or "gauss_seidel", "parallel_gauss_seidel", "parallel_jacobi", "parallel_jacboi_hybrid"
 
 class Engine:
     """

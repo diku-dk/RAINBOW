@@ -47,14 +47,14 @@ def prox_ellipsoid(engine, z_s, z_t, z_tau, mu_s, mu_t, mu_tau, x_n):
     """
 
     :param engine:
-    :param z_s:
-    :param z_t:
-    :param z_tau:
-    :param mu_s:
-    :param mu_t:
-    :param mu_tau:
-    :param x_n:
-    :return:
+    :param z_s: s-component of current z-point.
+    :param z_t: t-component of current z-point.
+    :param z_tau: tau-component of current z-point.
+    :param mu_s: The coefficient of friction.
+    :param mu_t: The coefficient of friction.
+    :param mu_tau: The coefficient of friction.
+    :param x_n:  The current normal force magnitude.
+    :return: The x_s, x_t, x_tau which will be the closest point to the ellipsoid with radius my*x_n.
     """
     if x_n <= 0.0:
         return 0.0, 0.0, 0.0

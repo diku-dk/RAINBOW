@@ -34,7 +34,7 @@ jobs:
             conda install -c anaconda ipython_genutils 
             conda install -c conda-forge meshplot
             conda install numba
-            pip install networkx
+            conda install -c anaconda networkx
             pip install usd-core
             coverage run  -m unittest python/unit_tests/test_*.py
             coverage report
