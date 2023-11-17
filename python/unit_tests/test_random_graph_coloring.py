@@ -26,7 +26,6 @@ class TestBlocking(unittest.TestCase):
         # The color groups should be: {1,2,4}, {1, 3}
         expect_color_groups = {0: [0, 2, 4], 1: [1, 3]}
         for k, v in color_groups.items():
-            self.assertIn(k, expect_color_groups)
             TEST.is_array_equal(v, expect_color_groups[k])
 
 
