@@ -1146,6 +1146,9 @@ class SemiImplicitStepper:
                 #  stepper in its own right. This might be cool for pre-processing of simulations to make sure
                 #  no penetrations are initially present.
                 stats = apply_post_stabilization(J, WJT, engine, stats, debug_on)
+        
+        # Update time stamp
+        engine.params.time_stamp += 1
 
         if debug_on:
             timer.end()

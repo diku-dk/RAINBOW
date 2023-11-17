@@ -1,10 +1,12 @@
 import rainbow.geometry.grid3 as GRID
 import rainbow.geometry.kdop_bvh as BVH
 import rainbow.geometry.barycentric as BC
+from rainbow.geometry.aabb import AABB
 from rainbow.simulators.prox_soft_bodies.types import *
 from rainbow.util.timer import Timer
 import numpy as np
-from itertools import combinations
+from itertools import combinations, product
+from collections import defaultdict
 
 
 def _update_bvh(engine, stats, debug_on):
@@ -36,6 +38,150 @@ def _update_bvh(engine, stats, debug_on):
         update_bvh_timer.end()
         stats["update_bvh"] = update_bvh_timer.elapsed
     return stats
+
+
+def _is_share_vertex(tri1, tri2):
+    """ Test if two triangles of a same body share a vertex.
+
+    Args:
+        tri1 (ArrayLike): coordinates of the first triangle
+        tri2 (ArrayLike): coordinates of the second triangle
+    
+    Returns:
+        bool: True if the two triangles share a vertex, False otherwise
+    """
+    return len(np.intersect1d(np.array(tri1), np.array(tri2))) > 0
+
+
+def _triangle_intersection(tri1, tri2):
+    """ Test if two triangles of a same body intersect
+        To achieve performance, this function is adapted from Moller-Trumbore intersection algorithm,
+        which is described in https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm.
+        The idea is to check if the intersection point of the two triangles is inside both triangles.
+        Steps:
+        1. Check if the two triangles are parallel or not, if they are parallel, return False
+        2. Check if the intersection point is inside the first triangle, if not, return False
+        3. Check if the intersection point is inside the second triangle, if inside, return True, otherwise return False
+        
+    Args:
+        tri1 (ArrayLike): coordinates of the first triangle
+        tri2 (ArrayLike): coordinates of the second triangle
+
+    Returns:
+        bool: True if the two triangles intersect, False otherwise
+    """
+    v1, v2, v3 = tri1
+    u1, u2, u3 = tri2
+
+    e1 = v2 - v1
+    e2 = v3 - v1
+    normal_tri2 = np.cross(u2 - u1, u3 - u1)
+    a = np.dot(e1, normal_tri2)
+
+    # Check if the two triangles are parallel or not
+    if a > -np.finfo(float).eps and a < np.finfo(float).eps:
+        return False 
+
+    # Check the intersection point is inside the triangle(tri1)
+    f = 1.0/a
+    s = u1 - v1
+    u = f * np.dot(s, normal_tri2)
+    if u < 0.0 or u > 1.0:
+        return False
+
+    q = np.cross(s, e1)
+    v = f * np.dot(u2 - u1, q)
+    if v < 0.0 or u + v > 1.0:
+        return False
+
+    # Check the intersection point is also inside the other triangle(tri2)
+    t = f * np.dot(e2, q)
+    if t > np.finfo(float).eps:
+        return True
+
+    return False
+
+
+def _is_self_collision(tri1, tri2, tri1_aabb, tri2_aabb):
+    """ Check if two triangles of a same body are self-colliding
+
+    Args:
+        tri1 (ArrayLike): coordinates of the first triangle
+        tri2 (ArrayLike): coordinates of the second triangle
+        tri1_aabb (AABB): the AABB of the first triangle
+        tri2_aabb (AABB): the AABB of the second triangle
+
+    Returns:
+        bool: True if the two triangles are self-colliding, False otherwise
+    """
+    return (not _is_share_vertex(tri1, tri2) and
+            AABB.is_overlap(tri1_aabb, tri2_aabb) and
+            _triangle_intersection(tri1, tri2))
+
+
+def _spatial_hashing_narrow_phase(engine, stats, debug_on):
+    """ Use spatial hashing to find the overlapping triangles
+
+    Args:
+        engine (Engine): The current engine instance we are working with.
+        stats (dict): A dictionary where to add more profiling and timing measurements.
+        debug_on (bool): Boolean flag for toggling debug (aka profiling) info on and off.
+
+    Returns:
+        (List, dict):  A tuple with body pair overlap information and a dictionary with profiling and
+                        timing measurements.
+    """
+    narrow_phase_timer = None
+    if debug_on:
+        narrow_phase_timer = Timer("narrow_phase", 8)
+        narrow_phase_timer.start()
+    
+    cell_size = engine.hash_grid.cell_size
+    if cell_size <= 0.0:
+        raise ValueError("Cell size must be greater than zero")
+    
+    time_stamp = engine.params.time_stamp
+    results = defaultdict(set)
+
+    for body in engine.bodies.values():
+        tri_vertices = body.x[body.surface, :]
+        # Compute the AABB of each triangle by vectorizing the min/max operation
+        tri_aabb_min = np.min(tri_vertices, axis=1)
+        tri_aabb_max = np.max(tri_vertices, axis=1)
+        cell_min = (tri_aabb_min / cell_size).astype(int)
+        cell_max = (tri_aabb_max / cell_size).astype(int) + 1
+
+        # Traverse the cells in the AABB of each triangle and insert the triangle into the hash table
+        for tri_idx, (c_min, c_max) in enumerate(zip(cell_min, cell_max)):
+            cell_ranges = [range(cmi, cma) for cmi, cma in zip(c_min, c_max)]
+            for i, j, k in product(*cell_ranges):
+                tri_aabb = AABB(tri_aabb_min[tri_idx], tri_aabb_max[tri_idx])
+                overlaps = engine.hash_grid.insert(i, j, k, tri_idx, body.idx, 
+                                                   tri_aabb, 
+                                                   time_stamp)
+                # Check all triangles in the cell to see if they overlap with the current triangle
+                if len(overlaps) > 0:
+                    for overlap_tri_idx, overlap_body_idx, overlap_tri_aabb  in overlaps:
+                        overlap_body = list(engine.bodies.values())[overlap_body_idx]
+                        if overlap_body_idx == body.idx:
+                            # Potential self-collision
+                            if _is_self_collision(body.x[body.surface[tri_idx]], overlap_body.x[overlap_body.surface[overlap_tri_idx]], tri_aabb, overlap_tri_aabb):
+                                results[(body, overlap_body)].add((tri_idx, overlap_tri_idx))
+                        else:
+                            # Potential collision with another body
+                            if AABB.is_overlap(tri_aabb, overlap_tri_aabb):
+                                results[(body, overlap_body)].add((tri_idx, overlap_tri_idx))
+
+    if debug_on:
+        narrow_phase_timer.end()
+        stats["narrow_phase"] = narrow_phase_timer.elapsed
+        stats["number_of_overlaps"] = np.sum(
+            [len(result) for result in results.values()]
+        )
+
+    results = {key: np.array(list(value), dtype=np.int32) for key, value in results.items()}
+
+    return results, stats
 
 
 def _narrow_phase(engine, stats, debug_on):
@@ -347,8 +493,11 @@ def run_collision_detection(engine, stats, debug_on):
     if debug_on:
         collision_detection_timer = Timer("collision_detection")
         collision_detection_timer.start()
-    stats = _update_bvh(engine, stats, debug_on)
-    overlaps, stats = _narrow_phase(engine, stats, debug_on)
+    if engine.params.use_spatial_hashing:
+        overlaps, stats = _spatial_hashing_narrow_phase(engine, stats, debug_on)
+    else:
+        stats = _update_bvh(engine, stats, debug_on)
+        overlaps, stats = _narrow_phase(engine, stats, debug_on)
     stats = _contact_determination(overlaps, engine, stats, debug_on)
     stats = _contact_reduction(engine, stats, debug_on)
     if debug_on:
