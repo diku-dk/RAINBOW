@@ -33,7 +33,7 @@ jobs:
             conda install pyparsing
             conda install -c anaconda ipython_genutils 
             conda install -c conda-forge meshplot
-            conda install numba
+            conda install numba=0.58.1
             conda install -c anaconda networkx
             pip install usd-core
             coverage run  -m unittest python/unit_tests/test_*.py
