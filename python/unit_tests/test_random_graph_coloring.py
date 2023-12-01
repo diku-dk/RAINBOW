@@ -25,8 +25,11 @@ class TestBlocking(unittest.TestCase):
         # Check if the color groups are valid
         # The color groups should be: {0,2,4}, {1, 3}
         expect_color_groups = {0: [0, 2, 4], 1: [1, 3]}
-        for k, v in color_groups.items():
-            TEST.is_array_equal(v, expect_color_groups[k])
+        for c in color_groups.values():
+            if len(c) == 3:
+                TEST.is_array_equal(c, expect_color_groups[0])
+            else:
+                TEST.is_array_equal(c, expect_color_groups[1])
 
 
 if __name__ == "__main__":
