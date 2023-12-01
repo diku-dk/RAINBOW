@@ -5,21 +5,19 @@ from rainbow.simulators.proximal_contact.solver_interface import SolverInterface
 
 @nb.njit(parallel=True, nogil=True, cache=True)
 def sweep_worker(K, w, z, b, mu, x, friction_solver, hybrid):
-    """ Parallel Jacobi Proximal Algorithm.
+    """ Sweep worker for parallel Jacobi solver.
 
-    Args:
-        K (int): Contact points number.
-        w (ArrayLike): The WJT.dot(x).
-        z (ArrayLike): The current contact force.
-        b (ArrayLike): b = Ju^t + ∆t JM^{-1}h + EJu^t
-        mu (float): The coefficient of friction.
-        x (ArrayLike): The current contact force.
-        friction_solver (callable): The proximal operator of friction cone function.
-        hybrid (bool): If True, use the hybrid parallel Jacobi algorithm.
-
-    Returns:
-        ArrayLike: The new contact force.
+    :param K: Contact points number.
+    :param w: The WJT.dot(x).
+    :param z: The current contact force.
+    :param b:  b = Ju^t + ∆t JM^{-1}h + EJu^t.
+    :param mu: The coefficient of friction.
+    :param x: The current contact force.
+    :param friction_solver: The proximal operator of friction cone function.
+    :param hybrid: If True, use the hybrid parallel Jacobi algorithm.
+    :return: The new contact force.
     """
+
     if not hybrid:
         x_old = x.copy()
     for k in nb.prange(K):
@@ -43,8 +41,6 @@ def sweep_worker(K, w, z, b, mu, x, friction_solver, hybrid):
 class ParallelJacobiSolver(SolverInterface):
     """ Parallel Jacobi Proximal Algorithm.
     """
-    def __init__(self, J, WJT, b, mu, friction_solver, engine, stats, debug_on, prefix):
-        super().__init__(J, WJT, b, mu, friction_solver, engine, stats, debug_on, prefix)
 
     def sweep(self):
         w = self.WJT.dot(self.x)
@@ -63,9 +59,11 @@ class ParallelJacobiSolver(SolverInterface):
 
 class ParallelJacobiHybridSolver(SolverInterface):
     """ Parallel Jacobi Hybrid Proximal Algorithm.
+        Here hybrid means that : 
+            1. The normal force is update by the old value, which is Jacobi-scheme.
+            2. The friction force is update by the lastest value, which is Gauss-Seidel-scheme.
+        Hence, we call it hybrid compared with the ParallelJacobiSolver.
     """
-    def __init__(self, J, WJT, b, mu, friction_solver, engine, stats, debug_on, prefix):
-        super().__init__(J, WJT, b, mu, friction_solver, engine, stats, debug_on, prefix)
 
     def sweep(self):
         w = self.WJT.dot(self.x)

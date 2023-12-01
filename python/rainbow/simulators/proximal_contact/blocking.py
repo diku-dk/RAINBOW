@@ -1,64 +1,43 @@
 import numpy as np
-import numba as nb
 import networkx as nx
 from collections import defaultdict
 
 
-@nb.njit(parallel=True, nogil=True, cache=True)
-def _get_edges(J):
-    """ Get the edges of the contact graph.
+def build_contact_graph(contact_points, type="rigid_body"):
+    """ Create the contact graph based on the contact points for rigid body or soft body.
+        The vertices of the graph are the contact points, and the edges of the graph are :
+        1. If the type is rigid body, the edges are the contact points which belong to the same rigid body.
+        2. If the type is soft body, the edges are the contact points which belong to the same tetrahedron.
 
-    Args:
-        J (ArrayLike): The contact jacobi matrix.
-
-    Returns:
-        (ArrayLike, ArrayLike): The source and target of the edges.
-    """
-    K = J.shape[0] // 4 # The number of contact points, here the each contact point has 4 rows of J.
-    step_size = 24 # Here the step_size is 24 , because each contact point has 8 non-zero blocks and each block has 3 columns.
-    cols = J.shape[1] # The number of columns of J.
-    
-    # Preallocate arrays for source and target of edges
-    max_possible_edges = (cols // step_size) * K * K
-    source = np.full(max_possible_edges, -1, dtype=np.int64)
-    target = np.full(max_possible_edges, -1, dtype=np.int64)
-    edge_count = 0
-
-    for idx in nb.prange(0, cols//step_size):
-        col_idx = idx * step_size
-        contacts = np.where(J[:, col_idx: col_idx+step_size])[0]
-        contacts = np.unique(contacts // 4)
-        for i, contact_i in enumerate(contacts):
-            for j, contact_j in enumerate(contacts):
-                if i < j:
-                    source[edge_count] = contact_i
-                    target[edge_count] = contact_j
-                    edge_count += 1
-
-    # Trim the arrays to the actual size
-    valid_indices = source != -1
-    filtered_source = source[valid_indices]
-    filtered_source = target[valid_indices]
-
-    return filtered_source, filtered_source
-
-
-def build_contact_graph(J):
-    """ Create the contact graph based on the contact jacobi matrix.
-        The vertices of the graph are the contact points, and the edges of the graph are the value of the contact jacobi matrix is not zero between two contact points.
-
-    Args:
-        J (ArrayLike): The contact jacobi matrix.
-
-    Returns:
-        graph: The contact graph.
+    :param contact_points: The contact points array of the engine.
+    :param type: The type of the body, 'rigid body' or 'soft body', defaults to "rigid_body"
+    :raises ValueError: If the type of body is not supported.
+    :return: The contact graph.
     """
     G = nx.Graph()
-    K = J.shape[0] // 4  # The number of contact points, here the each contact point has 4 rows of J.
+    K = len(contact_points) # The number of contact points.
     G.add_nodes_from(np.arange(K)) # Add the contact points as the vertices of the graph.
-    sources, targets = _get_edges(J)
-    for s, t in zip(sources, targets):
-        G.add_edge(s, t)
+
+    for k in range(K):
+        cp1 = contact_points[k]
+        if type == "rigid_body":
+            for i in range(k+1, K):
+                cp2 = contact_points[i]
+                if cp1.bodyA.idx == cp2.bodyA.idx or cp1.bodyA.idx == cp2.bodyB.idx or cp1.bodyB.idx == cp2.bodyA.idx or cp1.bodyB.idx == cp2.bodyB.idx:
+                    G.add_edge(k, i)
+        elif type == "soft_body":
+            cp1_iA, cp1_jA, cp1_kA, cp1_mA = cp1.bodyA.T[cp1.idx_tetA] + cp1.bodyA.offset
+            cp1_iB, cp1_jB, cp1_kB, cp1_mB = cp1.bodyB.T[cp1.idx_tetB] + cp1.bodyB.offset
+            set1 = set([cp1_iA, cp1_jA, cp1_kA, cp1_mA, cp1_iB, cp1_jB, cp1_kB, cp1_mB])
+            for i in range(k+1, K):
+                cp2 = contact_points[i]
+                cp2_iA, cp2_jA, cp2_kA, cp2_mA = cp2.bodyA.T[cp2.idx_tetA] + cp2.bodyA.offset
+                cp2_iB, cp2_jB, cp2_kB, cp2_mB = cp2.bodyB.T[cp2.idx_tetB] + cp2.bodyB.offset
+                set2 = set([cp2_iA, cp2_jA, cp2_kA, cp2_mA, cp2_iB, cp2_jB, cp2_kB, cp2_mB])
+                if len(set1.intersection(set2)) > 0:
+                    G.add_edge(k, i)
+        else:
+            raise ValueError("The type of body is not supported.")
     
     return G
 
@@ -66,11 +45,8 @@ def build_contact_graph(J):
 def greedy_graph_coloring(G):
     """ Greedy graph coloring algorithm
 
-    Args:
-        G (Graph): The contact grpah is created from the contact jacobi matrix.
-
-    Returns:
-        ArrayLike: The color dictionary, the key is the color, the value is a array of the block location.
+    :param G: The contact grpah.
+    :return: The color dictionary, the key is the color, the value is a array of the block location.
     """
     C = nx.coloring.greedy_color(G)
     color_groups = defaultdict(list)
@@ -84,19 +60,12 @@ def greedy_graph_coloring(G):
 
 
 def random_graph_coloring(G, max_iter = 200):
-    """ Random graph coloring algorithm, which is posted as this paper: "Vivace: a Practical Gauss-Seidel Method for Stable Soft Body Dynamics"
-        
-    Note: According to this paper, random graph coloring algorithm is faster than greedy graph coloring algorithm, and it can get a better result 
-            than greedy graph coloring algorithm; but I did not got the same result as the paper. In my test, greedy graph coloring algorithm is better than random graph coloring algorithm.
-            I think the reason is that the random graph coloring algorithm is not stable, it can get different result in different test.
-            So I did not use this algorithm in the final version of the code, however we can save this algorithm for future use (maybe can achieve better performance in different scene).
-        
-    Args:
-        G (Graph): The contact grpah is created from the contact jacobi matrix.
-        max_iter (int, optional): The maximum iterations . Defaults to 200.
+    """ Random graph coloring algorithm, which is posted as this paper: "Vivace: a Practical Gauss-Seidel Method for Stable Soft Body Dynamics". According to this paper, random graph coloring algorithm is faster than greedy graph coloring algorithm, and it can get a better result than greedy graph coloring algorithm; but I did not got the same result as the paper. In my test, greedy graph coloring algorithm is better than random graph coloring algorithm. I think the reason is that the random graph coloring algorithm is not stable, it can get different result in different test. So I did not use this algorithm in the final version of the code, however we can save this algorithm for future use (maybe can achieve better performance in different scene).
 
-    Returns:
-        dict: A color dictionary, the key is the contact index, the value is the color index.  
+    :param G: The contact grpah.
+    :param max_iter: The maximum iterations, defaults to 200.
+    :return:  A color dictionary, the key is the contact index, the value is the color index.  
+
     """
     degrees = np.array([degree for _, degree in G.degree()])
     colors = (degrees // 1).astype(int)

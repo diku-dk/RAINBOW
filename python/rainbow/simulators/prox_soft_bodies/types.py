@@ -269,6 +269,7 @@ class Engine:
         This initializes an engine instance which holds all the configuration data of the world that is to
         be simulated.
         """
+        self.body_type = 'soft_body' 
         self.materials = dict()  # All materials that exist in the world.
         self.materials[
             "default"
@@ -288,3 +289,4 @@ class Engine:
         self.number_of_nodes = 0  # The total number of nodes in the world.
         self.stepper = None  # A reference to the time-stepper used to simulator forward.
         self.hash_grid = SH.HashGird()
+        

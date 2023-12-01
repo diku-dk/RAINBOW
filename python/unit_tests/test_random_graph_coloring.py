@@ -23,7 +23,7 @@ class TestBlocking(unittest.TestCase):
         color_groups = BLOCKING.random_graph_coloring(self.G)
 
         # Check if the color groups are valid
-        # The color groups should be: {1,2,4}, {1, 3}
+        # The color groups should be: {0,2,4}, {1, 3}
         expect_color_groups = {0: [0, 2, 4], 1: [1, 3]}
         for k, v in color_groups.items():
             TEST.is_array_equal(v, expect_color_groups[k])

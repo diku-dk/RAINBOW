@@ -4,27 +4,23 @@ from rainbow.simulators.proximal_contact.jacobi_solver import ParallelJacobiSolv
 
 
 def solve(J, WJT, b, mu, friction_solver, engine, stats, debug_on, prefix="", scheme="gauss_seidel"):
-    """_summary_
+    """ This is a function to collect all schemes of the proximal solvers.
 
-    Args:
-         J (ArrayLike): The contact jacobi matrix.
-        WJT (ArrayLike): The WJ^T matrix, here W = M^{-1}.
-        b (ArrayLike): b = Ju^t + ∆t JM^{-1}h + EJu^t
-        mu (float): The coefficient of friction.
-        friction_solver (callable): The proximal operator of friction cone function.
-        engine (Object): The engine object.
-        stats (dict): The statistics information.
-        debug_on (boolean): Whether to debug.
-        prefix (string): The prefix of the statistics information.
-        scheme (str, optional): The scheme of proximal solver. Defaults to "gauss_seidel", you can use one of 'gauss_seidel', 'parallel_gauss_seidel', 'parallel_jacobi', 'parallel_jacboi_hybrid'.
-
-    Raises:
-        NotImplementedError: Unknown solver scheme.
-
-    Returns: The new contact force and the statistics information.
+    :param J: The contact jacobi matrix.
+    :param WJT: The WJ^T matrix, here W = M^{-1}.
+    :param b: b = Ju^t + ∆t JM^{-1}h + EJu^t
+    :param mu: The coefficient of friction.
+    :param friction_solver: The proximal operator of friction cone function.
+    :param engine: The engine object.
+    :param stats: The statistics information.
+    :param debug_on:  Whether to debug.
+    :param prefix: The prefix of the statistics information., defaults to ""
+    :param scheme: The scheme of proximal solver. Defaults to "gauss_seidel", you can use one of 'gauss_seidel', 'parallel_gauss_seidel', 'parallel_jacobi', 'parallel_jacboi_hybrid'. defaults to "gauss_seidel"
+    :raises NotImplementedError: Unknown solver scheme.
+    :return: The new contact force and the statistics information.
     """
 
-    # If the prefix is empty, use the scheme as the prefix
+    # If the prefix is empty, use the scheme name as the prefix
     prefix = prefix if prefix != "" else scheme + "_"
 
     if scheme == "gauss_seidel":

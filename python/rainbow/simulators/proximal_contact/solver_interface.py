@@ -4,7 +4,23 @@ from rainbow.util.timer import Timer
 
 
 class SolverInterface(ABC):
+    """ A interface class of proximal solver. This class is used to define the Jacobi or Gauss-Seidel scheme of proximal solver.
+    """
+
     def __init__(self, J, WJT, b, mu, friction_solver, engine, stats, debug_on, prefix) -> None:
+        """ Initialize the solver.
+
+        :param J: contact jacobi matrix
+        :param WJT: WJT matrix, here W = M^{-1}.
+        :param b: b = Ju^t + ∆t JM^{-1}h + EJu^t
+        :param mu: The coefficient of friction.
+        :param friction_solver: The proximal operator of the friction cone.
+        :param engine: The engine object.
+        :param stats: The statistics information.
+        :param debug_on: Whether to debug (Ture or False).
+        :param prefix: The prefix of the statistics information.
+        """
+       
         self.J = J # The contact jacobi matrix
         self.WJT = WJT # The WJ^T matrix, here W = M^{-1}.
         self.b = b # b = Ju^t + ∆t JM^{-1}h + EJu^t
@@ -31,7 +47,7 @@ class SolverInterface(ABC):
         delassus_diag[delassus_diag == 0] = 1
         self.r = 0.1 / delassus_diag
     
-    def update_r_factor(self):
+    def update_r_factor_and_handle_sol_state(self):
         """ Update the r-factor value.
         """
         nu_reduce = self.engine.params.nu_reduce
@@ -55,8 +71,7 @@ class SolverInterface(ABC):
     def initialize_stats(self, timer):
         """ Initialize the statistics information, when debug_on is True.
 
-        Args:
-            timer ('Timer'): The timer used to record the time.
+        :param timer: The timer used to record the time.
         """
         self.timer = timer
         self.stats[self.prefix + "residuals"] = (
@@ -73,8 +88,7 @@ class SolverInterface(ABC):
     def check_convergence(self):
         """ Check the convergence.
 
-        Returns:
-            bool: if True, the solver converges, otherwise(False), the solver does not converge.
+        :return: if True, the solver converges, otherwise(False), the solver does not converge.
         """
         np.subtract(self.x, self.sol, self.error)
         self.merit = np.linalg.norm(self.error, np.inf)
@@ -109,7 +123,7 @@ class SolverInterface(ABC):
     def solve(self):
         """ Solve the contact problem.
 
-        Returns: The new contact force and the statistics information.
+        :return: The new contact force and the statistics information.
         """
         if self.debug_on:
             self.initialize_stats(Timer("CONTACT_SOLVER"))
@@ -122,9 +136,9 @@ class SolverInterface(ABC):
             self.sweep()
             # Check convergence
             if self.check_convergence():
-                return self.x, self.stats
-            # Update r-factors
-            self.update_r_factor()
+                return self.sol, self.stats
+            # Update r-factors, and handle the state of the solution based on the convergence and divergence criteria.:
+            self.update_r_factor_and_handle_sol_state()
 
         # If this point of the code is reached then it means the method did not converge within the given iterations.
         if self.debug_on:

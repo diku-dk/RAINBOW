@@ -332,6 +332,7 @@ class Engine:
         """
         Create a default empty engine instance.
         """
+        self.body_type = 'rigid_body'
         self.bodies = dict()
         self.forces = dict()
         self.shapes = dict()

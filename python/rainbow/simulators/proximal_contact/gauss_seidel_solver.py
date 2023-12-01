@@ -8,10 +8,10 @@ from rainbow.simulators.proximal_contact.solver_interface import SolverInterface
 class GaussSeidelSolver(SolverInterface):
     """ Serial Gauss Seidel Solver.
     """
-    def __init__(self, J, WJT, b, mu, friction_solver, engine, stats, debug_on, prefix):
-        super().__init__(J, WJT, b, mu, friction_solver, engine, stats, debug_on, prefix)
 
     def sweep(self):
+        """ Sweep the contact force.
+        """
         w = self.WJT.dot(self.x)
         for k in range(self.K):
             block = range(4 * k, 4 * k + 4)
@@ -47,23 +47,21 @@ class GaussSeidelSolver(SolverInterface):
 
 @nb.njit(parallel=True, nogil=True, cache=True)
 def sweep_worker(color_group, J, WJT, b, mu, r, x, w, delta_ws, friction_solver):
-    """ The worker function of the parallel gauss seidel algorithm.
+    """ Sweep worker for parallel Gauss Seidel solver.
 
-    Args:
-        color_group (ArrayLike): The color group, the value is  the block location, containing the start and end index.
-        J (ArrayLike): The contact jacobi matrix.
-        WJT (ArrayLike): The WJ^T matrix, here W = M^{-1}, and the M is the mass matrix.
-        b (ArrayLike): b = Ju^t + ∆t JM^{-1}h + EJu^t
-        mu (float): The coefficient of friction.
-        r (float): r-factor value.
-        x (ArrayLike): The current contact force.
-        w (ArrayLike): The WJT.dot(x).
-        delta_ws (ArrayLike): A array of the delta_w, each delta_w = WJT.dot(delta_x), here delta_x is the change of the contact force.
-        friction_solver (callable): The proximal operator of friction cone function.
-
-    Returns:
-        (ArrayLike, ArrayLike): The new contact force and the new delta_ws.
+    :param color_group: The color group, the value is  the block location, containing the start and end index.
+    :param J: The contact jacobi matrix.
+    :param WJT: The WJ^T matrix, here W = M^{-1}, and the M is the mass matrix.
+    :param b: b = Ju^t + ∆t JM^{-1}h + EJu^t
+    :param mu: The coefficient of friction.
+    :param r: r-factor value.
+    :param x: The current contact force.
+    :param w: The WJT.dot(x).
+    :param delta_ws: A array of the delta_w, each delta_w = WJT.dot(delta_x), here delta_x is the change of the contact force.
+    :param friction_solver: The proximal operator of friction cone function.
+    :return: The new contact force and the new delta_ws.
     """
+
     for i in nb.prange(len(color_group)):
         block_start, block_end = color_group[i]
         block = np.arange(block_start, block_end)
@@ -91,13 +89,13 @@ def sweep_worker(color_group, J, WJT, b, mu, r, x, w, delta_ws, friction_solver)
 class ParallelGaussSeidelSolver(SolverInterface):
     """ Parallel Gauss Seidel Solver.
     """
-    def __init__(self, J, WJT, b, mu, friction_solver, engine, stats, debug_on, prefix):
-        super().__init__(J, WJT, b, mu, friction_solver, engine, stats, debug_on, prefix)
     
     def sweep(self):
+        """ Sweep the contact force.
+        """
         # Compute the color group
         color_groups = defaultdict(list)
-        G = BLOCKING.build_contact_graph(self.J.toarray())
+        G = BLOCKING.build_contact_graph(self.engine.contact_points, self.engine.body_type)
         color_groups = BLOCKING.greedy_graph_coloring(G)
 
         # Set the number of threads
