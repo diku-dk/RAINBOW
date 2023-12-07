@@ -269,7 +269,7 @@ class Engine:
         This initializes an engine instance which holds all the configuration data of the world that is to
         be simulated.
         """
-        self.body_type = 'soft_body' 
+        self.simulator_type = 'soft_body' # simulation type for the engine
         self.materials = dict()  # All materials that exist in the world.
         self.materials[
             "default"

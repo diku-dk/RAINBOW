@@ -95,7 +95,7 @@ class ParallelGaussSeidelSolver(SolverInterface):
         """
         # Compute the color group
         color_groups = defaultdict(list)
-        G = BLOCKING.build_contact_graph(self.engine.contact_points, self.engine.body_type)
+        G = BLOCKING.build_contact_graph(self.engine.contact_points, self.engine.simulator_type)
         color_groups = BLOCKING.greedy_graph_coloring(G)
 
         # Set the number of threads
