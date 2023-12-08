@@ -5,7 +5,7 @@ import rainbow.math.matrix3 as M3
 import rainbow.geometry.surface_mesh as MESH
 import rainbow.simulators.prox_rigid_bodies.mass as MASS
 import rainbow.simulators.prox_rigid_bodies.collision_detection as CD
-import rainbow.simulators.prox_rigid_bodies.gauss_seidel as GS
+import rainbow.simulators.proximal_contact.prox_solvers as CONTACT_SOLVERS
 from rainbow.simulators.prox_rigid_bodies.types import *
 from rainbow.util.timer import Timer
 import numpy as np
@@ -421,8 +421,10 @@ def apply_post_stabilization(J, WJT, x, engine, stats: dict, debug_on) -> dict:
     if not g.any():
         return stats
     mu = np.zeros(K, dtype=np.float64)
-    sol, stats = GS.solve(
-        J, WJT, g, mu, GS.prox_origin, engine, stats, debug_on, "post_stabilization_"
+    sol, stats = CONTACT_SOLVERS.solve(
+        J, WJT, g, mu, CONTACT_SOLVERS.prox_origin, engine, stats, debug_on,
+        prefix="post_stabilization_", 
+        scheme=engine.params.proximal_solver
     )
     vector_positional_update = WJT.dot(sol)
     position_update(x, vector_positional_update, 1, engine)
@@ -537,8 +539,10 @@ class SemiImplicitStepper:
 
             mu = get_friction_coefficient_vector(engine)
             b = np.multiply(1 + e, v) + J.dot(du_ext) + g
-            sol, stats = GS.solve(
-                J, WJT, b, mu, GS.prox_sphere, engine, stats, debug_on, ""
+            sol, stats = CONTACT_SOLVERS.solve(
+                J, WJT, b, mu, CONTACT_SOLVERS.prox_sphere, engine, stats, debug_on, 
+                prefix="",
+                scheme=engine.params.proximal_solver
             )
             du_contact = WJT.dot(sol)
 

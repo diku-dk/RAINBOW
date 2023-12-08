@@ -313,6 +313,7 @@ class Parameters:
         self.resolution = (
             64  # The number of grid cells along each axis in the signed distance fields
         )
+        self.proximal_solver = "gauss_seidel" # or "gauss_seidel", "parallel_gauss_seidel", "parallel_jacobi", "parallel_jacboi_hybrid"
 
 
 class Engine:
@@ -331,6 +332,7 @@ class Engine:
         """
         Create a default empty engine instance.
         """
+        self.simulator_type = 'rigid_body' # simulation type for the engine
         self.bodies = dict()
         self.forces = dict()
         self.shapes = dict()

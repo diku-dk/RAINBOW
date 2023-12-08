@@ -253,9 +253,9 @@ class Parameters:
             0.1  # Any geometry within this distance generates a contact point.
         )
         self.resolution = 64  # The number of grid cells along each axis in the signed distance fields.
+        self.proximal_solver = "gauss_seidel" # or "gauss_seidel", "parallel_gauss_seidel", "parallel_jacobi", "parallel_jacboi_hybrid"
         self.use_spatial_hashing = True  # Boolean flag that indicates if spatial hashing should be used instead of the BVH or not.
         self.time_stamp = 0 # The time step to use when simulating forward.
-
 
 class Engine:
     """
@@ -269,6 +269,7 @@ class Engine:
         This initializes an engine instance which holds all the configuration data of the world that is to
         be simulated.
         """
+        self.simulator_type = 'soft_body' # simulation type for the engine
         self.materials = dict()  # All materials that exist in the world.
         self.materials[
             "default"
@@ -288,3 +289,4 @@ class Engine:
         self.number_of_nodes = 0  # The total number of nodes in the world.
         self.stepper = None  # A reference to the time-stepper used to simulator forward.
         self.hash_grid = SH.HashGird()
+        
