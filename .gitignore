@@ -148,3 +148,12 @@ data/test.mat
 nohup.out
 imgui.ini
 .polyscope.ini
+python/arch.xml
+python/dome.xml
+python/pillar.xml
+python/tower.xml
+python/colosseum.xml
+python/funnel.xml
+python/glasses.xml
+python/pantheon.xml
+python/poles.xml
