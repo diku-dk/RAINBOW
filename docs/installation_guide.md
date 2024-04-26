@@ -9,8 +9,8 @@ You need to setup your conda environment for the Jupyter notebooks
 This is how to install and setup your conda environment
 
 ```bash
-conda create -n libisl
-conda activate libisl
+conda create -n RAINBOW python=3.10
+conda activate RAINBOW
 conda config --add channels conda-forge
 conda install igl
 conda install pyhull
