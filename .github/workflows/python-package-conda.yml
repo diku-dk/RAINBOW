@@ -36,6 +36,7 @@ jobs:
             conda install numba=0.58.1
             conda install networkx
             pip install usd-core
+            conda search igl --channel conda-forge
             conda install -c conda-forge igl
             coverage run  -m unittest python/unit_tests/test_*.py
             coverage report
