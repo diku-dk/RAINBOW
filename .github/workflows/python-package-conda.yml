@@ -29,7 +29,6 @@ jobs:
             conda install numpy
             conda install scipy
             conda install matplotlib
-            conda install -c conda-forge igl
             conda install coverage
             conda install pyparsing
             conda install ipython_genutils 
@@ -37,6 +36,7 @@ jobs:
             conda install numba=0.58.1
             conda install networkx
             pip install usd-core
+            conda install -c conda-forge igl
             coverage run  -m unittest python/unit_tests/test_*.py
             coverage report
       - name: Format the code
