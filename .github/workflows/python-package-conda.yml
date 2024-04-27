@@ -16,25 +16,26 @@ jobs:
             os: ["ubuntu-latest", "windows-latest", "macos-latest"]
             python-version: ["3.9"]
     steps:
-      - uses: actions/checkout@v2
-      - uses: conda-incubator/setup-miniconda@v2
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
         with:
           activate-environment: test
           python-version: ${{ matrix.python-version }}
+          channels: conda-forge,anaconda
           auto-activate-base: false
       - name: Run Test and Coverage
         shell: bash -l {0}
         run: |
             conda install numpy
             conda install scipy
-            conda install -c conda-forge matplotlib
-            conda install -c conda-forge igl
+            conda install matplotlib
+            conda install igl
             conda install coverage
             conda install pyparsing
-            conda install -c anaconda ipython_genutils 
-            conda install -c conda-forge meshplot
+            conda install ipython_genutils 
+            conda install meshplot
             conda install numba=0.58.1
-            conda install -c anaconda networkx
+            conda install networkx
             pip install usd-core
             coverage run  -m unittest python/unit_tests/test_*.py
             coverage report
