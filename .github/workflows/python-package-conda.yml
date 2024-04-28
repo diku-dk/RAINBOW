@@ -13,23 +13,22 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
         matrix:
-            os: ["ubuntu-latest", "windows-latest", "macos-latest"]
-            python-version: ["3.9"]
+            os: ["ubuntu-latest", "windows-latest", "macos-12"]
+            python-version: ["3.10"]
     steps:
       - uses: actions/checkout@v4
       - uses: conda-incubator/setup-miniconda@v3
         with:
           activate-environment: test
           python-version: ${{ matrix.python-version }}
-          channels: conda-forge,anaconda
+          channels: conda-forge, anaconda
           auto-activate-base: false
-      - name: Run Test and Coverage
+      - name: Run unit testing and code coverage
         shell: bash -l {0}
         run: |
             conda install numpy
             conda install scipy
             conda install matplotlib
-            conda install igl
             conda install coverage
             conda install pyparsing
             conda install ipython_genutils 
@@ -37,6 +36,7 @@ jobs:
             conda install numba=0.58.1
             conda install networkx
             pip install usd-core
+            conda install igl=2.2.1
             coverage run  -m unittest python/unit_tests/test_*.py
             coverage report
       - name: Format the code
