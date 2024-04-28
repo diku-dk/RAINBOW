@@ -71,30 +71,46 @@ def j():
 def k():
     return np.array([0.0, 0.0, 1.0], dtype=np.float64)
 
-'''
- tx = tangent  -> t 
- ty = binormal -> b
-  n = normal   -> n
-  property of cross product
-  tx * ty = n
-  should with normalize?
-'''
+
 def make_orthonormal_vectors(n):
-    tmp = np.fabs(n)
-    if tmp[0] > tmp[1]:
-        if tmp[0] > tmp[2]:
-            tx = j()
-        else:
-            tx = i()
-    else:
-        if tmp[1] > tmp[2]:
-            tx = k()
-        else:
-            tx = i()
-    ty = np.cross(n, tx, axis=0)
-    ty /= np.linalg.norm(ty)
-    tx = np.cross(ty, n, axis=0)
-    return tx, ty, n
+    """
+    This function is used to generate orthonormal vectors. It is given one
+    input vector (assumed a normal vector) and then it generates two other
+    vector: a tangent vector t and a binormal vector b.
+
+    :param n:  The input normal vector.
+    :return:   The triplet of t, b, and n vectors as output.
+    """
+    # First we make sure we have a unit-normal vector.
+    n = np.copy(n)
+    n /= np.linalg.norm(n)
+    # Next we try to find a direction that is sufficiently different
+    # from the normal vector n. We use the coordinate axis mostly
+    # pointing away from the n-vector.
+    #
+    # We will use this unit-direction as guess for a tangent
+    # direction.
+    [nx, ny ,nz] = np.fabs(n)
+    if nx <= ny and nx <= nz:
+        t = i()
+    if ny <= nx and ny <= nz:
+        t = j()
+    if nz <= nx and nz <= ny:
+        t = k()
+    # We now generate a binormal vector, we know
+    #
+    #   n = t x b
+    #   t = b x n
+    #   b = n x t
+    #
+    # We idea is simply to use the t-vector we guessed at to generate
+    # a vector we know will be orthonormal to the n-vector.
+    b = np.cross(n, t, axis=0)
+    b /= np.linalg.norm(b)
+    # Now we know that n and be are orthonormal vectors, we we
+    # can now compute a third orthonormal t-vector.
+    t = np.cross(b, n, axis=0)
+    return t, b, n
 
 
 def cross(a, b):
