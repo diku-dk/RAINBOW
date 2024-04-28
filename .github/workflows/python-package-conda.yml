@@ -13,15 +13,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
         matrix:
-            os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+            os: ["ubuntu-latest", "windows-latest", "macos12"]
             python-version: ["3.10"]
-            architecture: ["x86"]
             miniconda-version: ["latest"]
     steps:
       - uses: actions/checkout@v4
       - uses: conda-incubator/setup-miniconda@v3
         with:
-          architecture: ${{ matrix.architecture }}
           miniconda-version: $${{ matrix.miniconda-version }}
           activate-environment: test
           python-version: ${{ matrix.python-version }}
