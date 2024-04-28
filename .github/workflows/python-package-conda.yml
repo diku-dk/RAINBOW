@@ -22,7 +22,7 @@ jobs:
       - uses: conda-incubator/setup-miniconda@v3
         with:
           architecture: ${{ matrix.architecture }}
-          miniconda-version: $${{ matrix.miniconda-version }
+          miniconda-version: $${{ matrix.miniconda-version }}
           activate-environment: test
           python-version: ${{ matrix.python-version }}
           channels: conda-forge, anaconda
