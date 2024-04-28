@@ -333,9 +333,9 @@ def read_matlab_file(filename):
 
     data = {}
     loadmat(file_name=filename, mdict=data, appendmat=False)
-    I = int(data["I"])
-    J = int(data["J"])
-    K = int(data["K"])
+    I = int(data["I"].item())
+    J = int(data["J"].item())
+    K = int(data["K"].item())
     min_coord = np.array(data["min_coord"], dtype=np.float64).ravel()
     max_coord = np.array(data["max_coord"], dtype=np.float64).ravel()
     grid = Grid(min_coord=min_coord, max_coord=max_coord, I=I, J=J, K=K)
