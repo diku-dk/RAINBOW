@@ -11,11 +11,10 @@ You need to setup your conda environment for the Jupyter notebooks
 This is how to install and setup your conda environment
 
 ```bash
-conda create -n libisl python=3.9
-conda activate libisl
+conda create -n RAINBOW python=3.10
+conda activate RAINBOW
 conda config --add channels conda-forge
 conda install igl
-conda install pyhull
 conda install wildmeshing
 conda install ipympl
 conda install jupyter
@@ -24,7 +23,7 @@ conda install jupyter
 When you want to run the jupyter notebook you have to do
 
 ```bash
-conda activate libisl
+conda activate RAINBOW
 jupyter notebook
 ```
 

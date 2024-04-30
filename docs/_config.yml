@@ -18,12 +18,12 @@
 # You can create any custom variable you would like, and they will be accessible
 # in the templates via {{ site.myvariable }}.
 
-title: RAINBOW Software Foundation (RAINBOW)
-email: rane@di.ku.dk
+title: RAINBOW Software
+email: kenny@di.ku.dk
 description: >- # this means to ignore newlines until "baseurl:"
-  This is python code library for rigging, setting up and running simulations in Jupyter notebooks. 
-  The aim is to have simple interactive python tools that can be used with very little backgorund knowledge, 
-  while providing a back-end functionality in C++ or CUDA for developing new simulator technology and providing 
+  This is python code library for rigging, setting up and running simulations. 
+  The aim is to have simple python tools that can be used with very little background knowledge, 
+  while providing a back-end functionality for developing new simulator technology and providing 
   high performance code.
 #baseurl: "" # the subpath of your site, e.g. /blog
 #url: "" # the base hostname & protocol for your site, e.g. http://example.com
