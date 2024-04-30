@@ -347,4 +347,15 @@ def create_convex_hull(points):
     vertices = hull.points[hull.vertices]
     triangles = np.vectorize(lambda x: index_map[x])(hull.simplices)
 
+    # Here we need to ensure that we have CCW-order of indices in triangles
+    pm = np.mean(vertices, axis=0)
+    for idx in range(len(triangles)):
+        i, j, k = triangles[idx, :]
+        pi = vertices[i, :]
+        pj = vertices[j, :]
+        pk = vertices[k, :]
+        flip = np.dot((pm - pi), np.cross((pj - pi), (pk - pi))) > 0
+        if flip:
+            triangles[idx, :] = j, i, k
+
     return vertices, triangles
