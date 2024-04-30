@@ -139,6 +139,17 @@ def setup_scene(engine, scene_name: str):
                            density=1.0,
                            material_name='default'
                            )
+    elif scene_name == "sandbox":
+        PROC.create_sandbox(engine,
+                            box_width = 1.0,
+                            box_height= 1.0,
+                            box_depth= 1.0,
+                            I_grains = 10,
+                            J_grains = 10,
+                            K_grains = 4,
+                            density=1.0,
+                            material_name='default'
+                            )
 
     API.create_gravity_force(engine=engine, force_name="earth", g=9.81, up=V3.k())
     API.create_damping_force(engine=engine, force_name="air", alpha=0.01, beta=0.01)
@@ -147,7 +158,7 @@ def setup_scene(engine, scene_name: str):
         API.connect_force(engine=engine, body_name=body.name, force_name="air")
 
 
-def explort_to_xml(engine, xml_filename):
+def export_to_xml(engine, xml_filename):
     import xml.etree.ElementTree as ET
 
     root = ET.Element("scene")
@@ -233,40 +244,44 @@ def explort_to_xml(engine, xml_filename):
 if __name__ == "__main__":
     engine = API.create_engine()
     setup_scene(engine, "pillar")
-    explort_to_xml(engine, "pillar.xml")
+    export_to_xml(engine, "pillar.xml")
 
     engine = API.create_engine()
     setup_scene(engine, "arch")
-    explort_to_xml(engine, "arch.xml")
+    export_to_xml(engine, "arch.xml")
 
     engine = API.create_engine()
     setup_scene(engine, "dome")
-    explort_to_xml(engine, "dome.xml")
+    export_to_xml(engine, "dome.xml")
 
     engine = API.create_engine()
     setup_scene(engine, "tower")
-    explort_to_xml(engine, "tower.xml")
+    export_to_xml(engine, "tower.xml")
 
     engine = API.create_engine()
     setup_scene(engine, "colosseum")
-    explort_to_xml(engine, "colosseum.xml")
+    export_to_xml(engine, "colosseum.xml")
 
     engine = API.create_engine()
     setup_scene(engine, "pantheon")
-    explort_to_xml(engine, "pantheon.xml")
+    export_to_xml(engine, "pantheon.xml")
 
     engine = API.create_engine()
     setup_scene(engine, "funnel")
-    explort_to_xml(engine, "funnel.xml")
+    export_to_xml(engine, "funnel.xml")
 
     engine = API.create_engine()
     setup_scene(engine, "glasses")
-    explort_to_xml(engine, "glasses.xml")
+    export_to_xml(engine, "glasses.xml")
 
     engine = API.create_engine()
     setup_scene(engine, "poles")
-    explort_to_xml(engine, "poles.xml")
-
+    export_to_xml(engine, "poles.xml")
+    
     engine = API.create_engine()
     setup_scene(engine, "temple")
-    explort_to_xml(engine, "temple.xml")
+    export_to_xml(engine, "temple.xml")    
+
+    engine = API.create_engine()
+    setup_scene(engine, "sandbox")
+    export_to_xml(engine, "sandbox.xml")
