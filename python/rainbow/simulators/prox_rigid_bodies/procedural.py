@@ -1567,8 +1567,6 @@ def create_temple(
     p5 = V3.make(0.0, gable_brick_height / 2.0, pillar_depth)
 
     V, T = MESH.create_convex_hull([p0, p1, p2, p3, p4, p5])
-    print("vertices", V)
-    print("triangles", T)
     mesh = API.create_mesh(V, T)
     API.create_shape(engine, shape_name, mesh)
 
