@@ -1375,7 +1375,7 @@ def create_temple(
 
     V, T = MESH.create_cuboid(p0, p1, p2, p3, p4, p5, p6, p7)
     mesh = API.create_mesh(V, T)
-    API.create_shape(engine, shape_name, mesh)
+    API.create_shape(engine, shape_name_regular, mesh)
 
     shape_name_edge = API.generate_unique_name("gable_edge_brick_shape")
     p0 = V3.make(0.0, y_bottom, z_front)
@@ -1387,7 +1387,7 @@ def create_temple(
 
     V, T = MESH.create_convex_hull([p0, p1, p2, p3, p4, p5])
     mesh = API.create_mesh(V, T)
-    API.create_shape(engine, shape_name, mesh)
+    API.create_shape(engine, shape_name_edge, mesh)
 
     for k in range(0, K_pillars, 3):
         z_gable = 2 * k * pillar_depth - temple_depth / 2.0 + pillar_depth / 2.0
@@ -1448,7 +1448,7 @@ def create_temple(
 
     V, T = MESH.create_cuboid(p0, p1, p2, p3, p4, p5, p6, p7)
     mesh = API.create_mesh(V, T)
-    API.create_shape(engine, shape_name, mesh)
+    API.create_shape(engine, shape_name_left_long, mesh)
 
     shape_name_left_short = API.generate_unique_name("short_left_plank_shape")
     x_left_bottom = 0.0
@@ -1468,7 +1468,7 @@ def create_temple(
 
     V, T = MESH.create_cuboid(p0, p1, p2, p3, p4, p5, p6, p7)
     mesh = API.create_mesh(V, T)
-    API.create_shape(engine, shape_name, mesh)
+    API.create_shape(engine, shape_name_left_short, mesh)
 
     shape_name_right_long = API.generate_unique_name("long_right_plank_shape")
     x_right_bottom = 0.0
@@ -1488,7 +1488,7 @@ def create_temple(
 
     V, T = MESH.create_cuboid(p0, p1, p2, p3, p4, p5, p6, p7)
     mesh = API.create_mesh(V, T)
-    API.create_shape(engine, shape_name, mesh)
+    API.create_shape(engine, shape_name_right_long, mesh)
 
     shape_name_right_short = API.generate_unique_name("short_right_plank_shape")
     x_right_bottom = 0.0
@@ -1508,7 +1508,7 @@ def create_temple(
 
     V, T = MESH.create_cuboid(p0, p1, p2, p3, p4, p5, p6, p7)
     mesh = API.create_mesh(V, T)
-    API.create_shape(engine, shape_name, mesh)
+    API.create_shape(engine, shape_name_right_short, mesh)
 
     for k in range(0, K_pillars - 1, 3):
 
@@ -1567,6 +1567,8 @@ def create_temple(
     p5 = V3.make(0.0, gable_brick_height / 2.0, pillar_depth)
 
     V, T = MESH.create_convex_hull([p0, p1, p2, p3, p4, p5])
+    print("vertices", V)
+    print("triangles", T)
     mesh = API.create_mesh(V, T)
     API.create_shape(engine, shape_name, mesh)
 
