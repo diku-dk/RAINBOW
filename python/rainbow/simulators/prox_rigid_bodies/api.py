@@ -86,7 +86,7 @@ def create_shape(engine, shape_name: str, mesh) -> None:
     """
     if shape_name in engine.shapes:
         raise RuntimeError(
-            "create_shape_from_obj(): shape with that name already exist"
+            "create_shape(): shape with that name already exist: " + shape_name
         )
     shape = Shape(shape_name)
     shape.mesh = mesh
