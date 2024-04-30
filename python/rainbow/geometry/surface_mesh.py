@@ -331,23 +331,20 @@ def create_box(width, height, depth):
 
 def create_convex_hull(points):
     """
+    Computes the convex hull of a set of points in 3D space.
 
-    :param points:
-    :return:
+    :param points: List of points in 3D space.
+    :return: Vertices and triangles forming the convex hull.
     """
-    # TODO 2021-05-08 Kenny: Replace with libigl functionality when available in python.
-    from pyhull.convex_hull import ConvexHull
+    from scipy.spatial import ConvexHull
 
-    H = ConvexHull(points)
-    N = len(H.points)  # Number of vertices
-    K = len(H.vertices)  # Number of triangles
-    V = np.zeros((N, 3), dtype=np.float64)
-    T = np.zeros((K, 3), dtype=np.int32)
-    for idx, p in enumerate(H.points):
-        V[idx, :] = p
-    for idx, v in enumerate(H.vertices):
-        vi = v[0]
-        vj = v[1]
-        vk = v[2]
-        T[idx, :] = (vi, vk, vj)
-    return V, T
+    hull = ConvexHull(points)
+
+    # Map old indices to new indices
+    index_map = {old_idx: new_idx for new_idx, old_idx in enumerate(hull.vertices)}
+
+    # Initialize arrays for vertices and triangles
+    vertices = hull.points[hull.vertices]
+    triangles = np.vectorize(lambda x: index_map[x])(hull.simplices)
+
+    return vertices, triangles
