@@ -226,7 +226,9 @@ def export_to_xml(engine, xml_filename):
         if not name.startswith("__"):  # Skip built-in attributes
             param_xml_node = ET.SubElement(params_xml_node, "param")
             value = getattr(engine.params, name)
-            param_xml_node.set(name, str(value))
+            param_xml_node.set("name", str(name))
+            param_xml_node.set("value", str(value))
+            param_xml_node.set("type",type(value).__name__)
 
     tree = ET.ElementTree(root)
     ET.indent(tree, '  ', level=0)
