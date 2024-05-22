@@ -329,6 +329,60 @@ def create_box(width, height, depth):
     return V, T
 
 
+def create_torus(major_radius:float, minor_radius:float, segments:int=12, slices:int=12):
+    """
+    This function creates a torus surface mesh. The z-axis is used as the "up" axis.
+
+    :param major_radius:    Major radius of the torus shape
+    :param minor_radius:    Minor radius of the torus shape
+    :param segments:        Number of segements of the minor circle
+    :param slices:          Number of slices of the torus
+    :return:                A vertex and face array representing a triangle mesh of the torus shape.
+    """
+    # We create some convenience variable names
+    r = minor_radius
+    R = major_radius
+    I = segments
+    K = slices
+
+    # We preallocate memory for all vertices and faces of the torus
+    V = np.zeros((I*K, 3), dtype=np.float64)
+    T = np.zeros((I*K*2, 3), dtype=int)
+
+    # Now we create all the vertices of the torus
+    theta = np.linspace(0, 2*np.pi, I+1)
+    phi = np.linspace(0, 2*np.pi, K+1)
+    n = 0
+    for k in range(K):
+        for i in range(I):
+            l = r*np.cos(theta[i]) + R
+            x = l*np.cos(phi[k])
+            y = l*np.sin(phi[k])
+            z = r*np.sin(theta[i])
+            V[n] = V3.make(x, y, z)
+            n = n + 1
+    # Finally we can create all the faces.
+    n = 0
+    for k in range(K):
+        for i in range(I):
+            # Make grid indices to nodes of current quad on torus
+            A = (i,k)
+            B = (i,(k+1) % K)
+            C = ((i+1) % I,(k+1) % K)
+            D = ((i+1) % I,k)
+            # Convert 2D grid indices to 1D indices into V-array
+            a = A[1]*I + A[0]
+            b = B[1]*I + B[0]
+            c = C[1]*I + C[0]
+            d = D[1]*I + D[0]
+
+            # Split quad into two triangles
+            T[n] = [a,b,c]
+            T[n+1] = [a,c,d]
+            n = n + 2
+    return V, T
+
+
 def create_convex_hull(points):
     """
     Computes the convex hull of a set of points in 3D space.

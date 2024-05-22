@@ -1608,7 +1608,7 @@ def create_sandbox(
     K_grains,
     density,
     material_name,
-):
+    ):
     thickness = 0.1 * box_height
 
     shape_names = []
@@ -1743,3 +1743,138 @@ def create_sandbox(
     API.set_mass_properties(engine, body_name, density)
 
     return body_names
+
+
+def create_chainmail(
+        engine,
+        r,
+        q,
+        major_radius,
+        minor_radius,
+        width,
+        height,
+        stretch:float = 0.5,
+        density:float = 1.0,
+        material_name:str = "default",
+        pinned:bool = True
+):
+    stretch = np.clip(stretch,  0.0, 1.0)
+
+    R = major_radius
+    r = minor_radius
+
+    shape_name = API.generate_unique_name("torus_shape")
+    V, T = MESH.create_torus(R, r, segments = 24, slices= 24)
+    mesh = API.create_mesh(V, T)
+    API.create_shape(engine, shape_name, mesh)
+
+    body_names = []
+
+    # Maximum clearance between two rings
+    tau = 2*R - 4*r
+    # Maximum distance between two ring centers along any axis.
+    delta = 2*R + tau*stretch
+
+    for j in range(height+1):
+        for i in range(width+1):
+            body_name = API.generate_unique_name("body")
+            body_names.append(body_name)
+            API.create_rigid_body(engine, body_name)
+            API.connect_shape(engine, body_name, shape_name)
+
+            # Place chain ring in local model space
+            r_l = V3.make(i*delta, j*delta, 0)
+            q_l = Q.identity()
+
+            # Transform from local model space into global world space
+            r_g = Q.rotate(q, r_l) + r
+            q_g = Q.prod(q, q_l)
+
+            API.set_position(engine, body_name, r_g, True)
+            API.set_orientation(engine, body_name, q_g, True)
+
+    for j in range(height+1):
+        for i in range(width):
+            body_name = API.generate_unique_name("body")
+            body_names.append(body_name)
+            API.create_rigid_body(engine, body_name)
+            API.connect_shape(engine, body_name, shape_name)
+
+            # Place chain ring in local model space
+            r_l = V3.make((i+0.5)*delta, j*delta, 0)
+            q_l = Q.Rx(np.pi/2)
+
+            # Transform from local model space into global world space
+            r_g = Q.rotate(q, r_l) + r
+            q_g = Q.prod(q, q_l)
+
+            API.set_position(engine, body_name, r_g, True)
+            API.set_orientation(engine, body_name, q_g, True)
+
+
+    for j in range(height):
+        for i in range(width+1):
+            body_name = API.generate_unique_name("body")
+            body_names.append(body_name)
+            API.create_rigid_body(engine, body_name)
+            API.connect_shape(engine, body_name, shape_name)
+
+            # Place chain ring in local model space
+            r_l = V3.make(i*delta, (j+0.5)*delta, 0)
+            q_l = Q.Ry(np.pi/2)
+
+            # Transform from local model space into global world space
+            r_g = Q.rotate(q, r_l) + r
+            q_g = Q.prod(q, q_l)
+
+            API.set_position(engine, body_name, r_g, True)
+            API.set_orientation(engine, body_name, q_g, True)
+
+    for body_name in body_names:
+        API.set_body_type(engine, body_name, "free")
+        API.set_body_material(engine, body_name, material_name)
+        API.set_mass_properties(engine, body_name, density)
+
+    if pinned:
+        south_west_ring = body_names[0]
+        south_east_ring = body_names[width]
+        north_west_ring = body_names[(height+1)*(width+1) - width - 1]
+        north_east_ring = body_names[(height+1)*(width+1)-1]
+        API.set_body_type(engine, south_west_ring, "fixed")
+        API.set_body_type(engine, south_east_ring, "fixed")
+        API.set_body_type(engine, north_west_ring, "fixed")
+        API.set_body_type(engine, north_east_ring, "fixed")
+
+    return body_names
+
+
+def create_jack_grid(engine, r, q, width:float, height:float, depth:float, I:int, J:int, K:int, density:float=1.0, material_name:str = "default", use_random_orientation:bool=False):
+    shape_names = []
+    shape_name = API.generate_unique_name("jack")
+
+    V, T = igl.read_triangle_mesh("../data/jack.obj")
+    mesh = API.create_mesh(V, T)
+    MESH.scale_to_unit(mesh)
+    s = (
+        min(width / I, height / J, depth / K) * 0.9
+    )  # The 0.9 scaling ensure some padding to avoid initial contact
+    MESH.scale(mesh, s, s, s)
+    API.create_shape(engine, shape_name, mesh)
+
+    shape_names.append(shape_name)
+
+    body_names = _create_grid(
+        engine,
+        r,
+        q,
+        shape_names,
+        width,
+        height,
+        depth,
+        I,
+        J,
+        K,
+        density,
+        material_name,
+        use_random_orientation,
+    )

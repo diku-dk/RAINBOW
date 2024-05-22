@@ -1,22 +1,16 @@
-"""
-This script is used to generate rigid body scene XML files. It is based on the rainbow
- software. That can be found here:
-
- https://diku-dk.github.io/RAINBOW/
-
- Copyright 2024 Kenny Erleben
-"""
 import numpy as np
 import rainbow.math.vector3 as V3
 import rainbow.math.quaternion as Q
 import rainbow.simulators.prox_rigid_bodies.api as API
+import rainbow.simulators.prox_rigid_bodies.solver as SOLVER
 import rainbow.simulators.prox_rigid_bodies.procedural as PROC
+import polyscope as ps
 
 
 def setup_scene(engine, scene_name: str):
-    PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
 
     if scene_name == "pillar":
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
         PROC.create_pillar(engine,
                            r=V3.zero(),
                            q=Q.identity(),
@@ -28,6 +22,7 @@ def setup_scene(engine, scene_name: str):
                            material_name='default'
                            );
     elif scene_name == "arch":
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
         PROC.create_arch(engine,
                          r=V3.zero(),
                          q=Q.identity(),
@@ -40,6 +35,7 @@ def setup_scene(engine, scene_name: str):
                          material_name='default'
                          )
     elif scene_name == "dome":
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
         PROC.create_dome(engine,
                          r=V3.zero(),
                          q=Q.identity(),
@@ -51,6 +47,7 @@ def setup_scene(engine, scene_name: str):
                          material_name='default'
                          )
     elif scene_name == "tower":
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
         PROC.create_tower(engine,
                           r=V3.zero(),
                           q=Q.identity(),
@@ -64,6 +61,7 @@ def setup_scene(engine, scene_name: str):
                           material_name='default'
                           )
     elif scene_name == "colosseum":
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
         PROC.create_colosseum(engine,
                               r=V3.zero(),
                               q=Q.identity(),
@@ -76,6 +74,7 @@ def setup_scene(engine, scene_name: str):
                               material_name='default'
                               )
     elif scene_name == "pantheon":
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
         PROC.create_pantheon(engine,
                              r=V3.zero(),
                              q=Q.identity(),
@@ -88,6 +87,7 @@ def setup_scene(engine, scene_name: str):
                              material_name='default'
                              )
     elif scene_name == "funnel":
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
         PROC.create_funnel(engine,
                            funnel_height=4.0,
                            funnel_radius=4.0,
@@ -101,6 +101,7 @@ def setup_scene(engine, scene_name: str):
                            material_name='default'
                            )
     elif scene_name == "glasses":
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
         PROC.create_glasses(engine,
                             glass_height=4.0,
                             glass_radius=2.0,
@@ -114,6 +115,7 @@ def setup_scene(engine, scene_name: str):
                             material_name='default'
                             )
     elif scene_name == "poles":
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
         PROC.create_poles(engine,
                           pole_height=2.0,
                           pole_radius=0.1,
@@ -129,6 +131,7 @@ def setup_scene(engine, scene_name: str):
                           material_name='default'
                           )
     elif scene_name == "temple":
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
         PROC.create_temple(engine,
                            I_pillars=4,
                            K_pillars=7,
@@ -139,17 +142,31 @@ def setup_scene(engine, scene_name: str):
                            density=1.0,
                            material_name='default'
                            )
-    elif scene_name == "sandbox":
-        PROC.create_sandbox(engine,
-                            box_width = 1.0,
-                            box_height= 1.0,
-                            box_depth= 1.0,
-                            I_grains = 10,
-                            J_grains = 10,
-                            K_grains = 4,
-                            density=1.0,
-                            material_name='default'
-                            )
+    elif scene_name == "chainmail":
+        PROC.create_chainmail(engine,
+                              r=V3.zero(),
+                              q=Q.identity(),
+                              major_radius=2,
+                              minor_radius=0.5,
+                              width=10,
+                              height=10,
+                              stretch=0.75,
+                              density=1.0,
+                              material_name='default'
+                              )
+        PROC.create_jack_grid(engine,
+                              r=V3.make(4,4,40),
+                              q=Q.identity(),
+                              width=40.0,
+                              height=40.0,
+                              depth=40.0,
+                              I=5,
+                              J=5,
+                              K=5,
+                              density=1.0,
+                              material_name='default',
+                              use_random_orientation=True
+                              )
 
     API.create_gravity_force(engine=engine, force_name="earth", g=9.81, up=V3.k())
     API.create_damping_force(engine=engine, force_name="air", alpha=0.01, beta=0.01)
@@ -243,47 +260,126 @@ def export_to_xml(engine, xml_filename):
                )
 
 
-if __name__ == "__main__":
-    engine = API.create_engine()
-    setup_scene(engine, "pillar")
-    export_to_xml(engine, "pillar.xml")
+def simulation(viewer, engine, monitor=True) -> None:
+    dt = engine.params.time_step
+    T = 0.1  # Total time
+    fps = 1.0 / dt
+    steps = int(np.round(T * fps))
+    for i in range(steps):
+        for body in engine.bodies.values():
+            T = np.eye(4)
+            T[:3, :3] = Q.to_matrix(body.q)
+            T[:3, 3] = body.r
+            ps.get_surface_mesh(body.name).set_transform(T)
+        API.simulate(engine, dt, monitor)
+
+
+def plotting(stats):
+    import matplotlib.pyplot as plt
+    colors = ['#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4',
+              '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff',
+              '#9a6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1',
+            '#000075', '#808080', '#ffffff', '#000000']
+
+    fig = plt.figure()
+    ax = plt.subplot(111)
+    ax.set_title('Convergence rates')
+    ax.set_xlabel('Iterations')
+    ax.set_ylabel('Merit')
+    plt.grid(True)
+    for i in range(len(stats)):
+        data = stats[i]
+        if 'residuals' in data.keys():
+            residuals = data['residuals']
+            reject = data['reject']
+            ax.plot(residuals[np.where(reject == False)])
+    plt.show()
+
+    time_update_bvh = [stats[i]['update_bvh'] for i in range(len(stats))]
+    time_narrow_phase = [stats[i]['narrow_phase'] for i in range(len(stats))]
+    time_contact_determination = [stats[i]['contact_determination'] for i in range(len(stats))]
+    time_contact_point_reduction = [stats[i]['contact_point_reduction'] for i in range(len(stats))]
+    time_collision_detection = [stats[i]['collision_detection_time'] for i in range(len(stats))]
+
+    time_stepper = [stats[i]['stepper_time'] for i in range(len(stats))]
+
+    fig = plt.figure()
+    ax = plt.subplot(111)
+    ax.set_title('Profiling Timings')
+    ax.set_xlabel('Step')
+    ax.set_ylabel('Time [s]')
+    plt.grid(True)
+    ax.plot(time_update_bvh, label='Update bvh', color=colors[6])
+    ax.plot(time_narrow_phase, label='Narrow phase', color=colors[7])
+    ax.plot(time_contact_determination, label='Contact determination', color=colors[8])
+    ax.plot(time_contact_point_reduction, label='Contact reduction', color=colors[9])
+    ax.plot(time_collision_detection, label='Collision Detection', color=colors[10])
+    ax.plot(time_stepper, label='Stepper', color=colors[11])
+    ax.legend()
+    plt.show()
+
+    number_of_overlaps = [stats[i]['number_of_overlaps'] for i in range(1, len(stats))]
+    step_sizes = [stats[i]['dt'] for i in range(1, len(stats))]
+    number_of_contact_points = [stats[i]['contact_points'] for i in range(1, len(stats))]
+    penetrations = [stats[i]['max_penetration'] for i in range(1, len(stats))]
+
+    fig = plt.figure()
+    ax = plt.subplot(111)
+    ax.set_title('Profiling data')
+    ax.set_xlabel('Step')
+    ax.set_ylabel('Value')
+    plt.grid(True)
+    ax.plot(number_of_overlaps, label='Overlaps', color=colors[0])
+    ax.plot(step_sizes, label='Stepsize', color=colors[1])
+    ax.plot(number_of_contact_points, label='Contacts', color=colors[2])
+    ax.plot(penetrations, label='Penetrations', color=colors[6])
+    ax.legend()
+    plt.show()
+
+    kinetic_energy = [stats[i]['kinetic_energy'] for i in range(len(stats))]
+    potential_energy = [stats[i]['potential_energy'] for i in range(len(stats))]
+
+    fig = plt.figure()
+    ax = plt.subplot(111)
+    ax.set_title('Energy Plots')
+    ax.set_xlabel('Step')
+    ax.set_ylabel('Value')
+    plt.grid(True)
+    ax.plot(kinetic_energy, label='Kinetic Energy', color=colors[4])
+    ax.plot(potential_energy, label='Potential Energy', color=colors[5])
+    ax.legend()
+    plt.show()
+
+
+def main():
+    # Initialize polyscope
+    ps.init()
 
     engine = API.create_engine()
-    setup_scene(engine, "arch")
-    export_to_xml(engine, "arch.xml")
 
-    engine = API.create_engine()
-    setup_scene(engine, "dome")
-    export_to_xml(engine, "dome.xml")
+    setup_scene(engine, "chainmail")
 
-    engine = API.create_engine()
-    setup_scene(engine, "tower")
-    export_to_xml(engine, "tower.xml")
+    export_to_xml(engine, "chainmail.xml")
 
-    engine = API.create_engine()
-    setup_scene(engine, "colosseum")
-    export_to_xml(engine, "colosseum.xml")
+    for body in engine.bodies.values():
+        transparency = 0.5
 
-    engine = API.create_engine()
-    setup_scene(engine, "pantheon")
-    export_to_xml(engine, "pantheon.xml")
+        color = V3.make(1.0, 0.1, 0.1)
+        if body.is_fixed:
+            color = V3.make(0.1, 0.1, 1.0)
+        ps.register_surface_mesh(body.name, body.shape.mesh.V, body.shape.mesh.T, smooth_shade=True, color=color, transparency=transparency)
 
-    engine = API.create_engine()
-    setup_scene(engine, "funnel")
-    export_to_xml(engine, "funnel.xml")
+        T = np.eye(4)
+        T[:3, :3] = Q.to_matrix(body.q)
+        T[:3, 3] = body.r
+        ps.get_surface_mesh(body.name).set_transform(T)
 
-    engine = API.create_engine()
-    setup_scene(engine, "glasses")
-    export_to_xml(engine, "glasses.xml")
+    #simulation(viewer, engine, True)
+    #stats = API.get_log(engine)
+    #plotting(stats)
+    # View the point cloud and mesh we just registered in the 3D UI
+    ps.show()
 
-    engine = API.create_engine()
-    setup_scene(engine, "poles")
-    export_to_xml(engine, "poles.xml")
-    
-    engine = API.create_engine()
-    setup_scene(engine, "temple")
-    export_to_xml(engine, "temple.xml")    
 
-    engine = API.create_engine()
-    setup_scene(engine, "sandbox")
-    export_to_xml(engine, "sandbox.xml")
+if __name__ == '__main__':
+    main()
