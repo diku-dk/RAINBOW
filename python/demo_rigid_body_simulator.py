@@ -167,6 +167,17 @@ def setup_scene(engine, scene_name: str):
                               material_name='default',
                               use_random_orientation=True
                               )
+    elif scene_name == "gear_train":
+        PROC.create_gear_train(engine,
+                               N = 14,
+                               density=1.0,
+                               material_name='default'
+                               )
+    elif scene_name == "rock_slide":
+        PROC.create_rockslide(engine,
+                              density=1.0,
+                              material_name='default'
+                              )
 
     API.create_gravity_force(engine=engine, force_name="earth", g=9.81, up=V3.k())
     API.create_damping_force(engine=engine, force_name="air", alpha=0.01, beta=0.01)
@@ -260,20 +271,6 @@ def export_to_xml(engine, xml_filename):
                )
 
 
-def simulation(viewer, engine, monitor=True) -> None:
-    dt = engine.params.time_step
-    T = 0.1  # Total time
-    fps = 1.0 / dt
-    steps = int(np.round(T * fps))
-    for i in range(steps):
-        for body in engine.bodies.values():
-            T = np.eye(4)
-            T[:3, :3] = Q.to_matrix(body.q)
-            T[:3, 3] = body.r
-            ps.get_surface_mesh(body.name).set_transform(T)
-        API.simulate(engine, dt, monitor)
-
-
 def plotting(stats):
     import matplotlib.pyplot as plt
     colors = ['#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4',
@@ -351,34 +348,54 @@ def plotting(stats):
     plt.show()
 
 
-def main():
-    # Initialize polyscope
-    ps.init()
-
-    engine = API.create_engine()
-
-    setup_scene(engine, "chainmail")
-
-    export_to_xml(engine, "chainmail.xml")
-
+def create_visual_geometry(engine):
     for body in engine.bodies.values():
-        transparency = 0.5
+        transparency = 1.0
 
         color = V3.make(1.0, 0.1, 0.1)
         if body.is_fixed:
             color = V3.make(0.1, 0.1, 1.0)
-        ps.register_surface_mesh(body.name, body.shape.mesh.V, body.shape.mesh.T, smooth_shade=True, color=color, transparency=transparency)
+        ps.register_surface_mesh(body.name, body.shape.mesh.V, body.shape.mesh.T, smooth_shade=False, color=color, transparency=transparency)
 
         T = np.eye(4)
         T[:3, :3] = Q.to_matrix(body.q)
         T[:3, 3] = body.r
         ps.get_surface_mesh(body.name).set_transform(T)
 
-    #simulation(viewer, engine, True)
+
+def simulation(viewer, engine, monitor=True) -> None:
+    dt = engine.params.time_step
+    T = 0.1  # Total time
+    fps = 1.0 / dt
+    steps = int(np.round(T * fps))
+    for i in range(steps):
+        for body in engine.bodies.values():
+            T = np.eye(4)
+            T[:3, :3] = Q.to_matrix(body.q)
+            T[:3, 3] = body.r
+            ps.get_surface_mesh(body.name).set_transform(T)
+        API.simulate(engine, dt, monitor)
+
+
+
+def main():
+    # Initialize polyscope
+    ps.init()
+
+    engine = API.create_engine()
+
+    setup_scene(engine, "gear_train")
+
+    export_to_xml(engine, "gear_train.xml")
+
+    create_visual_geometry(engine)
+
+    #ps.set_user_callback(simulation)
+
+    ps.show()
+
     #stats = API.get_log(engine)
     #plotting(stats)
-    # View the point cloud and mesh we just registered in the 3D UI
-    ps.show()
 
 
 if __name__ == '__main__':
