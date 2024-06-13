@@ -13,7 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
         matrix:
-            os: ["ubuntu-latest", "windows-latest", "macos-12"]
+            os: ["ubuntu-latest", "windows-latest", "macos-latest"]
             python-version: ["3.10"]
     steps:
       - uses: actions/checkout@v4
@@ -36,7 +36,7 @@ jobs:
             conda install numba=0.58.1
             conda install networkx
             pip install usd-core
-            conda install igl=2.2.1
+            pip install igl
             coverage run  -m unittest python/unit_tests/test_*.py
             coverage report
       - name: Format the code
