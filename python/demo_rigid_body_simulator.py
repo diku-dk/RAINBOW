@@ -175,9 +175,26 @@ def setup_scene(engine, scene_name: str):
                                )
     elif scene_name == "rock_slide":
         PROC.create_rockslide(engine,
+                              pile_width=8,
+                              pile_height=4,
+                              pile_depth=2,
+                              I_rocks=20,
+                              J_rocks=10,
+                              K_rocks=5,
                               density=1.0,
                               material_name='default'
                               )
+    elif scene_name == "sandbox":
+        PROC.create_sandbox(engine,
+                            box_width = 10,
+                            box_height = 10,
+                            box_depth = 10,
+                            I_grains = 20,
+                            J_grains = 20,
+                            K_grains = 20,
+                            density=1.0,
+                            material_name='default'
+                            )
 
     API.create_gravity_force(engine=engine, force_name="earth", g=9.81, up=V3.k())
     API.create_damping_force(engine=engine, force_name="air", alpha=0.01, beta=0.01)
@@ -384,9 +401,9 @@ def main():
 
     engine = API.create_engine()
 
-    setup_scene(engine, "gear_train")
+    setup_scene(engine, "rock_slide")
 
-    export_to_xml(engine, "gear_train.xml")
+    export_to_xml(engine, "rock_slide.xml")
 
     create_visual_geometry(engine)
 
