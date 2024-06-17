@@ -29,7 +29,13 @@ def create_engine() -> Engine:
 
     :return: A new Engine instance containing the world to be simulated and the actual simulator to use.
     """
-    return Engine()
+    engine = Engine()
+    if engine.stepper is None:
+        # This is our default time stepper. In principle one could override this with other types of steppers. The
+        # stepper is not created as part of the Engine type because we want the "types" module to be independent of
+        # algorithmic choices.
+        engine.stepper = SOLVER.SemiImplicitStepper(engine)
+    return engine
 
 
 def create_rigid_body(engine, body_name: str) -> None:
@@ -473,7 +479,7 @@ def simulate(engine, T: float, debug_on: bool = False) -> None:
     """
     Simulate forward in time.
 
-    :param engine:    The engine holding the world to be simulated.
+    :param engine:    The engine holds the world to be simulated.
     :param T:         The time to simulate forward.
     :param debug_on:  Boolean flag indicating if debug info should be generated or not.
     :return:          None
@@ -481,7 +487,7 @@ def simulate(engine, T: float, debug_on: bool = False) -> None:
     if T <= 0:
         raise ValueError("Time must be positive")
     if engine.stepper is None:
-        engine.stepper = SOLVER.SemiImplicitStepper(engine)
+        raise ValueError("A time-stepper must be initialized")
     T_left = T
     while T_left:
         dt = min(T_left, engine.params.time_step)
