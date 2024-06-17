@@ -1,14 +1,16 @@
 import numpy as np
+import polyscope as ps
+import polyscope.imgui as psim
+
 import rainbow.math.vector3 as V3
 import rainbow.math.quaternion as Q
 import rainbow.simulators.prox_rigid_bodies.api as API
-import rainbow.simulators.prox_rigid_bodies.solver as SOLVER
 import rainbow.simulators.prox_rigid_bodies.procedural as PROC
-import polyscope as ps
+
+app_params = {}         # Dictionary used to control parameters that affect application
 
 
 def setup_scene(engine, scene_name: str):
-
     if scene_name == "pillar":
         PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
         PROC.create_pillar(engine,
@@ -366,6 +368,8 @@ def plotting(stats):
 
 
 def create_visual_geometry(engine):
+    ps.remove_all_structures()
+
     for body in engine.bodies.values():
         transparency = 1.0
 
@@ -380,39 +384,109 @@ def create_visual_geometry(engine):
         ps.get_surface_mesh(body.name).set_transform(T)
 
 
-def simulation(viewer, engine, monitor=True) -> None:
-    dt = engine.params.time_step
-    T = 0.1  # Total time
-    fps = 1.0 / dt
-    steps = int(np.round(T * fps))
-    for i in range(steps):
-        for body in engine.bodies.values():
-            T = np.eye(4)
-            T[:3, :3] = Q.to_matrix(body.q)
-            T[:3, 3] = body.r
-            ps.get_surface_mesh(body.name).set_transform(T)
-        API.simulate(engine, dt, monitor)
+def create_gui(engine):
+    global app_params
+    #if psim.BeginMainMenuBar():
+    #    if psim.BeginMenu("My Custom Menu"):
+    #        if psim.MenuItem("Item 1"):
+    #            print("Item 1 pressed")
+    #        if psim.MenuItem("Item 2"):
+    #            print("Item 2 pressed")
+    #        psim.EndMenu()
+    #    psim.EndMainMenuBar()
+    changed, app_params["simulate"] = psim.Checkbox("Simulate", app_params["simulate"])
+    if changed:
+        print("Simulate = ", app_params["simulate"])
+    changed, app_params["xml"] = psim.Checkbox("Save xml", app_params["xml"])
+    if changed:
+        print("Save XML = ", app_params["xml"])
+    changed, app_params["stats"] = psim.Checkbox("Show stats", app_params["stats"])
+    if changed:
+        print("Show stats = ", app_params["stats"])
+    changed, app_params["selected"] = psim.Combo("Scene", app_params["selected"], app_params["names"])
+    if changed:
+        print("Selected scene = ", app_params["selected"])
+    if psim.Button("Create scene"):
+        scene_name = app_params["names"][app_params["selected"]]
+        print("Creating scene:", scene_name)
 
+        engine = API.create_engine()
+
+        total_time = 0.1
+        steps = int(np.round(total_time / engine.params.time_step))
+        app_params["total time"] = total_time
+        app_params["steps"] = steps
+        app_params["step"] = 0
+
+        setup_scene(engine=engine, scene_name=scene_name)
+        create_visual_geometry(engine=engine)
+
+
+def simulate(engine) -> None:
+    if not app_params["simulate"]:
+        return
+    if app_params["step"] >= app_params["steps"]:
+        return
+    for body in engine.bodies.values():
+        T = np.eye(4)
+        T[:3, :3] = Q.to_matrix(body.q)
+        T[:3, 3] = body.r
+        ps.get_surface_mesh(body.name).set_transform(T)
+    API.simulate(engine=engine, T=engine.params.time_step, debug_on=True)
+
+
+def callback(engine):
+    create_gui(engine)
+    simulate(engine)
 
 
 def main():
-    # Initialize polyscope
     ps.init()
+    ps.set_build_default_gui_panels(False)
+    ps.set_ground_plane_mode("none")
 
     engine = API.create_engine()
 
-    setup_scene(engine, "rock_slide")
+    total_time = 0.1
+    steps = int(np.round(total_time / engine.params.time_step))
 
-    export_to_xml(engine, "rock_slide.xml")
+    app_params["total time"] = total_time
+    app_params["steps"] = steps
+    app_params["step"] = 0
 
-    create_visual_geometry(engine)
+    app_params["simulate"] = False
+    app_params["xml"] = False
+    app_params["stats"] = False
+    app_params["selected"] = 0
+    app_params["names"] = [
+        "pillar",
+        "arch",
+        "dome",
+        "tower",
+        "colosseum",
+        "pantheon",
+        "funnel",
+        "glasses",
+        "poles",
+        "temple",
+        "chainmail",
+        "gear_train",
+        "rock_slide",
+        "sandbox"
+    ]
 
-    #ps.set_user_callback(simulation)
+    my_callback = lambda: callback(engine=engine)
+    ps.set_user_callback(my_callback)
 
     ps.show()
 
-    #stats = API.get_log(engine)
-    #plotting(stats)
+    if app_params["stats"]:
+        stats = API.get_log(engine)
+        plotting(stats)
+
+    if app_params["xml"]:
+        scene_name = app_params["names"][app_params['selected']]
+        export_to_xml(engine, scene_name + ".xml")
 
 
 if __name__ == '__main__':
