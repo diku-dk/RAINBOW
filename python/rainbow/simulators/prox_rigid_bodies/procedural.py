@@ -1642,7 +1642,7 @@ def create_sandbox(
         K_grains,
         density,
         material_name,
-        False,
+        use_random_orientation=True
     )
 
     shape_name = API.generate_unique_name("box_left")
