@@ -384,7 +384,7 @@ def create_visual_geometry(engine):
         ps.get_surface_mesh(body.name).set_transform(T)
 
 
-def create_gui(engine):
+def create_gui():
     global app_params
     #if psim.BeginMainMenuBar():
     #    if psim.BeginMenu("My Custom Menu"):
@@ -412,7 +412,7 @@ def create_gui(engine):
 
         engine = API.create_engine()
 
-        total_time = 0.1
+        total_time = 0.5
         steps = int(np.round(total_time / engine.params.time_step))
         app_params["total time"] = total_time
         app_params["steps"] = steps
@@ -421,12 +421,21 @@ def create_gui(engine):
         setup_scene(engine=engine, scene_name=scene_name)
         create_visual_geometry(engine=engine)
 
+        app_params["engine"] = engine
 
-def simulate(engine) -> None:
+
+def simulate() -> None:
+    engine = app_params["engine"]
+
+    if engine is None:
+        return
+
     if not app_params["simulate"]:
         return
+
     if app_params["step"] >= app_params["steps"]:
         return
+
     for body in engine.bodies.values():
         T = np.eye(4)
         T[:3, :3] = Q.to_matrix(body.q)
@@ -435,9 +444,9 @@ def simulate(engine) -> None:
     API.simulate(engine=engine, T=engine.params.time_step, debug_on=True)
 
 
-def callback(engine):
-    create_gui(engine)
-    simulate(engine)
+def callback():
+    create_gui()
+    simulate()
 
 
 def main():
@@ -445,15 +454,7 @@ def main():
     ps.set_build_default_gui_panels(False)
     ps.set_ground_plane_mode("none")
 
-    engine = API.create_engine()
-
-    total_time = 0.1
-    steps = int(np.round(total_time / engine.params.time_step))
-
-    app_params["total time"] = total_time
-    app_params["steps"] = steps
-    app_params["step"] = 0
-
+    app_params["engine"] = None
     app_params["simulate"] = False
     app_params["xml"] = False
     app_params["stats"] = False
@@ -475,16 +476,17 @@ def main():
         "sandbox"
     ]
 
-    my_callback = lambda: callback(engine=engine)
-    ps.set_user_callback(my_callback)
+    ps.set_user_callback(callback)
 
     ps.show()
 
     if app_params["stats"]:
+        engine = app_params["engine"]
         stats = API.get_log(engine)
         plotting(stats)
 
     if app_params["xml"]:
+        engine = app_params["engine"]
         scene_name = app_params["names"][app_params['selected']]
         export_to_xml(engine, scene_name + ".xml")
 
