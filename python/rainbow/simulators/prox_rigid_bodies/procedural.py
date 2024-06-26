@@ -179,16 +179,16 @@ def create_pillar(engine, r, q, width, height, depth, stones, density, material_
 
 
 def create_arch(
-    engine,
-    r,
-    q,
-    width,
-    height,
-    depth,
-    pier_stones,
-    arch_stones,
-    density,
-    material_name,
+        engine,
+        r,
+        q,
+        width,
+        height,
+        depth,
+        pier_stones,
+        arch_stones,
+        density,
+        material_name,
 ):
     arch_width = width
     arch_height = height
@@ -310,7 +310,7 @@ def create_arch(
 
 
 def create_dome(
-    engine, r, q, outer_radius, inner_radius, layers, segments, density, material_name,
+        engine, r, q, outer_radius, inner_radius, layers, segments, density, material_name,
 ):
     r_i = inner_radius
     r_o = outer_radius
@@ -365,18 +365,18 @@ def create_dome(
 
 
 def create_tower(
-    engine,
-    r,
-    q,
-    outer_radius,
-    inner_radius,
-    height,
-    layers,
-    segments,
-    use_cubes,
-    density,
-    material_name,
-    safety_factor=0.99,
+        engine,
+        r,
+        q,
+        outer_radius,
+        inner_radius,
+        height,
+        layers,
+        segments,
+        use_cubes,
+        density,
+        material_name,
+        safety_factor=0.99,
 ):
     center_radius = (outer_radius + inner_radius) / 2.0
     brick_height = height / layers
@@ -386,10 +386,10 @@ def create_tower(
     shape_name = API.generate_unique_name("brick_shape")
     if use_cubes:
         brick_width = (
-            2.0
-            * (sin(delta_phi / 2.0) / sin(pi / 2.0 - delta_phi / 2.0))
-            * inner_radius
-            * safety_factor
+                2.0
+                * (sin(delta_phi / 2.0) / sin(pi / 2.0 - delta_phi / 2.0))
+                * inner_radius
+                * safety_factor
         )
 
         V, T = MESH.create_box(brick_width, brick_height, brick_depth)
@@ -398,14 +398,14 @@ def create_tower(
 
     else:
         brick_inner_half_width = (
-            (sin(delta_phi / 2.0) / sin(pi / 2.0 - delta_phi / 2.0))
-            * inner_radius
-            * safety_factor
+                (sin(delta_phi / 2.0) / sin(pi / 2.0 - delta_phi / 2.0))
+                * inner_radius
+                * safety_factor
         )
         brick_outer_half_width = (
-            (sin(delta_phi / 2.0) / sin(pi / 2.0 - delta_phi / 2.0))
-            * outer_radius
-            * safety_factor
+                (sin(delta_phi / 2.0) / sin(pi / 2.0 - delta_phi / 2.0))
+                * outer_radius
+                * safety_factor
         )
         p0 = V3.make(-brick_inner_half_width, -brick_height / 2.0, brick_depth / 2.0)
         p1 = V3.make(brick_inner_half_width, -brick_height / 2.0, brick_depth / 2.0)
@@ -453,17 +453,17 @@ def create_tower(
 
 
 def create_colosseum(
-    engine,
-    r,
-    q,
-    outer_radius,
-    inner_radius,
-    height,
-    levels,
-    arches,
-    density,
-    material_name,
-    safety_factor=0.99,
+        engine,
+        r,
+        q,
+        outer_radius,
+        inner_radius,
+        height,
+        levels,
+        arches,
+        density,
+        material_name,
+        safety_factor=0.99,
 ):
     center_radius = (outer_radius + inner_radius) / 2.0
     level_height = height / levels
@@ -472,10 +472,10 @@ def create_colosseum(
     arch_depth = outer_radius - inner_radius
     delta_phi = (2.0 * pi) / arches
     arch_width = (
-        2.0
-        * (sin(delta_phi / 2.0) / sin(pi / 2.0 - delta_phi / 2.0))
-        * inner_radius
-        * safety_factor
+            2.0
+            * (sin(delta_phi / 2.0) / sin(pi / 2.0 - delta_phi / 2.0))
+            * inner_radius
+            * safety_factor
     )
 
     body_names = []
@@ -525,17 +525,17 @@ def create_colosseum(
 
 
 def create_pantheon(
-    engine,
-    r,
-    q,
-    outer_radius,
-    inner_radius,
-    height,
-    layers,
-    segments,
-    density,
-    material_name,
-    safety_factor=0.99,
+        engine,
+        r,
+        q,
+        outer_radius,
+        inner_radius,
+        height,
+        layers,
+        segments,
+        density,
+        material_name,
+        safety_factor=0.99,
 ):
     wall_height = height - outer_radius
     wall_layers = layers
@@ -583,20 +583,20 @@ def create_pantheon(
 
 
 def _create_grid(
-    engine,
-    r,
-    q,
-    shape_names,
-    width,
-    height,
-    depth,
-    I,
-    J,
-    K,
-    density,
-    material_name,
-    use_random_orientation=True,
-    q_body=None,
+        engine,
+        r,
+        q,
+        shape_names,
+        width,
+        height,
+        depth,
+        I,
+        J,
+        K,
+        density,
+        material_name,
+        use_random_orientation=True,
+        q_body=None,
 ):
     body_names = []
     dW = width / I
@@ -637,18 +637,18 @@ def _create_grid(
 
 
 def create_funnel(
-    engine,
-    funnel_height,
-    funnel_radius,
-    grid_width,
-    grid_height,
-    grid_depth,
-    I,
-    J,
-    K,
-    density,
-    material_name,
-    use_random_orientation=True,
+        engine,
+        funnel_height,
+        funnel_radius,
+        grid_width,
+        grid_height,
+        grid_depth,
+        I,
+        J,
+        K,
+        density,
+        material_name,
+        use_random_orientation=True,
 ):
     height = grid_height
     width = grid_width
@@ -661,7 +661,7 @@ def create_funnel(
     mesh = API.create_mesh(V, T)
     MESH.scale_to_unit(mesh)
     s = (
-        min(width / I, height / J, depth / K) * 0.9
+            min(width / I, height / J, depth / K) * 0.9
     )  # The 0.9 scaling ensure some padding to avoid initial contact
     MESH.scale(mesh, s, s, s)
     API.create_shape(engine, shape_name, mesh)
@@ -719,18 +719,18 @@ def create_funnel(
 
 
 def create_glasses(
-    engine,
-    glass_height,
-    glass_radius,
-    grid_width,
-    grid_height,
-    grid_depth,
-    I,
-    J,
-    K,
-    density,
-    material_name,
-    use_random_orientation=True,
+        engine,
+        glass_height,
+        glass_radius,
+        grid_width,
+        grid_height,
+        grid_depth,
+        I,
+        J,
+        K,
+        density,
+        material_name,
+        use_random_orientation=True,
 ):
     height = grid_height
     width = grid_width
@@ -743,7 +743,7 @@ def create_glasses(
 
     MESH.scale_to_unit(mesh)
     s = (
-        min(width / I, height / J, depth / K) * 0.9
+            min(width / I, height / J, depth / K) * 0.9
     )  # The 0.9 scaling ensure some padding to avoid initial contact
     MESH.scale(mesh, s, s, s)
 
@@ -801,20 +801,20 @@ def create_glasses(
 
 
 def create_poles(
-    engine,
-    pole_height,
-    pole_radius,
-    I_poles,
-    K_poles,
-    grid_width,
-    grid_height,
-    grid_depth,
-    I_grid,
-    J_grid,
-    K_grid,
-    density,
-    material_name,
-    use_random_orientation=True,
+        engine,
+        pole_height,
+        pole_radius,
+        I_poles,
+        K_poles,
+        grid_width,
+        grid_height,
+        grid_depth,
+        I_grid,
+        J_grid,
+        K_grid,
+        density,
+        material_name,
+        use_random_orientation=True,
 ):
     height = grid_height
     width = grid_width
@@ -892,15 +892,15 @@ def create_poles(
 
 
 def create_temple(
-    engine,
-    I_pillars,
-    K_pillars,
-    pillar_width,
-    pillar_height,
-    pillar_depth,
-    pillar_stones,
-    density,
-    material_name,
+        engine,
+        I_pillars,
+        K_pillars,
+        pillar_width,
+        pillar_height,
+        pillar_depth,
+        pillar_stones,
+        density,
+        material_name,
 ):
     if (K_pillars - 1) % 3 != 0:
         raise RuntimeError(
@@ -1396,17 +1396,17 @@ def create_temple(
             for i in range(I_pillars - j):
 
                 x_brick = (
-                    -temple_width / 2.0
-                    + pillar_width / 2.0
-                    + i * gable_brick_width
-                    + j * gable_brick_width * 0.5
+                        -temple_width / 2.0
+                        + pillar_width / 2.0
+                        + i * gable_brick_width
+                        + j * gable_brick_width * 0.5
                 )
                 y_brick = (
-                    3.0 * stairs_height
-                    + pillar_height
-                    + epistyle_height
-                    + gable_brick_height / 2.0
-                    + j * gable_brick_height
+                        3.0 * stairs_height
+                        + pillar_height
+                        + epistyle_height
+                        + gable_brick_height / 2.0
+                        + j * gable_brick_height
                 )
 
                 r_g = V3.make(x_brick, y_brick, z_gable)
@@ -1534,10 +1534,10 @@ def create_temple(
             API.connect_shape(engine, body_name, shape_name_left)
 
             y_plank = (
-                3.0 * stairs_height
-                + pillar_height
-                + epistyle_height
-                + i * gable_brick_height
+                    3.0 * stairs_height
+                    + pillar_height
+                    + epistyle_height
+                    + i * gable_brick_height
             )
             q_g = Q.identity()
 
@@ -1579,10 +1579,10 @@ def create_temple(
         z = temple_depth / 2.0 - (k + 1) * pillar_depth
         x = 0
         y = (
-            3.0 * stairs_height
-            + pillar_height
-            + epistyle_height
-            + (I_pillars - 1) * gable_brick_height
+                3.0 * stairs_height
+                + pillar_height
+                + epistyle_height
+                + (I_pillars - 1) * gable_brick_height
         )
         r = V3.make(x, y, z)
         q = Q.identity()
@@ -1599,16 +1599,16 @@ def create_temple(
 
 
 def create_sandbox(
-    engine,
-    box_width,
-    box_height,
-    box_depth,
-    I_grains,
-    J_grains,
-    K_grains,
-    density,
-    material_name,
-    ):
+        engine,
+        box_width,
+        box_height,
+        box_depth,
+        I_grains,
+        J_grains,
+        K_grains,
+        density,
+        material_name,
+):
     thickness = 0.1 * box_height
 
     shape_names = []
@@ -1620,7 +1620,7 @@ def create_sandbox(
         mesh = API.create_mesh(V, T)
         MESH.scale_to_unit(mesh)
         s = (
-            min(box_width / I_grains, box_height / J_grains, box_depth / K_grains) * 0.9
+                min(box_width / I_grains, box_height / J_grains, box_depth / K_grains) * 0.9
         )  # The 0.9 scaling ensure some padding to avoid initial contact
         MESH.scale(mesh, s, s, s)
         API.create_shape(engine, shape_name, mesh)
@@ -1747,53 +1747,57 @@ def create_sandbox(
 
 def create_chainmail(
         engine,
-        r,
-        q,
         major_radius,
         minor_radius,
         width,
         height,
-        stretch:float = 0.5,
-        density:float = 1.0,
-        material_name:str = "default",
-        pinned:bool = True
+        stretch: float = 0.5,
+        density: float = 1.0,
+        material_name: str = "default",
+        pinned: bool = True
 ):
-    stretch = np.clip(stretch,  0.0, 1.0)
+    stretch = np.clip(stretch, 0.0, 1.0)
 
     R = major_radius
     r = minor_radius
 
     shape_name = API.generate_unique_name("torus_shape")
-    V, T = MESH.create_torus(R, r, segments = 24, slices= 24)
+    V, T = MESH.create_torus(R, r, segments=24, slices=24)
     mesh = API.create_mesh(V, T)
     API.create_shape(engine, shape_name, mesh)
 
     body_names = []
 
     # Maximum clearance between two rings
-    tau = 2*R - 4*r
+    tau = 2 * R - 4 * r
     # Maximum distance between two ring centers along any axis.
-    delta = 2*R + tau*stretch
+    delta = 2 * R + tau * stretch
 
-    for j in range(height+1):
-        for i in range(width+1):
+    q_m2w = Q.Rx(-np.pi / 2)  # Needed to change z-up direction to y-up direction
+    r_m2w = V3.make(- delta * (width) / 2
+                    , 0
+                    , delta * (height) / 2
+                    )  # Needed to center chain mail at origin of world
+
+    for j in range(height + 1):
+        for i in range(width + 1):
             body_name = API.generate_unique_name("body")
             body_names.append(body_name)
             API.create_rigid_body(engine, body_name)
             API.connect_shape(engine, body_name, shape_name)
 
             # Place chain ring in local model space
-            r_l = V3.make(i*delta, j*delta, 0)
+            r_l = V3.make(i * delta, j * delta, 0)
             q_l = Q.identity()
 
             # Transform from local model space into global world space
-            r_g = Q.rotate(q, r_l) + r
-            q_g = Q.prod(q, q_l)
+            r_w = Q.rotate(q_m2w, r_l) + r_m2w  # World position (y-up)
+            q_w = Q.prod(q_m2w, q_l)  # World orientation (y-up)
 
-            API.set_position(engine, body_name, r_g, True)
-            API.set_orientation(engine, body_name, q_g, True)
+            API.set_position(engine, body_name, r_w, True)
+            API.set_orientation(engine, body_name, q_w, True)
 
-    for j in range(height+1):
+    for j in range(height + 1):
         for i in range(width):
             body_name = API.generate_unique_name("body")
             body_names.append(body_name)
@@ -1801,34 +1805,33 @@ def create_chainmail(
             API.connect_shape(engine, body_name, shape_name)
 
             # Place chain ring in local model space
-            r_l = V3.make((i+0.5)*delta, j*delta, 0)
-            q_l = Q.Rx(np.pi/2)
+            r_l = V3.make((i + 0.5) * delta, j * delta, 0)
+            q_l = Q.Rx(np.pi / 2)
 
             # Transform from local model space into global world space
-            r_g = Q.rotate(q, r_l) + r
-            q_g = Q.prod(q, q_l)
+            r_w = Q.rotate(q_m2w, r_l) + r_m2w  # World position (y-up)
+            q_w = Q.prod(q_m2w, q_l)  # World orientation (y-up)
 
-            API.set_position(engine, body_name, r_g, True)
-            API.set_orientation(engine, body_name, q_g, True)
-
+            API.set_position(engine, body_name, r_w, True)
+            API.set_orientation(engine, body_name, q_w, True)
 
     for j in range(height):
-        for i in range(width+1):
+        for i in range(width + 1):
             body_name = API.generate_unique_name("body")
             body_names.append(body_name)
             API.create_rigid_body(engine, body_name)
             API.connect_shape(engine, body_name, shape_name)
 
             # Place chain ring in local model space
-            r_l = V3.make(i*delta, (j+0.5)*delta, 0)
-            q_l = Q.Ry(np.pi/2)
+            r_l = V3.make(i * delta, (j + 0.5) * delta, 0)
+            q_l = Q.Ry(np.pi / 2)
 
             # Transform from local model space into global world space
-            r_g = Q.rotate(q, r_l) + r
-            q_g = Q.prod(q, q_l)
+            r_w = Q.rotate(q_m2w, r_l) + r_m2w  # World position (y-up)
+            q_w = Q.prod(q_m2w, q_l)  # World orientation (y-up)
 
-            API.set_position(engine, body_name, r_g, True)
-            API.set_orientation(engine, body_name, q_g, True)
+            API.set_position(engine, body_name, r_w, True)
+            API.set_orientation(engine, body_name, q_w, True)
 
     for body_name in body_names:
         API.set_body_type(engine, body_name, "free")
@@ -1838,8 +1841,8 @@ def create_chainmail(
     if pinned:
         south_west_ring = body_names[0]
         south_east_ring = body_names[width]
-        north_west_ring = body_names[(height+1)*(width+1) - width - 1]
-        north_east_ring = body_names[(height+1)*(width+1)-1]
+        north_west_ring = body_names[(height + 1) * (width + 1) - width - 1]
+        north_east_ring = body_names[(height + 1) * (width + 1) - 1]
         API.set_body_type(engine, south_west_ring, "fixed")
         API.set_body_type(engine, south_east_ring, "fixed")
         API.set_body_type(engine, north_west_ring, "fixed")
@@ -1851,15 +1854,15 @@ def create_chainmail(
 def create_jack_grid(engine,
                      r,
                      q,
-                     width:float,
-                     height:float,
-                     depth:float,
-                     I:int,
-                     J:int,
-                     K:int,
-                     density:float=1.0,
-                     material_name:str = "default",
-                     use_random_orientation:bool=False
+                     width: float,
+                     height: float,
+                     depth: float,
+                     I: int,
+                     J: int,
+                     K: int,
+                     density: float = 1.0,
+                     material_name: str = "default",
+                     use_random_orientation: bool = False
                      ):
     shape_names = []
     shape_name = API.generate_unique_name("jack")
@@ -1868,7 +1871,7 @@ def create_jack_grid(engine,
     mesh = API.create_mesh(V, T)
     MESH.scale_to_unit(mesh)
     s = (
-        min(width / I, height / J, depth / K) * 0.9
+            min(width / I, height / J, depth / K) * 0.9
     )  # The 0.9 scaling ensure some padding to avoid initial contact
     MESH.scale(mesh, s, s, s)
     API.create_shape(engine, shape_name, mesh)
@@ -1893,7 +1896,6 @@ def create_jack_grid(engine,
 
 
 class GearFactory:
-
 
     @staticmethod
     def _roll_angle(r_base: float, r_top: float):
@@ -1954,7 +1956,6 @@ class GearFactory:
         iy = r_base * (np.sin(theta + shift) - theta * np.cos(theta + shift))
         return ix, iy
 
-
     @staticmethod
     def make_gear_specs(m: float = 1.0, Z: int = 12, alpha: float = 20.0):
         """
@@ -1987,9 +1988,11 @@ class GearFactory:
         pitch_roll = GearFactory._roll_angle(R_b, R_p)
         top_roll = GearFactory._roll_angle(R_b, R_t)
 
-        delta = GearFactory._span_angle(pitch_roll)  # Angle spanned by involute curve going from base circle to pitch circle
+        delta = GearFactory._span_angle(
+            pitch_roll)  # Angle spanned by involute curve going from base circle to pitch circle
         beta = np.pi / Z  # Angle spanned by tooth thickness at the pitch circle
-        gamma = GearFactory._span_angle(top_roll) - delta  # Angle spanned by involute curve going from pitch circle to top circle
+        gamma = GearFactory._span_angle(
+            top_roll) - delta  # Angle spanned by involute curve going from pitch circle to top circle
 
         corners = []
         gear_x_list = []
@@ -2047,7 +2050,6 @@ class GearFactory:
         specs['y'] = gear_y  # The y coordinates of the gear profile
         specs['corners'] = np.array(corners, dtype=int)
         return specs
-
 
     @staticmethod
     def make_gears_assembly(drive_gear: dict
@@ -2117,7 +2119,6 @@ class GearFactory:
         phi = np.pi - ratio * (theta - omega) + omega
         return tx, ty, phi
 
-
     @staticmethod
     def make_gear_mesh(gear: dict, face_width: float = 1.0):
         x = gear['x']
@@ -2145,7 +2146,7 @@ class GearFactory:
         C = gear['corners']
         for start, stop in C:
             # First, we do bottom teeth
-            indices = np.arange(start, stop+1, 1, dtype=int)
+            indices = np.arange(start, stop + 1, 1, dtype=int)
             indices[indices < 0] += N
 
             tooth_center = np.mean(V[indices, :], axis=0)
@@ -2202,20 +2203,22 @@ class GearFactory:
 def create_gear_train(engine
                       , N: int
                       , density: float = 1.0
-                      , material_name :str = "default"
+                      , material_name: str = "default"
                       ):
     body_names = []
     gear_specs = []
     gear_names = []
 
-    m = 1.0                                   # Gear module
-    numbers = [7, 12, 15, 28]                 # Possible gear teeth to use
+    q_m2w = Q.Rx(-np.pi / 2)  # Needed to change z-up direction to y-up direction
+
+    m = 1.0  # Gear module
+    numbers = [7, 12, 15, 28]  # Possible gear teeth to use
     Z = np.random.choice(numbers, size=(N,))  # Random list of N numbers of gear teeth
-    alpha = 20                                # Pressure angle
-    face_width = 10.0                         # Width of the gear
+    alpha = 20  # Pressure angle
+    face_width = 10.0  # Width of the gear
 
     for i in range(N):
-        specs = GearFactory.make_gear_specs(m=m, Z = Z[i], alpha=alpha)
+        specs = GearFactory.make_gear_specs(m=m, Z=Z[i], alpha=alpha)
         shape_name = API.generate_unique_name("shape")
         body_name = API.generate_unique_name("body")
 
@@ -2231,11 +2234,13 @@ def create_gear_train(engine
         API.create_rigid_body(engine, body_name)
         API.connect_shape(engine, body_name, shape_name)
 
-        r = V3.make(0.0, 0.0, 0.0)
-        q = Q.identity()
+        r_m = V3.make(0.0, 0.0, 0.0)  # Model space position of gear (z-up)
+        q_m = Q.identity()  # Model space orientation of gear (z-up)
+        r_w = Q.rotate(q_m2w, r_m)  # World position of gear (y-up)
+        q_w = Q.prod(q_m2w, q_m)  # World orientation of gear (y-up)
 
-        API.set_position(engine, body_name, r, True)
-        API.set_orientation(engine, body_name, q, True)
+        API.set_position(engine, body_name, r_w, True)
+        API.set_orientation(engine, body_name, q_w, True)
         API.set_body_type(engine, body_name, "free")
         API.set_body_material(engine, body_name, material_name)
         API.set_mass_properties(engine, body_name, density)
@@ -2244,19 +2249,22 @@ def create_gear_train(engine
     cy = 0
     cz = 0
     theta = 0
-    for i in range(N-1):
+    for i in range(N - 1):
         drive_gear = gear_specs[i]
-        driven_gear = gear_specs[i+1]
-        omega = np.random.uniform(0, 2*np.pi)
+        driven_gear = gear_specs[i + 1]
+        omega = np.random.uniform(0, 2 * np.pi)
         cx, cy, theta = GearFactory.make_gears_assembly(drive_gear, driven_gear, cx, cy, theta, omega)
-        cz += face_width/2
-        r = V3.make(cx, cy, cz)
-        q = Q.Rz(theta)
-        driven_gear_body_name = body_names[i+1]
-        API.set_position(engine, driven_gear_body_name, r, True)
-        API.set_orientation(engine, driven_gear_body_name, q, True)
+        cz += face_width / 2
+        r_m = V3.make(cx, cy, cz)  # Model space position of gear (z-up)
+        q_m = Q.Rz(theta)  # Model space orientation of gear (z-up)
+        r_w = Q.rotate(q_m2w, r_m)  # World position of gear (y-up)
+        q_w = Q.prod(q_m2w, q_m)  # World orientation of gear (y-up)
+        driven_gear_body_name = body_names[i + 1]
+        API.set_position(engine, driven_gear_body_name, r_w, True)
+        API.set_orientation(engine, driven_gear_body_name, q_w, True)
 
     return body_names
+
 
 def create_rockslide(engine
                      , pile_width: float
@@ -2322,7 +2330,6 @@ def create_rockslide(engine
         API.set_body_material(engine, body_name, material_name)
         API.set_mass_properties(engine, body_name, density)
 
-
     shape_names = []
     for n in range(20):
         shape_name = API.generate_unique_name("rock")
@@ -2332,7 +2339,7 @@ def create_rockslide(engine
         mesh = API.create_mesh(V, T)
         MESH.scale_to_unit(mesh)
         s = (
-            min(pile_width / I_rocks, pile_height / J_rocks, pile_depth / K_rocks) * 0.9
+                min(pile_width / I_rocks, pile_height / J_rocks, pile_depth / K_rocks) * 0.9
         )  # The 0.9 scaling ensure some padding to avoid initial contact
         MESH.scale(mesh, s, s, s)
         API.create_shape(engine, shape_name, mesh)
@@ -2340,7 +2347,7 @@ def create_rockslide(engine
         shape_names.append(shape_name)
 
     r = V3.make(-10, 16, 5)
-    q = Q.Ry(3*np.pi/4)
+    q = Q.Ry(3 * np.pi / 4)
     body_names.append(
         _create_grid(
             engine,

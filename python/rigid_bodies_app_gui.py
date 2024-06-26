@@ -12,7 +12,7 @@ app_params = {}         # Dictionary used to control parameters that affect appl
 
 def setup_scene(engine, scene_name: str):
     if scene_name == "pillar":
-        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default')
         PROC.create_pillar(engine,
                            r=V3.zero(),
                            q=Q.identity(),
@@ -24,7 +24,7 @@ def setup_scene(engine, scene_name: str):
                            material_name='default'
                            );
     elif scene_name == "arch":
-        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default')
         PROC.create_arch(engine,
                          r=V3.zero(),
                          q=Q.identity(),
@@ -37,7 +37,7 @@ def setup_scene(engine, scene_name: str):
                          material_name='default'
                          )
     elif scene_name == "dome":
-        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default')
         PROC.create_dome(engine,
                          r=V3.zero(),
                          q=Q.identity(),
@@ -49,7 +49,7 @@ def setup_scene(engine, scene_name: str):
                          material_name='default'
                          )
     elif scene_name == "tower":
-        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default')
         PROC.create_tower(engine,
                           r=V3.zero(),
                           q=Q.identity(),
@@ -63,7 +63,7 @@ def setup_scene(engine, scene_name: str):
                           material_name='default'
                           )
     elif scene_name == "colosseum":
-        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default')
         PROC.create_colosseum(engine,
                               r=V3.zero(),
                               q=Q.identity(),
@@ -76,7 +76,7 @@ def setup_scene(engine, scene_name: str):
                               material_name='default'
                               )
     elif scene_name == "pantheon":
-        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default')
         PROC.create_pantheon(engine,
                              r=V3.zero(),
                              q=Q.identity(),
@@ -89,21 +89,21 @@ def setup_scene(engine, scene_name: str):
                              material_name='default'
                              )
     elif scene_name == "funnel":
-        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default')
         PROC.create_funnel(engine,
                            funnel_height=4.0,
                            funnel_radius=4.0,
-                           grid_width=2.0,
-                           grid_height=2.0,
-                           grid_depth=2.0,
-                           I=4,
-                           J=4,
-                           K=4,
+                           grid_width=4.0,
+                           grid_height=8.0,
+                           grid_depth=4.0,
+                           I=10,
+                           J=20,
+                           K=10,
                            density=1.0,
                            material_name='default'
                            )
     elif scene_name == "glasses":
-        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default')
         PROC.create_glasses(engine,
                             glass_height=4.0,
                             glass_radius=2.0,
@@ -117,7 +117,7 @@ def setup_scene(engine, scene_name: str):
                             material_name='default'
                             )
     elif scene_name == "poles":
-        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default')
         PROC.create_poles(engine,
                           pole_height=2.0,
                           pole_radius=0.1,
@@ -133,7 +133,7 @@ def setup_scene(engine, scene_name: str):
                           material_name='default'
                           )
     elif scene_name == "temple":
-        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default');
+        PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default')
         PROC.create_temple(engine,
                            I_pillars=4,
                            K_pillars=7,
@@ -146,8 +146,6 @@ def setup_scene(engine, scene_name: str):
                            )
     elif scene_name == "chainmail":
         PROC.create_chainmail(engine,
-                              r=V3.zero(),
-                              q=Q.identity(),
                               major_radius=2,
                               minor_radius=0.5,
                               width=10,
@@ -157,7 +155,7 @@ def setup_scene(engine, scene_name: str):
                               material_name='default'
                               )
         PROC.create_jack_grid(engine,
-                              r=V3.make(4,4,40),
+                              r=V3.make(-20,40,-20),
                               q=Q.identity(),
                               width=40.0,
                               height=40.0,
@@ -198,7 +196,7 @@ def setup_scene(engine, scene_name: str):
                             material_name='default'
                             )
 
-    API.create_gravity_force(engine=engine, force_name="earth", g=9.81, up=V3.k())
+    API.create_gravity_force(engine=engine, force_name="earth", g=9.81, up=V3.j())
     API.create_damping_force(engine=engine, force_name="air", alpha=0.01, beta=0.01)
     for body in engine.bodies.values():
         API.connect_force(engine=engine, body_name=body.name, force_name="earth")
@@ -400,6 +398,7 @@ def create_gui():
     changed, app_params["xml"] = psim.Checkbox("Save xml", app_params["xml"])
     if changed:
         print("Save XML = ", app_params["xml"])
+
     changed, app_params["stats"] = psim.Checkbox("Show stats", app_params["stats"])
     if changed:
         print("Show stats = ", app_params["stats"])
@@ -419,6 +418,11 @@ def create_gui():
         app_params["step"] = 0
 
         setup_scene(engine=engine, scene_name=scene_name)
+
+        if app_params["xml"]:
+            scene_name = app_params["names"][app_params['selected']]
+            export_to_xml(engine, scene_name + ".xml")
+
         create_visual_geometry(engine=engine)
 
         app_params["engine"] = engine
@@ -450,9 +454,11 @@ def callback():
 
 
 def main():
+    ps.set_up_dir('y_up')
     ps.init()
     ps.set_build_default_gui_panels(False)
     ps.set_ground_plane_mode("none")
+    ps.look_at((0., 0., 100.), (0., 0., 0.))
 
     app_params["engine"] = None
     app_params["simulate"] = False
@@ -484,11 +490,6 @@ def main():
         engine = app_params["engine"]
         stats = API.get_log(engine)
         plotting(stats)
-
-    if app_params["xml"]:
-        engine = app_params["engine"]
-        scene_name = app_params["names"][app_params['selected']]
-        export_to_xml(engine, scene_name + ".xml")
 
 
 if __name__ == '__main__':
