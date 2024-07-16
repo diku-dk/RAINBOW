@@ -445,7 +445,10 @@ def simulate() -> None:
         T[:3, :3] = Q.to_matrix(body.q)
         T[:3, 3] = body.r
         ps.get_surface_mesh(body.name).set_transform(T)
+
     API.simulate(engine=engine, T=engine.params.time_step, debug_on=True)
+
+    app_params["step"] += 1
 
 
 def callback():

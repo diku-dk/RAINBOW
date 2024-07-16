@@ -475,7 +475,31 @@ def create_surfaces_interaction(engine, A: str, B: str, epsilon: float, mu) -> N
     behaviour.mu = mu
     engine.surfaces_interactions.storage[key] = behaviour
 
-def simulate(engine, T: float, debug_on: bool = False) -> None:
+
+def create_hinge_joint(engine: Engine, body_name_A:str, body_name_B:str, armA, armB, axisA, axisB) -> None:
+    """
+    Create a hinge joint between two rigid bodies.
+
+    :param engine:       The engine that stores information about the surface interaction.
+    :param body_name_A:  The unique name of body A.
+    :param body_name_B:  The unique name of body B.
+    :param armA:         The location of the joint origin in local body frame of A.
+    :param armB:         The location of the joint origin in local body frame of B.
+    :param axisA:        The direction of the joint axis wrt the local body frame orientation of A.
+    :param axisB:        The direction of the joint axis wrt the local body frame orientation of B.
+    :return:             Nothing.
+    """
+    if body_name_A not in engine.bodies:
+        raise RuntimeError("create_hinge_joint() no such rigid body exist with name " + body_name_A)
+    if body_name_B not in engine.bodies:
+        raise RuntimeError("create_hinge_joint() no such rigid body exist with name " + body_name_B)
+    bodyA = engine.bodies[body_name_A]
+    bodyB = engine.bodies[body_name_B]
+    hinge = HingeJoint(bodyA, bodyB, armA, armB, axisA)
+    engine.hinges.append(hinge)
+
+
+def simulate(engine: Engine, T: float, debug_on: bool = False) -> None:
     """
     Simulate forward in time.
 

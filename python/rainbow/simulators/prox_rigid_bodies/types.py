@@ -252,6 +252,49 @@ class ContactPoint:
         self.g = gap
 
 
+class HingeJoint:
+    """
+    A hinge joint class.
+
+    A hinge joint is a revolute joint between two rigid bodies.
+    """
+
+    def __init__(self, bodyA, bodyB, armA=V3.zero(), armB=V3.zero(), axisA=V3.j(), axisB=V3.j()):
+        """
+        Create an instance of a single hinge joint.
+
+        :param bodyA:    Reference to one of the bodies in contact.
+        :param bodyB:    Reference to the other body that is in contact.
+        :param armA:     The location of the joint origin in local body frame of A.
+        :param armB:     The location of the joint origin in local body frame of B.
+        :param axisA:    The direction of the joint axis wrt the local body frame orientation of A.
+        :param axisB:    The direction of the joint axis wrt the local body frame orientation of B.
+        """
+        if abs(1.0 - V3.norm(axisA)) > 0.1:
+            raise RuntimeError(
+                "HingeJoint.init() was called with non-unit size joint axis on body A"
+            )
+        if abs(1.0 - V3.norm(axisB)) > 0.1:
+            raise RuntimeError(
+                "HingeJoint.init() was called with non-unit size joint axis on body B"
+            )
+        if abs(V3.norm(armA)) < 0.001:
+            raise RuntimeError(
+                "HingeJoint.init() was called with zero arm on body A"
+            )
+        if abs(V3.norm(armB)) < 0.001:
+            raise RuntimeError(
+                "HingeJoint.init() was called with zero arm on body B"
+            )
+
+        self.bodyA = bodyA
+        self.bodyB = bodyB
+        self.armA = armA
+        self.armB = armB
+        self.axisA = V3.unit(axisA)
+        self.axisB = V3.unit(axisB)
+
+
 class Parameters:
     """
     This class holds all numerical parameters that controls the simulation behavior.
@@ -332,10 +375,11 @@ class Engine:
         """
         Create a default empty engine instance.
         """
-        self.simulator_type = 'rigid_body' # simulation type for the engine
+        self.simulator_type = 'rigid_body'  # The simulation type for the engine
         self.bodies = dict()
         self.forces = dict()
         self.shapes = dict()
+        self.hinges = []    # All hinge joints in the current simulation
         self.contact_points = []
         self.surfaces_interactions = SurfacesInteractionLibrary()
         self.params = Parameters()

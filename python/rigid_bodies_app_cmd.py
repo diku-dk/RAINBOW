@@ -7,11 +7,11 @@ import matplotlib.pyplot as plt
 
 
 def setup_scene(engine):
-    V, T = MESH.create_box(4.0, 4.0, 4.0)
+    V, T = MESH.create_box(10.0, 1.0, 10.0)
     mesh = API.create_mesh(V, T)
     API.create_shape(engine, 'box', mesh)
 
-    V, T = MESH.create_sphere(2.0, 16, 16)
+    V, T = MESH.create_sphere(1.0, 16, 16)
     mesh = API.create_mesh(V, T)
     API.create_shape(engine, 'sphere', mesh)
 
@@ -19,7 +19,7 @@ def setup_scene(engine):
     API.connect_shape(engine, 'A', 'box')
     API.set_mass_properties(engine, 'A', 1.0)
     API.set_orientation(engine, 'A', Q.identity(), use_model_frame=True)
-    API.set_position(engine, 'A', V3.make(3.0, 0.0, 0.0), use_model_frame=True)
+    API.set_position(engine, 'A', V3.make(0.0, 0.0, 0.0), use_model_frame=True)
     API.set_velocity(engine, 'A', V3.make(0.0, 0.0, 0.0))
     API.set_spin(engine, 'A', V3.make(0.0, 0.0, 0.0))
     API.set_body_type(engine, 'A', 'fixed')
@@ -28,14 +28,22 @@ def setup_scene(engine):
     API.connect_shape(engine, 'B', 'sphere')
     API.set_mass_properties(engine, 'B', 1.0)
     API.set_orientation(engine, 'B', Q.identity(), use_model_frame=True)
-    API.set_position(engine, 'B', V3.make(-1.25, 0.0, 0.0), use_model_frame=True)
-    API.set_velocity(engine, 'B', V3.make(10.0, 0.0, 0.0))
-    API.set_spin(engine, 'B', V3.make(0.0, 0.0, 20.0))
+    API.set_position(engine, 'B', V3.make(0.0, 2.0, 0.0), use_model_frame=True)
+    API.set_velocity(engine, 'B', V3.make(0.0, 0.0, 0.0))
+    API.set_spin(engine, 'B', V3.make(0.0, 0.0, 0.0))
+
+    API.create_gravity_force(engine,"earthish", 10.0, V3.j() )
+    API.create_damping_force(engine, "windish", 0.001, 0.001)
+
+    API.connect_force(engine, "A", "earthish")
+    API.connect_force(engine, "B", "earthish")
+    API.connect_force(engine, "A", "windish")
+    API.connect_force(engine, "B", "windish")
 
 
 def simulate(engine):
     dt = engine.params.time_step
-    T = 1.0  # total time
+    T = 0.5  # total time
     fps = 1.0 / dt
     steps = int(np.round(T * fps))
     for i in range(steps):

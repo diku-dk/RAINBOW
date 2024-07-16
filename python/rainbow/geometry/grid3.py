@@ -300,49 +300,6 @@ def is_inside(grid, p, boundary=0.5):
     return True
 
 
-def write_matlab_file(filename, grid):
-    """
-    This function writes the grid data into a binary mMtlab mat file. This is convenient for getting data into
-    Matlab and doing post-processing there.
-
-    :param filename:  The path and filename of the file to make.
-    :param grid: The grid instance that should be written to the given file
-    """
-    data = {
-        "I": grid.I,
-        "J": grid.J,
-        "K": grid.K,
-        "min_coord": grid.min_coord,
-        "max_coord": grid.max_coord,
-        "spacing": grid.spacing,
-        "values": grid.values,
-    }
-    from scipy.io import savemat
-
-    savemat(file_name=filename, mdict=data, appendmat=False)
-
-
-def read_matlab_file(filename):
-    """
-    This function reads grid data from a boary Matlab mat file.
-
-    :param filename:  The filename to read data from.
-    :return: A new Grid instance with the data that was read.
-    """
-    from scipy.io import loadmat
-
-    data = {}
-    loadmat(file_name=filename, mdict=data, appendmat=False)
-    I = int(data["I"].item())
-    J = int(data["J"].item())
-    K = int(data["K"].item())
-    min_coord = np.array(data["min_coord"], dtype=np.float64).ravel()
-    max_coord = np.array(data["max_coord"], dtype=np.float64).ravel()
-    grid = Grid(min_coord=min_coord, max_coord=max_coord, I=I, J=J, K=K)
-    grid.values = np.array(data["values"], dtype=np.float64).ravel()
-    return grid
-
-
 def get_nodes_array(grid):
     """
     This function creates a flat array with the 3D spatial coordinates of all the nodes in the mesh.
@@ -380,36 +337,3 @@ def create_signed_distance(V, F, I, J, K, boundary=0.5):
     nodes = get_nodes_array(grid)
     grid.values, _, _ = igl.signed_distance(nodes, V, F)
     return grid
-
-
-def show_layer(grid, k):
-    import matplotlib.pyplot as plt
-
-    layer = grid.I * grid.J
-    img = grid.values[k * layer : (k + 1) * layer].reshape((grid.I, grid.J))
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.set_title("Values")
-    plt.imshow(img)
-    ax.set_aspect("equal")
-    # cax = fig.add_axes([0.12, 0.1, 0.78, 0.8])
-    # cax.get_xaxis().set_visible(False)
-    # cax.get_yaxis().set_visible(False)
-    # cax.patch.set_alpha(0)
-    # cax.set_frame_on(False)
-    plt.colorbar(orientation="vertical")
-    plt.show()
-
-
-def save_layer(grid, k, filename):
-    import matplotlib.pyplot as plt
-
-    layer = grid.I * grid.J
-    img = grid.values[k * layer : (k + 1) * layer].reshape((grid.I, grid.J))
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.set_title("Values")
-    plt.imshow(img)
-    ax.set_aspect("equal")
-    plt.colorbar(orientation="vertical")
-    plt.savefig(filename, format="png", bbox_inches="tight")
