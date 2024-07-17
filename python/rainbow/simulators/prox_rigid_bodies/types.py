@@ -1,3 +1,4 @@
+import numpy as np
 import rainbow.math.vector3 as V3
 import rainbow.math.quaternion as Q
 
@@ -252,6 +253,20 @@ class ContactPoint:
         self.g = gap
 
 
+class JointSocket:
+    """
+    A joint socket class.
+
+    A socket is a connection point for creating joints. Two sockets are connected to
+    make a joint. Their purpose is merely to create a conveent way of defining
+    joint frames.
+    """
+
+    def __init__(self):
+        self.body = None          # Reference to the body that the socket belongs to.
+        self.p = V3.zero()        # Position of socket in body frame coordinates
+        self.q = Q.identity()     # Orientation of socket in body frame coordinates
+
 class HingeJoint:
     """
     A hinge joint class.
@@ -259,7 +274,7 @@ class HingeJoint:
     A hinge joint is a revolute joint between two rigid bodies.
     """
 
-    def __init__(self, bodyA, bodyB, armA=V3.zero(), armB=V3.zero(), axisA=V3.j(), axisB=V3.j()):
+    def __init__(self, bodyA, bodyB, socketA, socketB):
         """
         Create an instance of a single hinge joint.
 
@@ -270,29 +285,15 @@ class HingeJoint:
         :param axisA:    The direction of the joint axis wrt the local body frame orientation of A.
         :param axisB:    The direction of the joint axis wrt the local body frame orientation of B.
         """
-        if abs(1.0 - V3.norm(axisA)) > 0.1:
-            raise RuntimeError(
-                "HingeJoint.init() was called with non-unit size joint axis on body A"
-            )
-        if abs(1.0 - V3.norm(axisB)) > 0.1:
-            raise RuntimeError(
-                "HingeJoint.init() was called with non-unit size joint axis on body B"
-            )
-        if abs(V3.norm(armA)) < 0.001:
-            raise RuntimeError(
-                "HingeJoint.init() was called with zero arm on body A"
-            )
-        if abs(V3.norm(armB)) < 0.001:
-            raise RuntimeError(
-                "HingeJoint.init() was called with zero arm on body B"
-            )
 
         self.bodyA = bodyA
         self.bodyB = bodyB
-        self.armA = armA
-        self.armB = armB
-        self.axisA = V3.unit(axisA)
-        self.axisB = V3.unit(axisB)
+        self.socketA = socketA
+        self.socketB = socketB
+        self.armA = socketA.p
+        self.armB = socketB.p
+        self.axisA = None
+        self.axisB = None
 
 
 class Parameters:
