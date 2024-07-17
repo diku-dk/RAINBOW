@@ -245,7 +245,7 @@ def compute_inverse_mass_matrix(x, engine):
     return W
 
 
-def compute_jacobian_matrix(engine):
+def compute_contact_jacobian_matrix(engine):
     """
     This function creates the contact Jacobian matrix by iterating over all contact points in the
     engine and assembling the Jacobian.
@@ -524,7 +524,7 @@ class SemiImplicitStepper:
         J = None
         WJT = None
         if len(engine.contact_points) > 0:
-            J = compute_jacobian_matrix(engine)
+            J = compute_contact_jacobian_matrix(engine)
             WJT = W.dot(J.T)
             v = J.dot(u)
             if engine.params.use_pre_stabilization:
