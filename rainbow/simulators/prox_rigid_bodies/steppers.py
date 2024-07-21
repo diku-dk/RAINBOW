@@ -1,8 +1,47 @@
 import rainbow.simulators.prox_rigid_bodies.collision_detection as CD
-import rainbow.simulators.proximal_contact.prox_solvers as CONTACT_SOLVERS
+import rainbow.simulators.prox_rigid_bodies.gauss_seidel_solver as CONTACT_SOLVER
 from rainbow.simulators.prox_rigid_bodies.types import *
 from rainbow.util.timer import Timer
 import numpy as np
+
+
+def apply_post_stabilization(J, WJT, x, engine, stats: dict, debug_on) -> dict:
+    """
+    Apply post-stabilization to remove gap errors in the simulation.
+    This function solves for actual displacements that will make all gap-values become non-negative. This is
+    different from pre-stabilization. Pre-stabilization just adds a bit more to the contact problem to make contact
+    forces stronger, so the forces can remove more of the error.
+    In post-stabilization we measure the actual error and solve for instantaneous displacement that will resolve all
+    the errors, taking coupling and non-linearity and everything into account.
+
+    :param J:         The contact Jacobian matrix.
+    :param WJT:       The transpose contact Jacobian matrix pre-multiplied by the inverse mass matrix.
+    :param x:         The generalized position vector.
+    :param engine:    The engine that holds all the rigid bodies.
+    :param stats:     A dictionary that collects performance measurements and statistics when debugging mode is on.
+    :param debug_on:  A boolean flag to toggle debug mode.
+    :return:          A dictionary with collected statistics and performance measurements.
+    """
+    K = len(engine.contact_points)
+    g = np.zeros(4 * K, dtype=np.float64)
+    for k in range(K):
+        cp = engine.contact_points[k]
+        if cp.g < -engine.params.min_gap_value:
+            g[4 * k + 0] = cp.g
+    # If the gap to correct is all zeros, then just return
+    if not g.any():
+        return stats
+    mu = np.zeros(K, dtype=np.float64)
+    sol, stats = CONTACT_SOLVERS.solve(
+        J, WJT, g, mu, CONTACT_SOLVERS.prox_origin, engine, stats, debug_on,
+        prefix="post_stabilization_",
+        scheme=engine.params.proximal_solver
+    )
+    vector_positional_update = WJT.dot(sol)
+    position_update(x, vector_positional_update, 1, engine)
+    return stats
+
+
 
 
 
@@ -57,8 +96,8 @@ class SemiImplicitStepper:
 
             mu = get_friction_coefficient_vector(engine)
             b = np.multiply(1 + e, v) + J.dot(du_ext) + g
-            sol, stats = CONTACT_SOLVERS.solve(
-                J, WJT, b, mu, CONTACT_SOLVERS.prox_sphere, engine, stats, debug_on,
+            sol, stats = CONTACT_SOLVER.solve(
+                J, WJT, b, mu, CONTACT_SOLVER.prox_sphere, engine, stats, debug_on,
                 prefix="",
                 scheme=engine.params.proximal_solver
             )

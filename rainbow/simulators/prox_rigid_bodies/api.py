@@ -3,7 +3,8 @@ import rainbow.geometry.surface_mesh as MESH
 import rainbow.math.functions as FUNC
 import rainbow.geometry.grid3 as GRID
 import rainbow.geometry.kdop_bvh as BVH
-import rainbow.simulators.prox_rigid_bodies.solver as SOLVER
+import rainbow.math.coordsys as FRAME
+import rainbow.simulators.prox_rigid_bodies.steppers as STEPPERS
 from rainbow.simulators.prox_rigid_bodies.types import *
 import numpy as np
 
@@ -47,10 +48,65 @@ def create_rigid_body(engine, body_name: str) -> None:
     :return:           Nothing.
     """
     if body_name in engine.bodies:
-        raise RuntimeError("connect() rigid body already exist with that name")
+        raise RuntimeError("create_rigid_body() rigid body already exist with that name")
     body = RigidBody(body_name)
     body.idx = len(engine.bodies)
     engine.bodies[body_name] = body
+
+
+def create_hinge(engine, hinge_name: str) -> None:
+    """
+    Create hinge joint in engine.
+
+    :param engine:     The engine to contain the hinge.
+    :param body_name:  The unique name of the hinge.
+    :return:           Nothing.
+    """
+    if hinge_name in engine.hinges:
+        raise RuntimeError("create_hinge() hinge already exist with that name")
+    hinge = Hinge(hinge_name)
+    hinge.idx = len(engine.hinges)
+    engine.hinges[hinge_name] = hinge
+
+
+def set_hinge_sockets(engine, hinge_name: str,
+                      parent_name: str,
+                      r_parent: V3, q_parent: Q,
+                      child_name: str,
+                      r_child: V3, q_child: Q ) -> None:
+    if hinge_name in engine.hinges:
+        hinge = engine.hinges[hinge_name]
+    else:
+        raise RuntimeError("set_hinge_sockets() no such rigid body exist with that name")
+    if parent_name in engine.bodies:
+        parent = engine.bodies[parent_name]
+    else:
+        raise RuntimeError("set_hinge_sockets() no such rigid body exist with that name")
+    if child_name in engine.bodies:
+        child = engine.bodies[child_name]
+    else:
+        raise RuntimeError("set_hinge_sockets() no such rigid body exist with that name")
+
+    socket_parent = FRAME.make(r_parent, q_parent)
+    socket_child = FRAME.make(r_child, q_child)
+
+    # Currently we assume that the socket joint frames live in the body frame coordinate systems
+    # of the rigid bodies they belong to.
+    #
+    # A socket is a coordinate mapping from joint frame space to body-space of the link.
+    #
+    # When rigging a simulation it may be that the rigger does not know the body
+    # frames. Instead what is know is the model frames of the rigid bodies.
+    #r_parent_bf2mf = np.copy(parent.shape.r)
+    #q_parent_bf2mf = np.copy(parent.shape.q)
+    #
+    #
+    # Hence, we know (bf->mf) we are given (jf->mf) and we need to compute  (jf->bf)
+    #
+    # Xjb = Xjm Xmb
+    #
+    hinge.set_parent_socket(parent, socket_parent)
+    hinge.set_parent_socket(child, socket_child)
 
 
 def create_mesh(V, T) -> MESH.Mesh:
@@ -474,29 +530,6 @@ def create_surfaces_interaction(engine, A: str, B: str, epsilon: float, mu) -> N
     behaviour.epsilon = epsilon
     behaviour.mu = mu
     engine.surfaces_interactions.storage[key] = behaviour
-
-
-def create_hinge_joint(engine: Engine, body_name_A:str, body_name_B:str, armA, armB, axisA, axisB) -> None:
-    """
-    Create a hinge joint between two rigid bodies.
-
-    :param engine:       The engine that stores information about the surface interaction.
-    :param body_name_A:  The unique name of body A.
-    :param body_name_B:  The unique name of body B.
-    :param armA:         The location of the joint origin in local body frame of A.
-    :param armB:         The location of the joint origin in local body frame of B.
-    :param axisA:        The direction of the joint axis wrt the local body frame orientation of A.
-    :param axisB:        The direction of the joint axis wrt the local body frame orientation of B.
-    :return:             Nothing.
-    """
-    if body_name_A not in engine.bodies:
-        raise RuntimeError("create_hinge_joint() no such rigid body exist with name " + body_name_A)
-    if body_name_B not in engine.bodies:
-        raise RuntimeError("create_hinge_joint() no such rigid body exist with name " + body_name_B)
-    bodyA = engine.bodies[body_name_A]
-    bodyB = engine.bodies[body_name_B]
-    hinge = HingeJoint(bodyA, bodyB, armA, armB, axisA)
-    engine.hinges.append(hinge)
 
 
 def simulate(engine: Engine, T: float, debug_on: bool = False) -> None:

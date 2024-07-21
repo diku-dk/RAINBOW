@@ -1,6 +1,7 @@
 import numpy as np
 import rainbow.math.vector3 as V3
 import rainbow.math.quaternion as Q
+from rainbow.math.coordsys import CoordSys as JointFrame
 
 
 class SurfacesInteraction:
@@ -253,49 +254,55 @@ class ContactPoint:
         self.g = gap
 
 
-class JointFrame:
-    """
-    A joint frame class.
-
-    Two frames are connected to make a joint. Teh general idea is that two rigid
-    bodies each have a joint frame and when joint frames are on-top of each other
-    the joints are in their initial "pose".
-    """
-
-    def __init__(self):
-        self.p = V3.zero()        # Position of socket in body frame coordinates
-        self.q = Q.identity()     # Orientation of socket in body frame coordinates
-
-
-class Joint:
-
-    def __index__(self, bodyA: RigidBody, bodyB: RigidBody, socketA: JointFrame, socketB: JointFrame):
-        self.bodyA = bodyA
-        self.bodyB = bodyB
-        self.socketA = socketA
-        self.socketB = socketB
-
-
-class HingeJoint:
+class Hinge:
     """
     A hinge joint class.
 
     A hinge joint is a revolute joint between two rigid bodies.
     """
 
-    def __index__(self, bodyA: RigidBody, bodyB: RigidBody, socketA: JointFrame, socketB: JointFrame):
+    def __index__(self, name: str)
         """
         Create an instance of a single hinge joint.
 
-        :param bodyA:    Reference to one of the bodies in contact.
-        :param bodyB:    Reference to the other body that is in contact.
+        :param name:    The name of the new hinge joint.
         """
-        super().__init__(bodyA, bodyB, socketA, socketB)
+        self.name = name
+        self.idx = None  # Unique index of hinge joint, used to access hinge information stored in arrays.
+        self.parent = None          # Reference to parent link of the hinge.
+        self.child =  None         # Reference to the child link of the hinge
+        self.socket_p =  None       # Joint frame on body A wrt body A's local body frame
+        self.socket_c =  None       # Joint frame on body B wrt body B's local body frame
+        self.arm_p = None
+        self.arm_c = None
+        self.axis_p = None    # Hinge axis wrt local coordinate frame of the parent link.
+        self.axis_c = None    # Hinge axis wrt local coordinate frame of child link.
 
-        self.armA = socketA.p
-        self.armB = socketB.p
-        self.axisA = Q.rotate(socketA.q, V3.k())
-        self.axisB = Q.rotate(socketB.q, V3.k())
+    def set_parent_socket(self, body: RigidBody, socket: JointFrame) -> None:
+        """
+        Set the parent link information of the joint.
+
+        :param body:        A reference to the rigid body that will be the parent link of the joint.
+        :param socket:      A reference to the joint frame that will define the joint socket on the parent link.
+        :return:            None.
+        """
+        self.parent = body
+        self.socket_p = socket
+        self.arm_p = socket.r.copy()
+        self.axis_p = Q.rotate(socket.q, V3.k())
+
+    def set_child_socket(self, body: RigidBody, socket: JointFrame) -> None:
+        """
+        Set the child link information of the joint.
+
+        :param body:        A reference to the rigid body that will be the child link of the joint.
+        :param socket:      A reference to the joint frame that will define the joint socket on the child link.
+        :return:            None.
+        """
+        self.child = body
+        self.socket_c = socket
+        self.arm_c = socket.r.copy()
+        self.axis_c = Q.rotate(socket.q, V3.k())
 
 
 class Parameters:
@@ -382,7 +389,7 @@ class Engine:
         self.bodies = dict()
         self.forces = dict()
         self.shapes = dict()
-        self.hinges = []    # All hinge joints in the current simulation
+        self.hinges = dict()    # All hinge joints in the current simulation
         self.contact_points = []
         self.surfaces_interactions = SurfacesInteractionLibrary()
         self.params = Parameters()

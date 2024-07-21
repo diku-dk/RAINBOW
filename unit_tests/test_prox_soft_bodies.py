@@ -8,7 +8,7 @@ import rainbow.simulators.prox_soft_bodies.api as API
 import rainbow.simulators.prox_soft_bodies.solver as SOLVER
 import rainbow.simulators.prox_soft_bodies.mechanics as MECH
 import rainbow.simulators.prox_soft_bodies.collision_detection as CD
-import rainbow.simulators.prox_rigid_bodies.gauss_seidel as GS
+import rainbow.simulators.prox_rigid_bodies.gauss_seidel_solver as GS
 import rainbow.geometry.volume_mesh as VM
 import rainbow.math.vector3 as V3
 import rainbow.math.matrix3 as M3
