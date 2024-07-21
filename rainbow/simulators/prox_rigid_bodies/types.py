@@ -266,6 +266,16 @@ class JointFrame:
         self.p = V3.zero()        # Position of socket in body frame coordinates
         self.q = Q.identity()     # Orientation of socket in body frame coordinates
 
+
+class Joint:
+
+    def __index__(self, bodyA: RigidBody, bodyB: RigidBody, socketA: JointFrame, socketB: JointFrame):
+        self.bodyA = bodyA
+        self.bodyB = bodyB
+        self.socketA = socketA
+        self.socketB = socketB
+
+
 class HingeJoint:
     """
     A hinge joint class.
@@ -273,25 +283,19 @@ class HingeJoint:
     A hinge joint is a revolute joint between two rigid bodies.
     """
 
-    def __init__(self, bodyA, bodyB, socketA, socketB):
+    def __index__(self, bodyA: RigidBody, bodyB: RigidBody, socketA: JointFrame, socketB: JointFrame):
         """
         Create an instance of a single hinge joint.
 
         :param bodyA:    Reference to one of the bodies in contact.
         :param bodyB:    Reference to the other body that is in contact.
-        :param armA:     The location of the joint origin in local body frame of A.
-        :param armB:     The location of the joint origin in local body frame of B.
-        :param axisA:    The direction of the joint axis wrt the local body frame orientation of A.
-        :param axisB:    The direction of the joint axis wrt the local body frame orientation of B.
         """
-        self.bodyA = bodyA
-        self.bodyB = bodyB
-        self.socketA = socketA
-        self.socketB = socketB
+        super().__init__(bodyA, bodyB, socketA, socketB)
+
         self.armA = socketA.p
         self.armB = socketB.p
-        self.axisA = None
-        self.axisB = None
+        self.axisA = Q.rotate(socketA.q, V3.k())
+        self.axisB = Q.rotate(socketB.q, V3.k())
 
 
 class Parameters:
