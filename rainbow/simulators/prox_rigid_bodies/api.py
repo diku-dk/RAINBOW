@@ -4,6 +4,7 @@ import rainbow.math.functions as FUNC
 import rainbow.geometry.grid3 as GRID
 import rainbow.geometry.kdop_bvh as BVH
 import rainbow.math.coordsys as FRAME
+import rainbow.simulators.prox_rigid_bodies.functions as FUNC
 import rainbow.simulators.prox_rigid_bodies.steppers as STEPPERS
 from rainbow.simulators.prox_rigid_bodies.types import *
 import numpy as np
@@ -35,7 +36,7 @@ def create_engine() -> Engine:
         # This is our default time stepper. In principle one could override this with other types of steppers. The
         # stepper is not created as part of the Engine type because we want the "types" module to be independent of
         # algorithmic choices.
-        engine.stepper = SOLVER.SemiImplicitStepper(engine)
+        engine.stepper = STEPPERS.SemiImplicitStepper(engine)
     return engine
 
 
@@ -152,7 +153,7 @@ def create_shape(engine, shape_name: str, mesh) -> None:
         )
     shape = Shape(shape_name)
     shape.mesh = mesh
-    SOLVER.transform_shape_into_body_frame(
+    FUNC.Bodies.transform_shape_into_body_frame(
         shape
     )  # Note this computes mass and inertia of shape
     max_length = (shape.mesh.V.max(axis=0) - shape.mesh.V.min(axis=0)).max()

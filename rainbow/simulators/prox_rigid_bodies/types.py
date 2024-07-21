@@ -261,7 +261,7 @@ class Hinge:
     A hinge joint is a revolute joint between two rigid bodies.
     """
 
-    def __index__(self, name: str)
+    def __index__(self, name: str):
         """
         Create an instance of a single hinge joint.
 
