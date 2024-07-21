@@ -253,17 +253,16 @@ class ContactPoint:
         self.g = gap
 
 
-class JointSocket:
+class JointFrame:
     """
-    A joint socket class.
+    A joint frame class.
 
-    A socket is a connection point for creating joints. Two sockets are connected to
-    make a joint. Their purpose is merely to create a conveent way of defining
-    joint frames.
+    Two frames are connected to make a joint. Teh general idea is that two rigid
+    bodies each have a joint frame and when joint frames are on-top of each other
+    the joints are in their initial "pose".
     """
 
     def __init__(self):
-        self.body = None          # Reference to the body that the socket belongs to.
         self.p = V3.zero()        # Position of socket in body frame coordinates
         self.q = Q.identity()     # Orientation of socket in body frame coordinates
 
@@ -285,7 +284,6 @@ class HingeJoint:
         :param axisA:    The direction of the joint axis wrt the local body frame orientation of A.
         :param axisB:    The direction of the joint axis wrt the local body frame orientation of B.
         """
-
         self.bodyA = bodyA
         self.bodyB = bodyB
         self.socketA = socketA
