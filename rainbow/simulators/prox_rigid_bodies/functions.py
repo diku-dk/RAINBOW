@@ -307,6 +307,8 @@ class Contacts:
         cols = N * 6
         rows = K * 4
 
+        # Each contact has 4 rows and two rigid bodies each mapping to 6 columns. Hence, we
+        # have 4*2*6 =48 nonzero values per contact point.
         data = np.zeros(K * 48, dtype=np.float64)
         row = np.zeros(K * 48, dtype=np.float64)
         col = np.zeros(K * 48, dtype=np.float64)
@@ -332,6 +334,7 @@ class Contacts:
             # Now we have all the values we need. Next step is to fill the values into the global Jacobian
             # matrix in the right "entries". The for loops below is doing all the index bookkeeping for making
             # this mapping.
+            #
             idx_A = cp.bodyA.idx
             idx_B = cp.bodyB.idx
             for i in range(4):
@@ -534,3 +537,31 @@ class Hinges:
         J = sparse.csr_matrix((data, (row, col)), shape=(rows, cols))
         return J
 
+    @staticmethod
+    def get_pre_stabilization_vector(dt, v, engine):
+        """
+        Compute and return the pre-stabilization vector.
+
+        Pre-stabilization works like a small spring that is created at each contact point. The spring coefficient are
+        carefully chosen to remove a specified fraction of drift error. That is if the gap-value is different from
+        zero, we create springs in normal direction to remove a specified fraction of the non-zero gap-value.
+
+        The "spring" view of stabilization is a pure mental picture, the springs do not really exists as objects, rather
+        we just model this as some "excess" displacement/velocity that the contact forces must bring to zero as well
+        as dealing with the non-penetration constraints.
+
+        :param dt:
+        :param v:
+        :param engine:
+        :return:
+        """
+        K = len(engine.contact_points)
+        g = np.zeros(4 * K, dtype=np.float64)
+        rate = engine.params.gap_reduction / dt
+        upper = -engine.params.max_gap_value / dt
+        lower = -engine.params.min_gap_value
+        for k in range(K):
+            cp = engine.contact_points[k]
+            if cp.g < lower and v[4 * k] <= 0.0:
+                g[4 * k + 0] = max(upper, rate * cp.g)
+        return g
