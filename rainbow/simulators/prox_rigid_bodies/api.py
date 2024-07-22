@@ -1,10 +1,10 @@
 from typing import List, Dict
 import rainbow.geometry.surface_mesh as MESH
+import rainbow.simulators.prox_rigid_bodies.mass as MASS
 import rainbow.math.functions as FUNC
 import rainbow.geometry.grid3 as GRID
 import rainbow.geometry.kdop_bvh as BVH
 import rainbow.math.coordsys as FRAME
-import rainbow.simulators.prox_rigid_bodies.functions as FUNC
 import rainbow.simulators.prox_rigid_bodies.steppers as STEPPERS
 from rainbow.simulators.prox_rigid_bodies.types import *
 import numpy as np
@@ -153,9 +153,27 @@ def create_shape(engine, shape_name: str, mesh) -> None:
         )
     shape = Shape(shape_name)
     shape.mesh = mesh
-    FUNC.Bodies.transform_shape_into_body_frame(
-        shape
-    )  # Note this computes mass and inertia of shape
+
+    # Next we compute the mass properties of the shape assuming unit-mass-density. We assign the body frame mass
+    # properties to the shape instance and adjust the surface mesh of the shape to be given wrt the computed body
+    # frame.
+    prop = MASS.compute_mass_properties(shape.mesh.V, shape.mesh.T, 1.0)
+    #
+    # The translation and rotation used to transform the mesh into the body frame is kept with
+    # the shape. The reason for this is to be able to get back the "modelling" frame that was
+    # used when defining the shape.
+    #
+    # This is needed for making it easy for end-users to set up and rig their simulations. However, internally
+    # inside the simulator the modeling frame is never seen, here only the body frame information is used.
+    #
+    (shape.r, shape.q, shape.mass, shape.inertia) = MASS.xform_model_2_body_space(prop)
+    #
+    # shape.r and shape.q gives the rigid body transform from body to model space
+    # We need to do the inverse transform here
+    #
+    MESH.translate(shape.mesh, -shape.r)
+    MESH.rotate(shape.mesh, Q.conjugate(shape.q))
+
     max_length = (shape.mesh.V.max(axis=0) - shape.mesh.V.min(axis=0)).max()
     boundary = max(max_length * 0.1, engine.params.envelope * 2)
     shape.grid = GRID.create_signed_distance(

@@ -1,6 +1,7 @@
 import rainbow.simulators.prox_rigid_bodies.collision_detection as CD
-import rainbow.simulators.prox_rigid_bodies.gauss_seidel_solver as CONTACT_SOLVER
-import rainbow.simulators.prox_rigid_bodies.functions as FUNC
+import rainbow.simulators.prox_rigid_bodies.gauss_seidel_solver as SOLVER
+import rainbow.simulators.prox_rigid_bodies.state_storage as STORAGE
+import rainbow.simulators.prox_rigid_bodies.problems as PROBLEMS
 from rainbow.simulators.prox_rigid_bodies.types import *
 from rainbow.util.timer import Timer
 import numpy as np
@@ -23,23 +24,24 @@ def apply_post_stabilization(J, WJT, x, engine, stats: dict, debug_on) -> dict:
     :param debug_on:  A boolean flag to toggle debug mode.
     :return:          A dictionary with collected statistics and performance measurements.
     """
-    K = len(engine.contact_points)
-    g = np.zeros(4 * K, dtype=np.float64)
-    for k in range(K):
-        cp = engine.contact_points[k]
-        if cp.g < -engine.params.min_gap_value:
-            g[4 * k + 0] = cp.g
-    # If the gap to correct is all zeros, then just return
-    if not g.any():
-        return stats
-    mu = np.zeros(K, dtype=np.float64)
-    sol, stats = CONTACT_SOLVER.solve(
-        J, WJT, g, mu, CONTACT_SOLVER.prox_origin, engine, stats, debug_on,
-        prefix="post_stabilization_"
-    )
-    vector_positional_update = WJT.dot(sol)
-    FUNC.Bodies.position_update(x, vector_positional_update, 1, engine)
-    return stats
+#    K = len(engine.contact_points)
+#    g = np.zeros(4 * K, dtype=np.float64)
+#    for k in range(K):
+#        cp = engine.contact_points[k]
+#        if cp.g < -engine.params.min_gap_value:
+#            g[4 * k + 0] = cp.g
+#    # If the gap to correct is all zeros, then just return
+#    if not g.any():
+#        return stats
+#    mu = np.zeros(K, dtype=np.float64)
+#    sol, stats = CONTACT_SOLVER.solve(
+#        J, WJT, g, mu, CONTACT_SOLVER.prox_origin, engine, stats, debug_on,
+#        prefix="post_stabilization_"
+#    )
+#    vector_positional_update = WJT.dot(sol)
+#    FUNC.Bodies.position_update(x, vector_positional_update, 1, engine)
+#    return stats
+pass
 
 
 class SemiImplicitStepper:
@@ -66,56 +68,39 @@ class SemiImplicitStepper:
             timer.start()
         stats = {}
 
-        x = FUNC.Bodies.get_position_vector(engine)
-        u =  FUNC.Bodies.get_velocity_vector(engine)
-        f_ext =  FUNC.Bodies.compute_total_external_forces(x, u, engine)
-        du_contact = np.zeros(u.shape, dtype=np.float64)
-        W =  FUNC.Bodies.compute_inverse_mass_matrix(x, engine)
-        du_ext = W.dot(dt * f_ext)
+        state = STORAGE.StateStorage()
+        state.initialize(engine)
 
         stats = CD.run_collision_detection(engine, stats, debug_on)
 
-        J = None
-        WJT = None
+        problems = []
         if len(engine.contact_points) > 0:
-            J =  FUNC.Contacts.compute_jacobian_matrix(engine)
-            WJT = W.dot(J.T)
-            v = J.dot(u)
-            if engine.params.use_pre_stabilization:
-                g =  FUNC.Contacts.get_pre_stabilization_vector(dt, v, engine)
-            else:
-                g = np.zeros(v.shape, dtype=np.float64)
+            problems.append(PROBLEMS.Contacts())
+        if len(engine.hinges) > 0:
+            problems.append(PROBLEMS.Hinges())
 
-            if engine.params.use_bounce:
-                e =  FUNC.Contacts.get_restitution_vector(engine)
-            else:
-                e = np.zeros(v.shape, dtype=np.float64)
+        for prb in problems:
+            prb.initialize(dt, state, engine)
+        SOLVER.solve(engine, problems, stats, debug_on, prefix="")
+        delta_u = dt * state.delta_u_ext
+        for prb in problems:
+            delta_u += prb.finalize()
 
-            mu =  FUNC.Contacts.get_friction_coefficient_vector(engine)
-            b = np.multiply(1 + e, v) + J.dot(du_ext) + g
-            sol, stats = CONTACT_SOLVER.solve(
-                J, WJT, b, mu, CONTACT_SOLVER.prox_sphere, engine, stats, debug_on,
-                prefix="",
-            )
-            du_contact = WJT.dot(sol)
+        state.velocity_update(delta_u)
+        state.position_update(dt, engine)
+        state.finalize(engine)
 
-        du_total = du_ext + du_contact
-        u += du_total
-        FUNC.Bodies.position_update(x, u, dt, engine)
-        FUNC.Bodies.set_position_vector(x, engine)
-        FUNC.Bodies.set_velocity_vector(u, engine)
-
-        if engine.params.use_post_stabilization:
-            if len(engine.contact_points) > 0:
-                stats = apply_post_stabilization(J, WJT, x, engine, stats, debug_on)
+        #if engine.params.use_post_stabilization:
+        #    if len(engine.contact_points) > 0:
+        #        stats = apply_post_stabilization(J, WJT, x, engine, stats, debug_on)
 
         if debug_on:
             timer.end()
             stats["stepper_time"] = timer.elapsed
             stats["dt"] = dt
             stats["contact_points"] = len(engine.contact_points)
-            kinetic_energy, potential_energy = FUNC.Bodies.get_total_energy(engine)
+            kinetic_energy, potential_energy = state.compute_total_energy(engine)
             stats["kinetic_energy"] = kinetic_energy
             stats["potential_energy"] = potential_energy
-            stats["max_penetration"] = FUNC.Contacts.get_largest_gap_error(engine)
+            #stats["max_penetration"] = FUNC.ContactsProblem.get_largest_gap_error(engine)
             self.log.append(stats)
