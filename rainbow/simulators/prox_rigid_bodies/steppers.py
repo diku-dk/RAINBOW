@@ -7,7 +7,7 @@ from rainbow.util.timer import Timer
 import numpy as np
 
 
-def apply_post_stabilization(J, WJT, x, engine, stats: dict, debug_on) -> dict:
+def apply_post_stabilization(J, WJT, x, engine, profile_data: dict, profiling_on) -> dict:
     """
     Apply post-stabilization to remove gap errors in the simulation.
     This function solves for actual displacements that will make all gap-values become non-negative. This is
@@ -35,7 +35,7 @@ def apply_post_stabilization(J, WJT, x, engine, stats: dict, debug_on) -> dict:
 #        return stats
 #    mu = np.zeros(K, dtype=np.float64)
 #    sol, stats = CONTACT_SOLVER.solve(
-#        J, WJT, g, mu, CONTACT_SOLVER.prox_origin, engine, stats, debug_on,
+#        J, WJT, g, mu, CONTACT_SOLVER.prox_origin, engine, profile_data, profiling_on,
 #        prefix="post_stabilization_"
 #    )
 #    vector_positional_update = WJT.dot(sol)
@@ -52,7 +52,7 @@ class SemiImplicitStepper:
     def __init__(self, engine: Engine) -> None:
         self.log = []
 
-    def step(self, dt: float, engine: Engine, debug_on: bool) -> None:
+    def step(self, dt: float, engine: Engine, profiling_on: bool) -> None:
         """
         This is the main simulation method that is responsible for stepping time
         forward to the next time-step.
@@ -63,15 +63,15 @@ class SemiImplicitStepper:
         :return:          None
         """
         timer = None
-        if debug_on:
-            timer = Timer("Stepper")
+        if profiling_on:
+            timer = Timer("SemiImplicitStepper")
             timer.start()
-        stats = {}
+        profile_data = {}
 
         state = STORAGE.StateStorage()
         state.initialize(engine)
 
-        stats = CD.run_collision_detection(engine, stats, debug_on)
+        CD.run_collision_detection(engine, profile_data, profiling_on)
 
         problems = []
         if len(engine.contact_points) > 0:
@@ -81,7 +81,9 @@ class SemiImplicitStepper:
 
         for prb in problems:
             prb.initialize(dt, state, engine)
-        SOLVER.solve(engine, problems, stats, debug_on, prefix="")
+
+        SOLVER.solve(engine, problems, profile_data, profiling_on, prefix="")
+
         delta_u = dt * state.delta_u_ext
         for prb in problems:
             delta_u += prb.finalize()
@@ -90,17 +92,18 @@ class SemiImplicitStepper:
         state.position_update(dt, engine)
         state.finalize(engine)
 
-        #if engine.params.use_post_stabilization:
-        #    if len(engine.contact_points) > 0:
-        #        stats = apply_post_stabilization(J, WJT, x, engine, stats, debug_on)
+        if engine.params.use_post_stabilization and len(engine.contact_points) > 0:
+            stab_prb = PROBLEMS.PostStabilization()
+            stab_prb.initialize(dt, state, engine)
+            #   apply_post_stabilization(engine, [], profile_data, profiling_on)
 
-        if debug_on:
+        if profiling_on:
             timer.end()
-            stats["stepper_time"] = timer.elapsed
-            stats["dt"] = dt
-            stats["contact_points"] = len(engine.contact_points)
+            profile_data["stepper_time"] = timer.elapsed
+            profile_data["dt"] = dt
+            profile_data["contact_points"] = len(engine.contact_points)
             kinetic_energy, potential_energy = state.compute_total_energy(engine)
-            stats["kinetic_energy"] = kinetic_energy
-            stats["potential_energy"] = potential_energy
-            #stats["max_penetration"] = FUNC.ContactsProblem.get_largest_gap_error(engine)
-            self.log.append(stats)
+            profile_data["kinetic_energy"] = kinetic_energy
+            profile_data["potential_energy"] = potential_energy
+            profile_data["max_penetration"] = PROBLEMS.Contacts.get_largest_penetration(engine)
+            self.log.append(profile_data)

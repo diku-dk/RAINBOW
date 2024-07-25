@@ -1,26 +1,26 @@
-import rainbow.math.quaternion as Q
 import rainbow.geometry.grid3 as GRID
 import rainbow.geometry.kdop_bvh as BVH
 from rainbow.simulators.prox_rigid_bodies.types import *
-from itertools import combinations
 from rainbow.util.timer import Timer
+
+from itertools import combinations
 import numpy as np
 
 
-def _update_bvh(engine, stats, debug_on):
+def _update_bvh(engine: Engine, profile_data: dict, profiling_on: bool):
     """
     This function updates the bounding volume hierarchies of the rigid bodies to reflect the current
     world space geometry of the bodies. This is necessary to make sure that we later in the narrow phase
     collision detection function will be working on the geometry where it is actually correctly placed
     in the world.
 
-    :param engine:      The current engine instance we are working with.
-    :param stats:       A dictionary where to add more profiling and timing measurements.
-    :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
-    :return:            A dictionary with profiling and timing measurements.
+    :param engine:           The current engine instance we are working with.
+    :param profile_data:     A dictionary where to add more profiling and timing measurements.
+    :param profiling_on:     Boolean flag for toggling debug (aka profiling) info on and off.
+    :return:                 None.
     """
     update_bvh_timer = None
-    if debug_on:
+    if profiling_on:
         update_bvh_timer = Timer("update_bvh")
         update_bvh_timer.start()
     for body in engine.bodies.values():
@@ -39,27 +39,24 @@ def _update_bvh(engine, stats, debug_on):
             engine.params.K,
             engine.params.envelope,
         )
-    if debug_on:
+    if profiling_on:
         update_bvh_timer.end()
-        stats["update_bvh"] = update_bvh_timer.elapsed
-    return stats
+        profile_data["update_bvh"] = update_bvh_timer.elapsed
 
 
-def _narrow_phase(engine, stats, debug_on):
+def _narrow_phase(engine: Engine, profile_data: dict, profiling_on: bool) -> dict:
     """
     This function performs narrow phase collision detection between overlapping bodies in the engine. Narrow
     phase collision detection means looking more closely for potential overlapping triangle pairs between
     a pair of bodies.
 
     :param engine:      The current engine instance we are working with.
-    :param stats:       A dictionary where to add more profiling and timing measurements.
-    :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
-    :return:            A pair of dictionaries. The first is a dictionary where keys are overlapping bodies
-                         and values are a list of potential colliding triangle pairs. A dictionary with
-                         profiling and timing measurements.
+    :param profile_data:     A dictionary where to add more profiling and timing measurements.
+    :param profiling_on:     Boolean flag for toggling debug (aka profiling) info on and off.
+    :return:            A dictionary where keys are overlapping bodies and values are a list of potential colliding triangle pairs.
     """
     narrow_phase_timer = None
-    if debug_on:
+    if profiling_on:
         narrow_phase_timer = Timer("narrow_phase", 8)
         narrow_phase_timer.start()
     # We do not currently have any intelligent broad phase collision detection system to identify a pair
@@ -78,31 +75,31 @@ def _narrow_phase(engine, stats, debug_on):
         # process or not. If there are no triangles we do not report anything for the body pairs.
         if len(results) > 0:
             overlaps[(bodyA, bodyB)] = np.array(results, dtype=np.int32)
-    if debug_on:
+    if profiling_on:
         narrow_phase_timer.end()
-        stats["narrow_phase"] = narrow_phase_timer.elapsed
-        stats["number_of_overlaps"] = np.sum(
+        profile_data["narrow_phase"] = narrow_phase_timer.elapsed
+        profile_data["number_of_overlaps"] = np.sum(
             [len(results) for results in overlaps.values()]
         )
-    return overlaps, stats
+    return overlaps
 
 
-def _compute_contacts(engine, stats, bodyA, bodyB, trianglesA, debug_on):
+def _compute_contacts(engine: Engine, bodyA: RigidBody, bodyB: RigidBody, trianglesA, profile_data: dict, profiling_on: bool) -> None:
     """
     This function computes contacts between triangles from body A against the signed distance field of body B.
 
-    :param engine:      The current engine instance we are working with.
-    :param stats:       A dictionary where to add more profiling and timing measurements.
-    :param bodyA:       Reference to body A.
-    :param bodyB:       Reference to body B.
-    :param trianglesA:  Array of triangles from body A that may be colliding with body B.
-    :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
-    :return:            Nothing.
+    :param engine:           The current engine instance we are working with.
+    :param bodyA:            Reference to body A.
+    :param bodyB:            Reference to body B.
+    :param trianglesA:       Array of triangles from body A that may be colliding with body B.
+    :param profile_data:     A dictionary where to add more profiling and timing measurements.
+    :param profiling_on:     Boolean flag for toggling debug (aka profiling) info on and off.
+    :return:                 Nothing.
     """
     model_space_update_timer = None
     contact_optimization_timer = None
     contact_point_generation_timer = None
-    if debug_on:
+    if profiling_on:
         model_space_update_timer = Timer("model_space_update")
         contact_optimization_timer = Timer("contact_optimization")
         contact_point_generation_timer = Timer("contact_point_generation")
@@ -122,11 +119,11 @@ def _compute_contacts(engine, stats, bodyA, bodyB, trianglesA, debug_on):
     #  to save computations.
     V_w = Q.rotate_array(bodyA.q, bodyA.shape.mesh.V) + bodyA.r
     V_b = Q.rotate_array(Q.conjugate(bodyB.q), V_w - bodyB.r)
-    if debug_on:
+    if profiling_on:
         model_space_update_timer.end()
     # Loop over all triangles from body A that are colliding with body B
     for t_a in trianglesA:
-        if debug_on:
+        if profiling_on:
             contact_optimization_timer.start()
         # We perform a Frank-Wolfe optimization algorithm, https://en.wikipedia.org/wiki/Frank%E2%80%93Wolfe_algorithm
         # This was shown to be very efficient in this paper: https://dl.acm.org/doi/10.1145/3384538
@@ -166,7 +163,7 @@ def _compute_contacts(engine, stats, bodyA, bodyB, trianglesA, debug_on):
             # move away from the "minimizer" and we can not find any other corner point with a better descent direction.
             if objectives[vertex] > engine.params.contact_optimization_tolerance:
                 break
-        if debug_on:
+        if profiling_on:
             contact_optimization_timer.end()
             contact_point_generation_timer.start()
         # We have now optimized for the deepest penetrating point on the triangle, and now we can use this
@@ -189,22 +186,22 @@ def _compute_contacts(engine, stats, bodyA, bodyB, trianglesA, debug_on):
                     p_w = Q.rotate(bodyB.q, x_i) + bodyB.r
                     cp = ContactPoint(bodyB, bodyA, p_w, V3.unit(n_w), gap)
                     engine.contact_points.append(cp)
-        if debug_on:
+        if profiling_on:
             contact_point_generation_timer.end()
     # Before we exit we just make sure we collect any stats and timings.
-    if debug_on:
-        if "model_space_update" not in stats:
-            stats["model_space_update"] = 0
-        stats["model_space_update"] += model_space_update_timer.total
-        if "contact_optimization" not in stats:
-            stats["contact_optimization"] = 0
-        stats["contact_optimization"] += contact_optimization_timer.total
-        if "contact_point_generation" not in stats:
-            stats["contact_point_generation"] = 0
-        stats["contact_point_generation"] += contact_point_generation_timer.total
+    if profiling_on:
+        if "model_space_update" not in profile_data:
+            profile_data["model_space_update"] = 0
+        profile_data["model_space_update"] += model_space_update_timer.total
+        if "contact_optimization" not in profile_data:
+            profile_data["contact_optimization"] = 0
+        profile_data["contact_optimization"] += contact_optimization_timer.total
+        if "contact_point_generation" not in profile_data:
+            profile_data["contact_point_generation"] = 0
+        profile_data["contact_point_generation"] += contact_point_generation_timer.total
 
 
-def _contact_determination(overlaps, engine, stats, debug_on):
+def _contact_determination(overlaps, engine: Engine, profile_data: dict, profiling_on: bool) -> None:
     """
     This function performs determination of contact points between all pairs of overlapping bodies. The function
      essentially post-process the overlap-data that was computed by the narrow-phase collision detection function.
@@ -212,12 +209,12 @@ def _contact_determination(overlaps, engine, stats, debug_on):
     :param overlaps:    A dictionary where keys are overlapping bodies and values are a list of potential
                         colliding triangle pairs.
     :param engine:      The current engine instance we are working with.
-    :param stats:       A dictionary where to add more profiling and timing measurements.
-    :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
-    :return:            A dictionary with profiling and timing measurements.
+    :param profile_data:     A dictionary where to add more profiling and timing measurements.
+    :param profiling_on:     Boolean flag for toggling debug (aka profiling) info on and off.
+    :return:                 None
     """
     contact_determination_timer = None
-    if debug_on:
+    if profiling_on:
         contact_determination_timer = Timer("contact_determination", 8)
         contact_determination_timer.start()
     engine.contact_points = []
@@ -232,31 +229,30 @@ def _contact_determination(overlaps, engine, stats, debug_on):
         #  traversal may not need this overhead.
         _compute_contacts(
             engine,
-            stats,
             key[0],  # Body A
             key[1],  # Body B
             np.unique(
                 results[:, 0]
             ),  # 1st column will be all triangles from A that may collide with B
-            debug_on,
+            profile_data,
+            profiling_on,
         )
         _compute_contacts(
             engine,
-            stats,
             key[1],  # Body B
             key[0],  # Body A
             np.unique(
                 results[:, 1]
             ),  # 2nd column will be all triangles from B that may collide with A
-            debug_on,
+            profile_data,
+            profiling_on,
         )
-    if debug_on:
+    if profiling_on:
         contact_determination_timer.end()
-        stats["contact_determination"] = contact_determination_timer.elapsed
-    return stats
+        profile_data["contact_determination"] = contact_determination_timer.elapsed
 
 
-def _contact_reduction(engine, stats, debug_on):
+def _contact_reduction(engine: Engine, profile_data: dict, profiling_on: bool) -> None:
     """
     During contact point computation it may happen that different colliding triangles of one body results
     in the same contact point locations wrt to the other signed distance field of the other body. Imagine a spiky
@@ -267,13 +263,13 @@ def _contact_reduction(engine, stats, debug_on):
     contact point information. One may think of this as a kind of post-filtering process to clean up the
      contact point information.
 
-     :param engine:      The current engine instance we are working with.
-     :param stats:       A dictionary where to add more profiling and timing measurements.
-     :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
-     :return:            A dictionary with profiling and timing measurements.
-     """
+    :param engine:           The current engine instance we are working with.
+    :param profile_data:     A dictionary where to add more profiling and timing measurements.
+    :param profiling_on:     Boolean flag for toggling debug (aka profiling) info on and off.
+    :return:                 None.
+    """
     reduction_timer = None
-    if debug_on:
+    if profiling_on:
         reduction_timer = Timer("contact_point_reduction", 8)
         reduction_timer.start()
     # TODO 2020-09-07 Kristian: This brute force implementation can be implemented better
@@ -288,13 +284,12 @@ def _contact_reduction(engine, stats, debug_on):
         if unique:
             reduced_list.append(cp1)
     engine.contact_points = reduced_list
-    if debug_on:
+    if profiling_on:
         reduction_timer.end()
-        stats["contact_point_reduction"] = reduction_timer.elapsed
-    return stats
+        profile_data["contact_point_reduction"] = reduction_timer.elapsed
 
 
-def run_collision_detection(engine, stats, debug_on):
+def run_collision_detection(engine: Engine, profile_data: dict, profiling_on: bool) -> None:
     """
     This function invokes the whole collision detection pipeline on all the bodies
     currently active in the provided engine instance.
@@ -302,20 +297,21 @@ def run_collision_detection(engine, stats, debug_on):
     It is assumed that state information of all bodies have been correctly updated to reflect the
     instant-of-time position where one wish to perform the collision detection at.
 
-    :param engine:      The current engine instance we are working with.
-    :param stats:       A dictionary where to add more profiling and timing measurements.
-    :param debug_on:    Boolean flag for toggling debug (aka profiling) info on and off.
-    :return:            A dictionary with profiling and timing measurements.
+    :param engine:           The current engine instance we are working with.
+    :param profile_data:     A dictionary where to add more profiling and timing measurements.
+    :param profiling_on:     Boolean flag for toggling debug (aka profiling) info on and off.
+    :return:                 None.
     """
     collision_detection_timer = None
-    if debug_on:
+    if profiling_on:
         collision_detection_timer = Timer("collision_detection")
         collision_detection_timer.start()
-    stats = _update_bvh(engine, stats, debug_on)
-    overlaps, stats = _narrow_phase(engine, stats, debug_on)
-    stats = _contact_determination(overlaps, engine, stats, debug_on)
-    stats = _contact_reduction(engine, stats, debug_on)
-    if debug_on:
+
+    _update_bvh(engine, profile_data, profiling_on)
+    overlaps = _narrow_phase(engine, profile_data, profiling_on)
+    _contact_determination(overlaps, engine, profile_data, profiling_on)
+    _contact_reduction(engine, profile_data, profiling_on)
+
+    if profiling_on:
         collision_detection_timer.end()
-        stats["collision_detection_time"] = collision_detection_timer.elapsed
-    return stats
+        profile_data["collision_detection_time"] = collision_detection_timer.elapsed

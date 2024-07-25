@@ -8,7 +8,8 @@ import rainbow.simulators.prox_rigid_bodies.prox_operators as OP
 
 class Problem(ABC):
 
-    def __init__(self):
+    def __init__(self, name: str):
+        self.name = name       # The name of the type of problem that is solved.
         self.error = None      # The residual vector, basically error = x - sol
         self.sol = None        # Last known good solution
         self.x = None          # Current iterate
@@ -44,7 +45,7 @@ class Problem(ABC):
 class Contacts(Problem):
 
     def __init__(self):
-        super().__init__()
+        super().__init__("contact_problem")
         self.K = 0             # The number of contact points in the contact problem
         self.J = None          # The contact Jacobian.
         self.WJT = None
@@ -103,7 +104,7 @@ class Contacts(Problem):
             # Solve:         x_n = prox_{R^+}( x_n - r (A x_n + b) )
             x_b[0] = np.max([0.0, z_b[0]])
 
-            # Solve:         x_f = prox_C( x_f - r (A x_f + b))
+            # Solve:  x_f = prox_C( x_f - r (A x_f + b))
             x_b[1], x_b[2], x_b[3] = OP.prox_sphere(z_b[1], z_b[2], z_b[3], mu_k, x_b[0])
             # Put updated contact forces back into solution vector
             self.x[block] = x_b
@@ -224,7 +225,7 @@ class Contacts(Problem):
         return g
 
     @staticmethod
-    def get_largest_gap_error(engine) -> float:
+    def get_largest_penetration(engine) -> float:
         """
         This function iterates over all contacts currently in the engine and determines the
         largest gap-value error. That is the most negative gap-value, and returns the absolute
@@ -290,7 +291,7 @@ class Contacts(Problem):
 class Hinges(Problem):
 
     def __init__(self):
-        super().__init__()
+        super().__init__("hinges_problem")
         self.K = 0         # The number of hinge joints.
         self.J = None
         self.WJT = None

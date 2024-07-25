@@ -33,7 +33,6 @@ def create_engine() -> Engine:
     """
     engine = Engine()
     if engine.stepper is None:
-        # This is our default time stepper. In principle one could override this with other types of steppers. The
         # stepper is not created as part of the Engine type because we want the "types" module to be independent of
         # algorithmic choices.
         engine.stepper = STEPPERS.SemiImplicitStepper(engine)
@@ -551,14 +550,14 @@ def create_surfaces_interaction(engine, A: str, B: str, epsilon: float, mu) -> N
     engine.surfaces_interactions.storage[key] = behaviour
 
 
-def simulate(engine: Engine, T: float, debug_on: bool = False) -> None:
+def simulate(engine: Engine, T: float, profiling_on: bool = False) -> None:
     """
     Simulate forward in time.
 
-    :param engine:    The engine holds the world to be simulated.
-    :param T:         The time to simulate forward.
-    :param debug_on:  Boolean flag indicating if debug info should be generated or not.
-    :return:          None
+    :param engine:        The engine holds the world to be simulated.
+    :param T:             The time to simulate forward.
+    :param profiling_on:  Boolean flag indicating if profiling info should be generated or not.
+    :return:              None
     """
     if T <= 0:
         raise ValueError("Time must be positive")
@@ -567,7 +566,7 @@ def simulate(engine: Engine, T: float, debug_on: bool = False) -> None:
     T_left = T
     while T_left:
         dt = min(T_left, engine.params.time_step)
-        engine.stepper.step(dt, engine, debug_on)
+        engine.stepper.step(dt, engine, profiling_on)
         T_left -= dt
 
 

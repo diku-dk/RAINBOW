@@ -1,55 +1,88 @@
 import numpy as np
-
-import rainbow.simulators.prox_rigid_bodies.problems as PROBLEMS
 from rainbow.util.timer import Timer
 
 
-def solve(engine, Problems: list, stats: dict, debug_on: bool, prefix: str) -> None:
+def solve(engine, Problems: list, performance_data: dict, profiling_on: bool, prefix: str) -> None:
+    """
 
-    last_merit = np.Inf
+    :param engine:
+    :param Problems:
+    :param performance_data:
+    :param profiling_on:
+    :param prefix:
+    :return:
+    """
+    timer = None
+    if profiling_on:
+        performance_data[prefix + "residuals"] = (
+                np.ones(engine.params.max_iterations, dtype=np.float64) * np.inf
+        )
+        timer = Timer("Gauss Seidel")
+        timer.start()
 
-    for problem in Problems:
-        problem.init(engine)  # sets up x, sol, error, merit and r
+    # Extract parameter values for controlling the adaptive r-factor strategy; this is for readability of the code.
+    nu_reduce = engine.params.nu_reduce
+    nu_increase = engine.params.nu_increase
+    too_small_merit_change = engine.params.too_small_merit_change
+
+    last_merit_values = [np.Inf for _ in Problems]
+    global_last_merit = np.inf
 
     for iteration in range(engine.params.max_iterations):
-        for problem in Problems:
-            problem.sweep()
+
+        # Keep track of the overall merit across all problems we are solving
+        global_merit = 0
+
+        for index, problem in enumerate(Problems):
+            last_merit = last_merit_values[index]
+
+            problem.sweep()  # This will update the current iterate x
 
             merit = problem.compute_merit_value()
 
-
-
-        merits = np.array([ problem.get_merit() for problem in Problems ])
-        merit = np.max(merits)
-
-        if debug_on:
-            stats[prefix + "lambda"][iteration] = x
-            stats[prefix + "residuals"][iteration] = merit
-        # Test stopping criteria
-        if merit < engine.params.absolute_tolerance:
-            if debug_on:
-                stats[prefix + "iterations"] = iteration
-                stats[prefix + "exitcode"] = 1
-                timer.end()
-                stats[prefix + "solver_time"] = timer.elapsed
-            return x, stats
-        if np.abs(merit - last_merit) < engine.params.relative_tolerance * last_merit:
-            if debug_on:
-                stats[prefix + "iterations"] = iteration
-                stats[prefix + "exitcode"] = 2
-                timer.end()
-                stats[prefix + "solver_time"] = timer.elapsed
-            return x, stats
-
-        # Update r-factors
-        if merit > last_merit:
-            # Divergence detected: reduce R-factor and roll-back solution to last known good iterate!
-            problem.change_r_factors(nu_reduce)
-            problem.rollback_iterate()
-            if debug_on:
-                stats[prefix + "reject"][iteration] = True
-        else:
-            if last_merit - merit < too_small_merit_change:
+            # Update r-factors to ensure we have a convergent scheme
+            if merit > last_merit:
+                # Divergence was detected: we will reduce R-factor
                 problem.change_r_factors(nu_reduce)
-            last_merit = merit
-            problem.accept_iterate()
+                #  Next, we roll back the current iterate to the last known good solution
+                problem.rollback_iterate()
+                # Update the global merit, so we later can test if all problems have converged
+                global_merit = np.maximum(global_merit, last_merit)
+            else:
+                # The Scheme is convergent, so we accept the iterate as the current best solution
+                problem.accept_iterate()
+                # Test if convergence was too slow and increase R-factor if this is the case
+                if last_merit - merit < too_small_merit_change:
+                    problem.change_r_factors(nu_increase)
+                # Update merit value for next iteration
+                last_merit_values[index] = merit
+                # Update the global merit, so we later can test if all problems have converged
+                global_merit = np.maximum(global_merit, merit)
+
+        if profiling_on:
+            performance_data[prefix + "residuals"][iteration] = global_merit
+        # Test for absolute convergence
+        if global_merit < engine.params.absolute_tolerance:
+            if profiling_on:
+                timer.end()
+                performance_data[prefix + "iterations"] = iteration
+                performance_data[prefix + "exitcode"] = 1
+                performance_data[prefix + "solver_time"] = timer.elapsed
+            return
+        # Test for relative convergence
+        if np.abs(global_merit - global_last_merit) < engine.params.relative_tolerance * global_last_merit:
+            if profiling_on:
+                timer.end()
+                performance_data[prefix + "iterations"] = iteration
+                performance_data[prefix + "exitcode"] = 2
+                performance_data[prefix + "solver_time"] = timer.elapsed
+            return
+        # Update the global last merit value, so we are ready for the next iteration
+        global_last_merit = global_merit
+
+    # If this code is reached, then it means the method did not converge within the given number of maximum iterations.
+    if profiling_on:
+        timer.end()
+        performance_data[prefix + "iterations"] = engine.params.max_iterations
+        performance_data[prefix + "exitcode"] = 0
+        performance_data[prefix + "solver_time"] = timer.elapsed

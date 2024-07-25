@@ -389,8 +389,8 @@ class Engine:
         self.bodies = dict()
         self.forces = dict()
         self.shapes = dict()
-        self.hinges = dict()    # All hinge joints in the current simulation
+        self.hinges = dict()         # All hinge joints in the current simulation
         self.contact_points = []
         self.surfaces_interactions = SurfacesInteractionLibrary()
         self.params = Parameters()
-        self.stepper = None  # The time stepper used to simulate the world forward in time.
+        self.stepper = None          # The time stepper used to simulate the world forward in time.
