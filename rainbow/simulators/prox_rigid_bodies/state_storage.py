@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Tuple
+
+import numpy as np
 import scipy.sparse as sparse
 
 import rainbow.math.matrix3 as M3
@@ -41,8 +43,7 @@ class StateStorage:
         self.delta_u_ext = self.W.dot(self.f_ext)
 
     def finalize(self, engine: Engine) -> None:
-        k = 0
-        for body in engine.bodies.values():
+        for (k, body) in enumerate(engine.bodies.values()):
             offset = 6 * k
             body.v = self.u[offset: offset + 3]
             body.w = self.u[offset + 3: offset + 6]
@@ -50,11 +51,9 @@ class StateStorage:
             offset = 7 * k
             body.r = self.x[offset: offset + 3]
             body.q = self.x[offset + 3: offset + 7]
-            k += 1
-
 
     @staticmethod
-    def get_position_vector(self, engine: Engine) -> np.ndarray:
+    def get_position_vector(engine: Engine) -> np.ndarray:
         """
         This function extract the position of center of mass and the orientation
         of the body frames as a quaternion for all rigid bodies in the engine
@@ -64,16 +63,14 @@ class StateStorage:
         :return:        The generalized position vector.
         """
         x = np.zeros(len(engine.bodies) * 7, dtype=np.float64)
-        k = 0
-        for body in engine.bodies.values():
+        for (k, body) in enumerate(engine.bodies.values()):
             offset = 7 * k
             x[offset: offset + 3] = body.r
             x[offset + 3: offset + 7] = body.q
-            k += 1
         return x
 
     @staticmethod
-    def get_velocity_vector(self, engine: Engine) -> np.ndarray:
+    def get_velocity_vector(engine: Engine) -> np.ndarray:
         """
         This function loops over all rigid bodies and extract linear and angular
         velocities and stack these into a generalized velocity vector. Observe that
@@ -86,18 +83,16 @@ class StateStorage:
         :return:       The generalized velocity vector.
         """
         u = np.zeros((len(engine.bodies) * 6,), dtype=np.float64)
-        k = 0
-        for body in engine.bodies.values():
+        for (k, body) in enumerate(engine.bodies.values()):
             offset = 6 * k
             u[offset: offset + 3] = body.v
             u[offset + 3: offset + 6] = body.w
-            k += 1
         return u
 
     def velocity_update(self, delta_u: np.ndarray) -> None:
         self.u += delta_u
 
-    def position_update(self, dt: float, engine: Engine) -> None:
+    def position_update(self, dt: float, engine: Engine, u: np.ndarray=None) -> None:
         """
         This function performs an explicit Euler update of the kinematic relation between
         positions and velocities. The update is slightly more complicated due to using quaternions
@@ -114,28 +109,27 @@ class StateStorage:
 
         This function encapsulates all the ugliness of this time-integration.
 
-        :param x:       The generalized position vector.
-        :param u:       The generalized velocity vector.
+        :param u:       The generalized velocity vector. If set to None, then the internal velocity of state is used.
         :param dt:      The time-step size.
         :param engine:  A reference to the engine holding all the rigid bodies.
         :return:        Nothing.
         """
-        k = 0
-        for body in engine.bodies.values():
+        u = self.u if u is None else u
+        for (k, body) in enumerate(engine.bodies.values()):
             x_offset = 7 * k
             u_offset = 6 * k
 
             r = self.x[x_offset: x_offset + 3]
             q = self.x[x_offset + 3: x_offset + 7]
-            v = self.u[u_offset: u_offset + 3]
-            w = self.u[u_offset + 3: u_offset + 6]
+            v = u[u_offset: u_offset + 3]
+            w = u[u_offset + 3: u_offset + 6]
 
             if not body.is_fixed:
                 r += v * dt
                 q += Q.prod(Q.from_vector3(w), q) * dt * 0.5
+
             self.x[x_offset: x_offset + 3] = r
             self.x[x_offset + 3: x_offset + 7] = Q.unit(q)
-            k += 1
 
     def compute_total_external_forces(self, engine: Engine) -> np.ndarray:
         """
@@ -163,8 +157,7 @@ class StateStorage:
         :return:         The generalized force vector.
         """
         f_ext = np.zeros((len(engine.bodies) * 6,), dtype=np.float64)
-        k = 0
-        for body in engine.bodies.values():
+        for (k, body) in enumerate(engine.bodies.values()):
             x_offset = 7 * k
             u_offset = 6 * k
             F = V3.zero()
@@ -184,7 +177,6 @@ class StateStorage:
             T -= np.cross(w, np.dot(I_wcs, w), axis=0)
             f_ext[u_offset: u_offset + 3] = F
             f_ext[u_offset + 3: u_offset + 6] = T
-            k += 1
         return f_ext
 
     def compute_inverse_mass_matrix(self, engine: Engine) -> sparse.bsr_matrix:
@@ -197,8 +189,7 @@ class StateStorage:
         """
         N = len(engine.bodies)
         blocks = [np.zeros((3, 3), dtype=np.float64) for _ in range(N * 2)]
-        k = 0
-        for body in engine.bodies.values():
+        for (k, body) in enumerate(engine.bodies.values()):
             x_offset = 7 * k  # Position offset into x-array
             if not body.is_fixed:
                 q = self.x[x_offset + 3: x_offset + 7]  # Extract rotation part
@@ -207,7 +198,6 @@ class StateStorage:
                 m = 1.0 / body.mass
                 blocks[2 * k] = M3.diag(m, m, m)
                 blocks[2 * k + 1] = I_wcs
-            k += 1
         # TODO 2022-01-05 Kenny: These sparse matrix formats may bot be the most efficient ones. The inverse mass matrix
         #  is multiplied onto the Jacobian matrix or a force vector. Hence, we just need a sparse format that is
         #  efficient for that purpose. Current implementation just build a block diagonal matrix and then converts
@@ -228,8 +218,7 @@ class StateStorage:
         """
         kinetic = 0.0
         potential = 0.0
-        k = 0
-        for body in engine.bodies.values():
+        for (k, body) in enumerate(engine.bodies.values()):
 
             if body.is_fixed:
                 continue

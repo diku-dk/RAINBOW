@@ -218,8 +218,7 @@ class Contacts(Problem):
         rate = engine.params.gap_reduction / dt
         upper = -engine.params.max_gap_value / dt
         lower = -engine.params.min_gap_value
-        for k in range(K):
-            cp = engine.contact_points[k]
+        for (k, cp) in enumerate(engine.contact_points):
             if cp.g < lower and v[4 * k] <= 0.0:
                 g[4 * k + 0] = max(upper, rate * cp.g)
         return g
@@ -315,7 +314,7 @@ class Hinges(Problem):
         self.sol = np.zeros(self.b.shape, dtype=np.float64 )   # The last best known solution, used for restarting if divergence
         self.error = np.zeros(self.b.shape, dtype=np.float64)  # The residual vector
 
-    def finalize(self)  -> np.ndarray:
+    def finalize(self) -> np.ndarray:
         self.delta_u = self.WJT.dot(self.sol)
         return self.delta_u
 
@@ -470,5 +469,82 @@ class Hinges(Problem):
             g[offset + 4] = b_p.dot(u)
         rate = engine.params.gap_reduction / dt
         g *= rate
+        return g
+
+
+class PostStabilization(Problem):
+
+    def __init__(self, contact_problem: Contacts):
+        super().__init__("post_stabilization_problem")
+        self.K = contact_problem.K             # The number of contact points in the contact problem
+        self.J = contact_problem.J             # The contact Jacobian.
+        self.WJT = contact_problem.WJT
+        self.g = None
+        self.diag = contact_problem.diag.copy()
+        self.delta_r = None
+
+    def initialize(self, dt: float, state: STORAGE.StateStorage, engine: Engine) -> None:
+        self.g = PostStabilization.compute_error_vector(engine)
+        self.r = 1.0 / self.diag                               # Initial r-factor values for prox solver.
+        self.x = np.zeros(self.g.shape, dtype=np.float64)      # The current iterate
+        self.sol = np.zeros(self.g.shape, dtype=np.float64 )   # The last best known convergent solution
+        self.error = np.zeros(self.g.shape, dtype=np.float64)  # The residual vector
+
+    def finalize(self) -> np.ndarray:
+        self.delta_r = self.WJT.dot(self.sol)
+        return self.delta_r
+
+    def sweep(self) -> None:
+        w = self.WJT.dot(self.x)
+        for k in range(self.K):
+            block = range(4 * k, 4 * k + 4)
+            x_b = self.x[block]
+            delta = (
+                x_b.copy()
+            )  # Used to keep the old values and compute the change in values
+            r_b = self.r[block]
+            g_b = self.g[block]
+            # By definition
+            #       z = x - r (J WJ^T x  + g)
+            #         = x - r ( A x  + g)
+            # We use
+            #        w =  WJ^T x
+            # so
+            #       z  = x - r ( J w  + g)
+            z_b = x_b - np.multiply(r_b, (self.J.dot(w)[block] + g_b))
+            # Solve:         x_n = prox_{R^+}( x_n - r (A x_n + b) )
+            x_b[0] = np.max([0.0, z_b[0]])
+            x_b[1], x_b[2], x_b[3] = 0, 0, 0
+            # Put updated contact forces back into solution vector
+            self.x[block] = x_b
+            # Get the change in the x_block
+            np.subtract(x_b, delta, delta)
+            # Updating w so it reflect the change in x, remember w = WJT delta
+            # TODO 2020-08-17 Kristian: WJT is in bsr matrix format, which does not support indexing and we can therefore
+            #  not access the block sub-matrix. Currently we circumvent this by converting it to a csr matrix instead,
+            #  however another solution might be better.
+            w += self.WJT.tocsr()[:, block].dot(delta)
+
+    @staticmethod
+    def compute_error_vector(engine):
+        """
+        Compute and return the pre-stabilization vector.
+
+        Pre-stabilization works like a small spring that is created at each contact point. The spring coefficient are
+        carefully chosen to remove a specified fraction of drift error. That is if the gap-value is different from
+        zero, we create springs in normal direction to remove a specified fraction of the non-zero gap-value.
+
+        The "spring" view of stabilization is a pure mental picture, the springs do not really exists as objects, rather
+        we just model this as some "excess" displacement/velocity that the contact forces must bring to zero as well
+        as dealing with the non-penetration constraints.
+
+        :param engine:
+        :return:
+        """
+        K = len(engine.contact_points)
+        g = np.zeros(4 * K, dtype=np.float64)
+        for (k, cp) in enumerate(engine.contact_points):
+            if cp.g < -engine.params.min_gap_value:
+                g[4 * k + 0] = cp.g
         return g
 

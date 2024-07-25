@@ -34,7 +34,7 @@ def apply_post_stabilization(J, WJT, x, engine, profile_data: dict, profiling_on
 #    if not g.any():
 #        return stats
 #    mu = np.zeros(K, dtype=np.float64)
-#    sol, stats = CONTACT_SOLVER.solve(
+#    CONTACT_SOLVER.solve(
 #        J, WJT, g, mu, CONTACT_SOLVER.prox_origin, engine, profile_data, profiling_on,
 #        prefix="post_stabilization_"
 #    )
@@ -93,9 +93,13 @@ class SemiImplicitStepper:
         state.finalize(engine)
 
         if engine.params.use_post_stabilization and len(engine.contact_points) > 0:
-            stab_prb = PROBLEMS.PostStabilization()
-            stab_prb.initialize(dt, state, engine)
-            #   apply_post_stabilization(engine, [], profile_data, profiling_on)
+            projection = PROBLEMS.PostStabilization()
+            projection.initialize(dt, state, engine)
+
+            if not projection.g.any():
+                SOLVER.solve(engine, [projection], profile_data, profiling_on, prefix="post_stabilization")
+                delta_r = projection.finalize()
+                state.position_update(dt=dt, engine=engine, u=delta_r)
 
         if profiling_on:
             timer.end()
