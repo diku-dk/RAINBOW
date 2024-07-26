@@ -1,4 +1,13 @@
+"""
+This module implements the Gauss-Seidel solver.
+
+The Gauss-Seidel solver is used to solve contact and joint constraints in the rigid body simulator.
+
+One uses the problem classes to pass information about the constraints to the solver.
+"""
+
 import numpy as np
+
 from rainbow.util.timer import Timer
 
 
