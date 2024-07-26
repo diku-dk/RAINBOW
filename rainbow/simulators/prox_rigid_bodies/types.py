@@ -1,4 +1,12 @@
+"""
+This module defines all types used in a rigid body simulation.
+
+The top most type is the Engine type, which is the container of all information used in the simulation of a system of
+rigid bodies.
+"""
+
 import numpy as np
+
 import rainbow.math.vector3 as V3
 import rainbow.math.quaternion as Q
 from rainbow.math.coordsys import CoordSys as JointFrame
@@ -261,7 +269,7 @@ class Hinge:
     A hinge joint is a revolute joint between two rigid bodies.
     """
 
-    def __index__(self, name: str):
+    def __init__(self, name: str):
         """
         Create an instance of a single hinge joint.
 
