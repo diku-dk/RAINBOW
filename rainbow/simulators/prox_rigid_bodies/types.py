@@ -36,7 +36,7 @@ class SurfacesInteractionLibrary:
         self.storage = dict()
         self.storage[("default", "default")] = SurfacesInteraction()
 
-    def get_interaction(self, A, B):
+    def get_interaction(self, A: str, B: str) -> SurfacesInteraction:
         """
         Retrieve surface interaction between a pair of materials.
 
@@ -49,7 +49,7 @@ class SurfacesInteractionLibrary:
             return self.storage[key]
         return self.storage[("default", "default")]
 
-    def exist_interaction(self, A, B):
+    def exist_interaction(self, A: str, B: str) -> bool:
         """
         Test if an interaction instance exists between the two given materials.
 
@@ -62,7 +62,7 @@ class SurfacesInteractionLibrary:
             return True
         return False
 
-    def exist_material(self, name):
+    def exist_material(self, name: str) -> bool:
         """
         Test if a given material exists in the interaction library.
         Meaning that some interaction pair exist with that material name.
@@ -88,7 +88,7 @@ class Shape:
     properties.
     """
 
-    def __init__(self, name):
+    def __init__(self, name: str):
         """
         Create a shape instance with a given name.
 
@@ -124,7 +124,7 @@ class RigidBody:
     data structures as well as the shape information.
     """
 
-    def __init__(self, name):
+    def __init__(self, name: str):
         """
         Create a rigid body with a given name.
 
@@ -154,7 +154,7 @@ class ForceCalculator(ABC):
     Base class for all force types that can be applied to a rigid body.
     """
 
-    def __init__(self, force_type, name):
+    def __init__(self, force_type: str, name: str):
         """
         Create a force instance.
 
@@ -188,7 +188,7 @@ class Gravity(ForceCalculator):
     This class defines the gravity force type.
     """
 
-    def __init__(self, name):
+    def __init__(self, name: str):
         """
         Create a gravity force instance.
 
@@ -223,7 +223,7 @@ class Damping(ForceCalculator):
     This class represents a linear damping force type.
     """
 
-    def __init__(self, name):
+    def __init__(self, name: str):
         """
         Create a damping force instance.
 
@@ -265,7 +265,10 @@ class ContactPoint:
     the contact area between two bodies.
     """
 
-    def __init__(self, bodyA, bodyB, position=V3.zero(), normal=V3.k(), gap=0.0):
+    def __init__(self,
+                 bodyA: RigidBody, bodyB: RigidBody,
+                 position: np.ndarray = V3.zero(), normal: np.ndarray = V3.k(), gap: float = 0.0
+                 ):
         """
         Create an instance of a single contact point.
 
