@@ -1,4 +1,14 @@
+"""
+This module implements a Rigid Body simulator API.
+The main idea is to create an engine instance and then fill
+ in information in the engine about the simulation setup.
+ The API provides a wide range of functions to set up
+the information needed to run the simulation.
+"""
+
 from typing import List, Dict
+import numpy as np
+
 import rainbow.geometry.surface_mesh as MESH
 import rainbow.simulators.prox_rigid_bodies.mass as MASS
 import rainbow.math.functions as FUNC
@@ -7,7 +17,6 @@ import rainbow.geometry.kdop_bvh as BVH
 import rainbow.math.coordsys as FRAME
 import rainbow.simulators.prox_rigid_bodies.steppers as STEPPERS
 from rainbow.simulators.prox_rigid_bodies.types import *
-import numpy as np
 
 
 def generate_unique_name(name: str) -> str:
@@ -15,7 +24,7 @@ def generate_unique_name(name: str) -> str:
     This function helps to generate unique names, such that one can always locate objects based on name only.
 
     :param name:   The original name wanted.
-    :return:       pre and post appended name string that makes name unique.
+    :return:       Pre and post appended name string that makes name unique.
     """
     import datetime
     import random
@@ -35,15 +44,15 @@ def create_engine() -> Engine:
     if engine.stepper is None:
         # stepper is not created as part of the Engine type because we want the "types" module to be independent of
         # algorithmic choices.
-        engine.stepper = STEPPERS.SemiImplicitStepper(engine)
+        engine.stepper = STEPPERS.SemiImplicitStepper()
     return engine
 
 
 def create_rigid_body(engine, body_name: str) -> None:
     """
-    Create rigid body in engine.
+    Create a rigid body in engine.
 
-    :param engine:     The engine to contain the rigid body.
+    :param engine:     The engine that should contain the new rigid body.
     :param body_name:  The unique name of the rigid body.
     :return:           Nothing.
     """
@@ -56,11 +65,11 @@ def create_rigid_body(engine, body_name: str) -> None:
 
 def create_hinge(engine, hinge_name: str) -> None:
     """
-    Create hinge joint in engine.
+    Create hinge joint in the engine.
 
-    :param engine:     The engine to contain the hinge.
-    :param body_name:  The unique name of the hinge.
-    :return:           Nothing.
+    :param engine:      The engine that should contain the new hinge joint.
+    :param hinge_name:  The unique name of the hinge.
+    :return:            Nothing.
     """
     if hinge_name in engine.hinges:
         raise RuntimeError("create_hinge() hinge already exist with that name")
@@ -71,9 +80,23 @@ def create_hinge(engine, hinge_name: str) -> None:
 
 def set_hinge_sockets(engine, hinge_name: str,
                       parent_name: str,
-                      r_parent: V3, q_parent: Q,
+                      r_parent: np.ndarray,
+                      q_parent: np.ndarray,
                       child_name: str,
-                      r_child: V3, q_child: Q ) -> None:
+                      r_child: np.ndarray,
+                      q_child: np.ndarray
+                      ) -> None:
+    """
+
+    :param engine:
+    :param hinge_name:
+    :param parent_name:
+    :param r_parent:
+    :param q_parent:
+    :param child_name:
+    :param r_child:
+    :param q_child:
+    """
     if hinge_name in engine.hinges:
         hinge = engine.hinges[hinge_name]
     else:
@@ -90,18 +113,20 @@ def set_hinge_sockets(engine, hinge_name: str,
     socket_parent = FRAME.make(r_parent, q_parent)
     socket_child = FRAME.make(r_child, q_child)
 
-    # Currently we assume that the socket joint frames live in the body frame coordinate systems
+    # Currently, we assume that the socket joint frames live in the body frame coordinate systems
     # of the rigid bodies they belong to.
     #
     # A socket is a coordinate mapping from joint frame space to body-space of the link.
     #
-    # When rigging a simulation it may be that the rigger does not know the body
-    # frames. Instead what is know is the model frames of the rigid bodies.
-    #r_parent_bf2mf = np.copy(parent.shape.r)
-    #q_parent_bf2mf = np.copy(parent.shape.q)
+    # When rigging a simulation, it may be that the rigging person does not know the body
+    # frames.
+    # Instead, what is known is the model frames of the rigid bodies.
+    #
+    #  R_parent_bf2mf = np.copy(parent.shape.r)
+    #  q_parent_bf2mf = np.copy(parent.shape.q)
     #
     #
-    # Hence, we know (bf->mf) we are given (jf->mf) and we need to compute  (jf->bf)
+    # Hence, we know (bf->mf) we are given (jf->mf) and we need to compute (jf->bf)
     #
     # Xjb = Xjm Xmb
     #
@@ -109,15 +134,15 @@ def set_hinge_sockets(engine, hinge_name: str,
     hinge.set_parent_socket(child, socket_child)
 
 
-def create_mesh(V, T) -> MESH.Mesh:
+def create_mesh(V: np.ndarray, T: np.ndarray) -> MESH.Mesh:
     """
     Create a mesh instance.
     This function creates a mesh. This is not a simple copy of the
     input arrays, but a spatial reordering to store the mesh more
     efficient in memory.
 
-    :param V:   The vertices of the mesh. Assumed to be N-by-3 float array, where N is number of nodes.
-    :param T:   The triangles of the mesh. Assumed to be K-by-3 int array, where K is number of triangles.
+    :param V:   The vertices of the mesh. Assumed to be N-by-3 float array, where N is the number of nodes.
+    :param T:   The triangles of the mesh. Assumed to be K-by-3 int array, where K is the number of triangles.
     :return:    A mesh instance.
     """
     axis = FUNC.direction_of_most_variance(V)
@@ -126,16 +151,16 @@ def create_mesh(V, T) -> MESH.Mesh:
     return mesh
 
 
-def create_shape(engine, shape_name: str, mesh) -> None:
+def create_shape(engine, shape_name: str, mesh: MESH.Mesh) -> None:
     """
     This function creates a new shape in the rigid body engine. The shape instance describes
     how a rigid body "looks" like as well as hold information about mass properties, and
     "static" collision detection information.
 
-    Observe, that when a mesh is given as input then the mesh lives in its "model" frame. This
+    Observe that when a mesh is given as input, then the mesh lives in its "model" frame. This
     factory function will transform the mesh and save it in its local "body" frame. However, the
     transformation between model and body frame is kept such that one later can place a rigid body
-    in the world using the model space as a reference for the placement and not the body space.
+    in the world using the model space as a reference to the placement and not the body space.
 
     Much of this is hidden from the common end-user, who just sees her geometries as they are
     created and place these in the world without ever knowing anything about what a body frame
@@ -153,21 +178,25 @@ def create_shape(engine, shape_name: str, mesh) -> None:
     shape = Shape(shape_name)
     shape.mesh = mesh
 
-    # Next we compute the mass properties of the shape assuming unit-mass-density. We assign the body frame mass
-    # properties to the shape instance and adjust the surface mesh of the shape to be given wrt the computed body
-    # frame.
+    # Next, we compute the mass properties of the shape assuming unit-mass-density.
+    #
+    # We assign the body frame mass properties to the shape instance and adjust the surface mesh of the shape to be
+    # given that the computed body frame.
     prop = MASS.compute_mass_properties(shape.mesh.V, shape.mesh.T, 1.0)
     #
     # The translation and rotation used to transform the mesh into the body frame is kept with
-    # the shape. The reason for this is to be able to get back the "modelling" frame that was
-    # used when defining the shape.
+    # the shape.
     #
-    # This is needed for making it easy for end-users to set up and rig their simulations. However, internally
-    # inside the simulator the modeling frame is never seen, here only the body frame information is used.
+    # The reason for this is to be able to get back the "modeling" frame that was used when defining the shape.
+    #
+    # This is needed for making it easy for end-users to set up and rig their simulations.
+    #
+    # However, internally inside the simulator the modeling frame is never seen, here only the body frame information
+    # is used.
     #
     (shape.r, shape.q, shape.mass, shape.inertia) = MASS.xform_model_2_body_space(prop)
     #
-    # shape.r and shape.q gives the rigid body transform from body to model space
+    # shape.r and shape.q give the rigid body transform from body to model space
     # We need to do the inverse transform here
     #
     MESH.translate(shape.mesh, -shape.r)
@@ -190,9 +219,11 @@ def connect_shape(engine, body_name: str, shape_name: str) -> None:
     """
     This function creates a connection between a given rigid body and a shape.
 
-    A shape can be shared between multiple rigid bodies which is very space efficient. A "ball" simulator would
-    ever only need to create a single ball shape, but could have thousands of ball bodies. The simulator would
-    only need to store the dynamic changing data but share the static geometric data.
+    A shape can be shared between multiple rigid bodies, which is very space efficient.
+
+    A "ball" simulator would ever only need to create a single ball shape, but could have thousands of ball bodies.
+
+    The simulator would only need to store the dynamic changing data but share the static geometric data.
 
     :param engine:
     :param body_name:
@@ -208,9 +239,12 @@ def connect_shape(engine, body_name: str, shape_name: str) -> None:
     else:
         raise RuntimeError("connect() no such shape exist with that name")
     body.shape = shape
-    # k-DOP bounding volume hierarchies perform their collision tandem traversal in world space. Hence, their
-    # bounding volumes live in world space and as bodies move around we constantly need to update the bounding
-    # volumes of the BVHs. Therefore, the BVH data structure is stored in the rigid body and not the shape.
+    # K-DOP bounding volume hierarchies perform their collision tandem traversal in world space.
+    #
+    # Hence, their bounding volumes live in world space, and as bodies move around, we constantly need to update the
+    # bounding volumes of the BVHs.
+    #
+    # Therefore, the BVH data structure is stored in the rigid body and not the shape.
     body.bvh = BVH.make_bvh(
         shape.mesh.V,
         shape.mesh.T,
@@ -220,12 +254,12 @@ def connect_shape(engine, body_name: str, shape_name: str) -> None:
     )
 
 
-def create_gravity_force(engine, force_name: str, g: float, up) -> None:
+def create_gravity_force(engine, force_name: str, g: float, up: np.ndarray) -> None:
     """
     Create a gravity force type instance in the engine.
 
     Observe that one can have multiple different gravity forces, and they
-    can be acting on different rigid bodies, one can even have multiple
+    can be acting on different rigid bodies; one can even have multiple
     gravity forces acting on the same rigid body.
 
     :param engine:      The engine that should store the new gravity force.
@@ -251,7 +285,7 @@ def create_damping_force(engine, force_name: str, alpha: float, beta: float) -> 
     Create a linear damping force type instance in the engine.
 
     Observe that one can have multiple different damping forces, and they
-    can be acting on different rigid bodies, one can even have multiple
+    can be acting on different rigid bodies; one can even have multiple
     damping forces acting on the same rigid body.
 
     :param engine:      The engine that should store the new gravity force.
@@ -294,7 +328,7 @@ def connect_force(engine, body_name: str, force_name: str) -> None:
     body.forces.append(force)
 
 
-def set_position(engine, body_name: str, r, use_model_frame=False) -> None:
+def set_position(engine, body_name: str, r: np.ndarray, use_model_frame=False) -> None:
     """
     Set the center of mass position of the rigid body.
 
@@ -331,7 +365,7 @@ def set_position(engine, body_name: str, r, use_model_frame=False) -> None:
         #
         # From this we can solve for the current model to world coordinate transformation
         q_mf2wcs = Q.prod(q_bf2wcs, Q.conjugate(q_bf2mf))
-        # r_mf2wcs = r_bf2wcs - Q.rotate(q_mf2wcs, r_bf2mf)  # Not needed
+        # R_mf2wcs = r_bf2wcs - Q.rotate(q_mf2wcs, r_bf2mf)  # Not needed
         #
         # Now we wish to change the position of model frame origin to (x,y,z) wrt the world frame
         #
@@ -339,8 +373,10 @@ def set_position(engine, body_name: str, r, use_model_frame=False) -> None:
         #
         #   r_mf2wcs = [x, y, z]
         #
-        # The orientation of the model frame wrt. world frame is unchanged, hence we want to
-        # know what r_bf2wcs should be. For this we use (*) to compute it
+        # The orientation of the model frame with respect to the world frame is unchanged, hence we want to
+        # know what r_bf2wcs should be.
+        #
+        # For this, we use (*) to compute it
         #
         r_mf2wcs = np.copy(r)
         r_bf2wcs = Q.rotate(q_mf2wcs, r_bf2mf) + r_mf2wcs
@@ -352,15 +388,15 @@ def set_position(engine, body_name: str, r, use_model_frame=False) -> None:
         body.r = np.copy(r)
 
 
-def set_orientation(engine, body_name: str, q, use_model_frame=False) -> None:
+def set_orientation(engine, body_name: str, q: np.ndarray, use_model_frame=False) -> None:
     """
     Set orientation of rigid body.
 
     :param engine:           The engine that stores the rigid body.
     :param body_name:        The name of the rigid body.
     :param q:                The new orientation.
-    :param use_model_frame:  Boolean flag used to specify if it is the orientation of the origin of the model frame
-                             or the body frame that is placed wrt. the world coordinate system.
+    :param use_model_frame:  Boolean flag is used to specify if it is the orientation argument is with respect to the
+                             model frame or the body frame.
     :return:                 Nothing.
     """
     if body_name in engine.bodies:
@@ -393,7 +429,7 @@ def set_orientation(engine, body_name: str, q, use_model_frame=False) -> None:
         q_mf2wcs = Q.prod(q_bf2wcs, Q.conjugate(q_bf2mf))
         r_mf2wcs = r_bf2wcs - Q.rotate(q_mf2wcs, r_bf2mf)
         #
-        # Now we wish to change the orientation of the model frame origin  wrt the world frame,
+        # Now we wish to change the orientation of the model frame origin wrt the world frame,
         # so we must now have
         #
         #   q_mf2wcs = [qs, qx, qy, qz]
@@ -401,7 +437,7 @@ def set_orientation(engine, body_name: str, q, use_model_frame=False) -> None:
         q_mf2wcs = Q.unit(q)
         #
         # Change the orientation of the model frame means that both the orientation and
-        #  position of the body frame will change wrt. the world coordinate system.
+        #  position of the body frame will change with respect to the world coordinates' system.
         q_bf2wcs = Q.prod(q_mf2wcs, q_bf2mf)
         r_bf2wcs = Q.rotate(q_mf2wcs, r_bf2mf) + r_mf2wcs
 
@@ -411,7 +447,7 @@ def set_orientation(engine, body_name: str, q, use_model_frame=False) -> None:
         body.q = Q.unit(q)
 
 
-def set_velocity(engine, body_name: str, v) -> None:
+def set_velocity(engine, body_name: str, v: np.ndarray) -> None:
     """
     Set the linear velocity of a rigid body.
 
@@ -427,7 +463,7 @@ def set_velocity(engine, body_name: str, v) -> None:
     body.v = np.copy(v)
 
 
-def set_spin(engine, body_name: str, w) -> None:
+def set_spin(engine, body_name: str, w: np.ndarray) -> None:
     """
     Set the angular velocity of a rigid body.
 
@@ -490,7 +526,7 @@ def is_fixed_body(engine, body_name: str) -> bool:
 
     :param engine:      The engine that stores the rigid body.
     :param body_name:   The name of the rigid body.
-    :return:            Boolean flag telling whether hte rigid body is fixed or nat.
+    :return:            Boolean flag telling whether the rigid body is fixed or nat.
     """
     if body_name not in engine.bodies:
         raise RuntimeError("is_fixed_body() no such rigid body exist with that name")
@@ -525,10 +561,10 @@ def create_surfaces_interaction(engine, A: str, B: str, epsilon: float, mu) -> N
     This function creates a description of the material surface interaction between two named materials.
 
     :param engine:   The engine that stores information about the surface interaction.
-    :param A:        Unique name of first material of interaction.
-    :param B:        Unique name of the second material of the interaction.
-    :param epsilon:  The value of the coefficient of restitution to use between the two pair of materials.
-    :param mu:       The value of the coefficients of friction to use between the material pairs.
+    :param A:        Unique name of the first material in the interaction.
+    :param B:        Unique name of the second material in the interaction.
+    :param epsilon:  The value for the coefficient of restitution between the material pairs.
+    :param mu:       The value for the coefficients of friction between the material pairs.
     :return:         Nothing.
     """
     if engine.surfaces_interactions.exist_interaction(A, B):
@@ -572,9 +608,11 @@ def simulate(engine: Engine, T: float, profiling_on: bool = False) -> None:
 
 def get_log(engine: Engine) -> List[Dict]:
     """
-    Retrive log with debug information and timings etc.
+    Retrieve log with profiling information and timings etc.
 
     :param engine:  The engine to retrieve the log from.
-    :return:        The log is basically a list of dictionaries. One dictionary for each invocation of the stepper.
+    :return:        The log is basically a list of dictionaries.
+                    One dictionary for each invocation of the stepper.
+                    Each dictionary holds profiling information about the corresponding time-step.
     """
     return engine.stepper.log
