@@ -11,7 +11,9 @@ from typing import Tuple
 import numpy as np
 
 
-def prox_sphere(z_s: float, z_t: float, z_tau: float, mu: float, x_n: float) -> Tuple[float, float, float]:
+def prox_sphere(z_s: float, z_t: float, z_tau: float,
+                mu: float, x_n: float
+                ) -> Tuple[float, float, float]:
     """
     Proximal point of z to a sphere.
 
