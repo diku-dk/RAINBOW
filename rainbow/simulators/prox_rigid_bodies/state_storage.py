@@ -1,3 +1,7 @@
+"""
+This module implements a container for all the body state information in a rigid body simulator.
+"""
+
 from abc import ABC, abstractmethod
 from typing import Tuple
 
@@ -29,11 +33,12 @@ class StateStorage:
     """
 
     def __init__(self):
-        self.x = None           # Generalized positions of all rigid bodies, 7 N dimensions.
-        self.u = None           # Generalized velocities of all rigid bodies, 6 N dimensions.
-        self.f_ext = None       # Generalized forces of all rigid bodies, 6 N dimensions.
-        self.W = None           # Inverse mass matrix of all rigid bodies, 6N by 6N dimensions.
-        self.delta_u_ext = None # Acceleration change due to external forces, should be multiplied by a time-stp prior to any velocity update.
+        self.x = None  # Generalized positions of all rigid bodies, 7 N dimensions.
+        self.u = None  # Generalized velocities of all rigid bodies, 6 N dimensions.
+        self.f_ext = None  # Generalized forces of all rigid bodies, 6 N dimensions.
+        self.W = None  # Inverse mass matrix of all rigid bodies, 6N by 6N dimensions.
+        self.delta_u_ext = None  # Acceleration change due to external forces, should be multiplied by a time-stp
+                                 # prior to any velocity update.
 
     def initialize(self, engine: Engine) -> None:
         self.x = StateStorage.get_position_vector(engine)
@@ -59,7 +64,7 @@ class StateStorage:
         of the body frames as a quaternion for all rigid bodies in the engine
         and stack these into one global generalized position vector.
 
-        :param engine:  The engine from which to extract position and orientation of rigid bodies.
+        :param engine:  The engine from which to extract the position and orientation of rigid bodies.
         :return:        The generalized position vector.
         """
         x = np.zeros(len(engine.bodies) * 7, dtype=np.float64)
@@ -92,7 +97,7 @@ class StateStorage:
     def velocity_update(self, delta_u: np.ndarray) -> None:
         self.u += delta_u
 
-    def position_update(self, dt: float, engine: Engine, u: np.ndarray=None) -> None:
+    def position_update(self, dt: float, engine: Engine, u: np.ndarray = None) -> None:
         """
         This function performs an explicit Euler update of the kinematic relation between
         positions and velocities. The update is slightly more complicated due to using quaternions
@@ -151,8 +156,6 @@ class StateStorage:
         is angular velocity, :math:`I` is world
         space inertia tensor, and :math:`x` is the vector cross product.
 
-        :param x:        The generalized position vector used for evaluating the external forces.
-        :param u:        The generalized velocity vector used for evaluating the external forces.
         :param engine:   A reference to the engine holding all the rigid bodies.
         :return:         The generalized force vector.
         """
@@ -183,7 +186,6 @@ class StateStorage:
         """
         This function computes the inverse mass matrix of all the rigid bodies in the engine.
 
-        :param x:        The generalized position vector, this is used to proper update inertia tensors before inverting.
         :param engine:   The engine that holds all the rigid bodies.
         :return:         A sparse matrix that holds the value of the inverse mass matrix.
         """
@@ -209,9 +211,9 @@ class StateStorage:
     def compute_total_energy(self, engine) -> Tuple[float, float]:
         """
         Compute the total kinetic and potential energy of the whole system in the engine. This function is
-        used to monitor energies during simulation which is a very useful debug and analysis tool. The energies are
+        used to monitor energies during simulation, which is a beneficial debug and analysis tool. The energies are
         computed and collected in each time step if the simulator is running in debug mode. One may invoke the function
-        directly if the energies is needed, as the function does not update or change any information in the engine.
+        directly if the energies are needed, as the function does not update or change any information in the engine.
 
         :param engine:  A reference to the engine that is holding all the rigid bodies.
         :return:        A pair of floats that represent the total kinetic energy and potential energy (in that order).
@@ -253,4 +255,3 @@ class StateStorage:
             kinetic += 0.5 * (m * (v.dot(v)) + wIw)
 
         return kinetic, potential
-
