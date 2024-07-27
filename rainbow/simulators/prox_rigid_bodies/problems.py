@@ -92,9 +92,9 @@ class Problem(ABC):
         pass
 
     @abstractmethod
-    def finalize(self) -> np.ndarray:
+    def finalize_solution(self) -> np.ndarray:
         """
-        This method is called after the solver is completed to finalize the computation of the solution.
+        This method is called after the solver is completed to finalize_solution the computation of the solution.
 
         This essential means computing the "velocity" change caused by the constraint forces.
 
@@ -150,11 +150,11 @@ class Contacts(Problem):
         self.sol = np.zeros(self.b.shape, dtype=np.float64)  # The last best known convergent solution
         self.error = np.zeros(self.b.shape, dtype=np.float64)  # The residual vector
 
-    def finalize(self) -> np.ndarray:
+    def finalize_solution(self) -> np.ndarray:
         """
         See also:
 
-        - Problem.finalize: for the base method documentation.
+        - Problem.finalize_solution: for the base method documentation.
         """
         self.delta_u = self.WJT.dot(self.sol)
         return self.delta_u
@@ -417,11 +417,11 @@ class Hinges(Problem):
                             dtype=np.float64)  # The last best known solution, used for restarting if divergence
         self.error = np.zeros(self.b.shape, dtype=np.float64)  # The residual vector
 
-    def finalize(self) -> np.ndarray:
+    def finalize_solution(self) -> np.ndarray:
         """
         See also:
 
-        - Problem.finalize: for the base method documentation.
+        - Problem.finalize_solution: for the base method documentation.
         """
         self.delta_u = self.WJT.dot(self.sol)
         return self.delta_u
@@ -611,11 +611,11 @@ class PostStabilization(Problem):
         self.sol = np.zeros(self.g.shape, dtype=np.float64)  # The last best known convergent solution.
         self.error = np.zeros(self.g.shape, dtype=np.float64)  # The residual vector.
 
-    def finalize(self) -> np.ndarray:
+    def finalize_solution(self) -> np.ndarray:
         """
         See also:
 
-        - Problem.finalize: for the base method documentation.
+        - Problem.finalize_solution: for the base method documentation.
         """
         self.delta_r = self.WJT.dot(self.sol)
         return self.delta_r

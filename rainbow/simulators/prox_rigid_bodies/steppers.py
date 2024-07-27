@@ -17,7 +17,7 @@ def _apply_post_stabilization(engine: Engine,
     if not projection.g.any():
         return
     SOLVER.solve(engine, [projection], profile_data, profiling_on, prefix="post_stabilization")
-    delta_r = projection.finalize()
+    delta_r = projection.finalize_solution()
     state.position_update(dt=1.0, engine=engine, u=delta_r)
 
 
@@ -70,7 +70,7 @@ class SemiImplicitStepper:
             SOLVER.solve(engine, problems, profile_data, profiling_on, prefix="")
 
             for prb in problems:
-                delta_u += prb.finalize()
+                delta_u += prb.finalize_solution()
 
         state.velocity_update(delta_u)
         state.position_update(dt, engine)
