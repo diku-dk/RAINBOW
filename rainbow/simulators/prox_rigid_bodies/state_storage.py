@@ -165,14 +165,17 @@ class StateStorage:
         N = len(engine.bodies)
         blocks = [np.zeros((3, 3), dtype=np.float64) for _ in range(N * 2)]
         for (k, body) in enumerate(engine.bodies.values()):
+            if body.is_fixed:
+                continue
+            if body.mass == 0:
+                raise ValueError("Body {} has no mass.".format(body.name))
             x_offset = 7 * k  # Position offset into x-array
-            if not body.is_fixed:
-                q = self.x[x_offset + 3: x_offset + 7]  # Extract rotation part
-                R = Q.to_matrix(q)
-                I_wcs = MASS.update_inertia_tensor(R, 1.0 / body.inertia)
-                m = 1.0 / body.mass
-                blocks[2 * k] = M3.diag(m, m, m)
-                blocks[2 * k + 1] = I_wcs
+            q = self.x[x_offset + 3: x_offset + 7]  # Extract rotation part
+            R = Q.to_matrix(q)
+            I_wcs = MASS.update_inertia_tensor(R, 1.0 / body.inertia)
+            m = 1.0 / body.mass
+            blocks[2 * k] = M3.diag(m, m, m)
+            blocks[2 * k + 1] = I_wcs
         # TODO 2022-01-05 Kenny: These sparse matrix formats may bot be the most efficient ones. The inverse mass matrix
         #  is multiplied onto the Jacobian matrix or a force vector. Hence, we just need a sparse format that is
         #  efficient for that purpose. Current implementation just build a block diagonal matrix and then converts
@@ -279,6 +282,11 @@ class StateStorage:
 
         u = self.u if u is None else u
         for (k, body) in enumerate(engine.bodies.values()):
+            # TODO 2024-07-28 Kenny: The body instance below is the only reason why we need the engine instance as an
+            #  argument.
+            if body.is_fixed:
+                continue
+
             x_offset = 7 * k
             u_offset = 6 * k
 
@@ -287,11 +295,8 @@ class StateStorage:
             v = u[u_offset: u_offset + 3]
             w = u[u_offset + 3: u_offset + 6]
 
-            # TODO 2024-07-28 Kenny: The body instance below is the only reason why we need the engine instance as an
-            #  argument.
-            if not body.is_fixed:
-                r += v * dt
-                q += Q.prod(Q.from_vector3(w), q) * dt * 0.5
+            r += v * dt
+            q += Q.prod(Q.from_vector3(w), q) * dt * 0.5
 
             self.x[x_offset: x_offset + 3] = r
             self.x[x_offset + 3: x_offset + 7] = Q.unit(q)
