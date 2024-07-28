@@ -7,7 +7,7 @@ Currently, we only support semi-implicit first order time-stepping.
 import rainbow.simulators.prox_rigid_bodies.collision_detection as CD
 import rainbow.simulators.prox_rigid_bodies.gauss_seidel_solver as SOLVER
 import rainbow.simulators.prox_rigid_bodies.state_storage as STORAGE
-import rainbow.simulators.prox_rigid_bodies.problems as PROBLEMS
+import rainbow.simulators.prox_rigid_bodies.constraints as PROBLEMS
 from rainbow.simulators.prox_rigid_bodies.types import *
 from rainbow.util.timer import Timer
 

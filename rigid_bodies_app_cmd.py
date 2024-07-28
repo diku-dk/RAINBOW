@@ -81,7 +81,7 @@ def plot(engine):
     ax.grid(True, which='both', linestyle='--', linewidth=0.5)  # Improved grid
     ax.tick_params(axis='both', which='major', labelsize=12)  # Larger tick labels
 
-    # Use a colormap for the lines
+    # Use a colormap for the linesR
     colors = cm.viridis(np.linspace(0, 1, len(profile_data)))
 
     for i, data in enumerate(profile_data):
