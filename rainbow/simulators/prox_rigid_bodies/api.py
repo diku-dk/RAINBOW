@@ -6,7 +6,6 @@ The main idea is to create an engine instance and then fill
 the information needed to run the simulation.
 """
 
-from typing import List, Dict
 import numpy as np
 
 import rainbow.geometry.surface_mesh as MESH
@@ -606,7 +605,7 @@ def simulate(engine: Engine, T: float, profiling_on: bool = False) -> None:
         T_left -= dt
 
 
-def get_log(engine: Engine) -> List[Dict]:
+def get_log(engine: Engine) -> list[dict[str, any]]:
     """
     Retrieve log with profiling information and timings etc.
 

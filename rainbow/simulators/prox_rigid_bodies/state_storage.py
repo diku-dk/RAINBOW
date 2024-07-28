@@ -2,14 +2,12 @@
 This module implements a container for all the body state information in a rigid body simulator.
 """
 
-from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import Tuple, Optional
 
 import numpy as np
 import scipy.sparse as sparse
 
 import rainbow.math.matrix3 as M3
-import rainbow.geometry.surface_mesh as MESH
 import rainbow.simulators.prox_rigid_bodies.mass as MASS
 from rainbow.simulators.prox_rigid_bodies.types import *
 
@@ -33,21 +31,33 @@ class StateStorage:
     """
 
     def __init__(self):
-        self.x = None  # Generalized positions of all rigid bodies, 7 N dimensions.
-        self.u = None  # Generalized velocities of all rigid bodies, 6 N dimensions.
-        self.f_ext = None  # Generalized forces of all rigid bodies, 6 N dimensions.
-        self.W = None  # Inverse mass matrix of all rigid bodies, 6N by 6N dimensions.
-        self.delta_u_ext = None  # Acceleration change due to external forces, should be multiplied by a time-stp
-                                 # prior to any velocity update.
+        self.x: Optional[np.ndarray] = None  # Generalized positions of all rigid bodies, 7 N dimensions.
+        self.u: Optional[np.ndarray] = None  # Generalized velocities of all rigid bodies, 6 N dimensions.
+        self.f_ext: Optional[np.ndarray] = None  # Generalized forces of all rigid bodies, 6 N dimensions.
+        self.W: Optional[sparse.bsr_matrix] = None  # Inverse mass matrix of all rigid bodies, 6N by 6N dimensions.
 
-    def initialize(self, engine: Engine) -> None:
-        self.x = StateStorage.get_position_vector(engine)
-        self.u = StateStorage.get_velocity_vector(engine)
-        self.f_ext = self.compute_total_external_forces(engine)
-        self.W = self.compute_inverse_mass_matrix(engine)
+        # Acceleration change due to external forces, should be multiplied by a time-stp
+        # prior to any velocity update.
+        self.delta_u_ext: Optional[np.ndarray] = None
+
+    def copy_from_engine(self, engine: Engine) -> None:
+        """
+        Initialize the state storage with information taken from the given engine instance.
+
+        :param engine:  The engine to extract information from.
+        """
+        self.x = StateStorage._get_position_vector(engine)
+        self.u = StateStorage._get_velocity_vector(engine)
+        self.f_ext = self._compute_total_external_forces(engine)
+        self.W = self._compute_inverse_mass_matrix(engine)
         self.delta_u_ext = self.W.dot(self.f_ext)
 
-    def finalize(self, engine: Engine) -> None:
+    def copy_to_engine(self, engine: Engine) -> None:
+        """
+        Stores information from the state storage back into a given engine.
+
+        :param engine:   The engine that should contain the state information.
+        """
         for (k, body) in enumerate(engine.bodies.values()):
             offset = 6 * k
             body.v = self.u[offset: offset + 3]
@@ -58,11 +68,11 @@ class StateStorage:
             body.q = self.x[offset + 3: offset + 7]
 
     @staticmethod
-    def get_position_vector(engine: Engine) -> np.ndarray:
+    def _get_position_vector(engine: Engine) -> np.ndarray:
         """
-        This function extract the position of center of mass and the orientation
+        This function extracts the position value for the center of mass and the orientation
         of the body frames as a quaternion for all rigid bodies in the engine
-        and stack these into one global generalized position vector.
+        and stacks these into one global generalized position vector.
 
         :param engine:  The engine from which to extract the position and orientation of rigid bodies.
         :return:        The generalized position vector.
@@ -75,13 +85,13 @@ class StateStorage:
         return x
 
     @staticmethod
-    def get_velocity_vector(engine: Engine) -> np.ndarray:
+    def _get_velocity_vector(engine: Engine) -> np.ndarray:
         """
-        This function loops over all rigid bodies and extract linear and angular
+        This function loops over all rigid bodies and extracts linear and angular
         velocities and stack these into a generalized velocity vector. Observe that
         the dimensionality of the generalized position and velocity vectors are
-        different. If one has N bodies then the generalized position vector will be 7N
-        long whereas the generalized velocity vector will be 6N long. The reason is due
+        different. If one has N bodies, then the generalized position vector will be 7N
+         long, whereas the generalized velocity vector will be 6N long. The reason is due
         to the quaternion representation of the rigid body orientation.
 
         :param engine: A reference to the engine holding the rigid bodies to extract velocities from.
@@ -94,95 +104,58 @@ class StateStorage:
             u[offset + 3: offset + 6] = body.w
         return u
 
-    def velocity_update(self, delta_u: np.ndarray) -> None:
-        self.u += delta_u
-
-    def position_update(self, dt: float, engine: Engine, u: np.ndarray = None) -> None:
+    # TODO 2024-07-28 Kenny: Can we refactor code to drop Engine argument.
+    def _compute_total_external_forces(self, engine: Engine) -> np.ndarray:
         """
-        This function performs an explicit Euler update of the kinematic relation between
-        positions and velocities. The update is slightly more complicated due to using quaternions
-        as one needs to solve
-
-        .. math::
-
-            q^{t+1} \leftarrow q^{t} + \Delta t \, {\Omega} \otimes q^t
-
-        where :math:`q` is the quaternion,:math:`\Delta t` the time-step size,
-        :math:`\Omega` is the angular velocity written as a quaternion,
-        and :math:`\otimes` is the quaternion product. This update rule is highly
-        nonlinear, and it also requires renormalization of :math:`q^{t+1}`.
-
-        This function encapsulates all the ugliness of this time-integration.
-
-        :param u:       The generalized velocity vector. If set to None, then the internal velocity of state is used.
-        :param dt:      The time-step size.
-        :param engine:  A reference to the engine holding all the rigid bodies.
-        :return:        Nothing.
-        """
-        u = self.u if u is None else u
-        for (k, body) in enumerate(engine.bodies.values()):
-            x_offset = 7 * k
-            u_offset = 6 * k
-
-            r = self.x[x_offset: x_offset + 3]
-            q = self.x[x_offset + 3: x_offset + 7]
-            v = u[u_offset: u_offset + 3]
-            w = u[u_offset + 3: u_offset + 6]
-
-            if not body.is_fixed:
-                r += v * dt
-                q += Q.prod(Q.from_vector3(w), q) * dt * 0.5
-
-            self.x[x_offset: x_offset + 3] = r
-            self.x[x_offset + 3: x_offset + 7] = Q.unit(q)
-
-    def compute_total_external_forces(self, engine: Engine) -> np.ndarray:
-        """
-        This function iterates over all rigid bodies and evaluates
-        all force types acting on them and accumulates the result. Finally,
-        it stacks all total force and torque terms into a generalized force
+        Evaluate and accumulate all force types acting on all rigid bodies, then stack these into a generalized force
         vector.
 
-        Observe that we collect gyroscopic force terms into the external generalized force vector. That is
+        Gyroscopic force terms are collected into the external generalized force vector.
 
         .. math::
 
-            f \equiv \sum_i f_i
+            F \equiv \sum_i f_i
 
             T \equiv \omega x I \, \omega + \sum_i T_i
 
-        where :math:`f,T` are total force and torque on a single body, :math:`f_i,T_i` are the
-        contributions from the forces types, :math:`\omega`
-        is angular velocity, :math:`I` is world
-        space inertia tensor, and :math:`x` is the vector cross product.
+        where:
+            - :math:`f,T` are total force and torque on a single body,
+            - :math:`f_i,T_i` are the contributions from the forces types,
+            - :math:`\omega` is angular velocity,
+            - :math:`I` is world space inertia tensor,
+            - :math:`x` is the vector cross product.
 
         :param engine:   A reference to the engine holding all the rigid bodies.
         :return:         The generalized force vector.
         """
         f_ext = np.zeros((len(engine.bodies) * 6,), dtype=np.float64)
         for (k, body) in enumerate(engine.bodies.values()):
-            x_offset = 7 * k
-            u_offset = 6 * k
-            F = V3.zero()
-            T = V3.zero()
+            # TODO 2024-07-28 Kenny: The body fixed state is one reason why we need the engine instance as an
+            #  argument.
             if body.is_fixed:
                 continue
+            x_offset = 7 * k
+            u_offset = 6 * k
             r = self.x[x_offset: x_offset + 3]
             q = self.x[x_offset + 3: x_offset + 7]
             v = self.u[u_offset: u_offset + 3]
             w = self.u[u_offset + 3: u_offset + 6]
+            R = Q.to_matrix(q)
+            # TODO 2024-07-28 Kenny: The body inertia state is one reason why we need the engine instance as an
+            #  argument.
+            I_wcs = MASS.update_inertia_tensor(R, body.inertia)
+            F = V3.zero()
+            T = -V3.cross(w, np.dot(I_wcs, w))
+            # TODO 2024-07-28 Kenny: The body class is the only one that knows about associated forces on the body.
             for force_type in body.forces:
                 (Fi, Ti) = force_type.compute(body, r, q, v, w)
                 F += Fi
                 T += Ti
-            R = Q.to_matrix(q)
-            I_wcs = MASS.update_inertia_tensor(R, body.inertia)
-            T -= np.cross(w, np.dot(I_wcs, w), axis=0)
             f_ext[u_offset: u_offset + 3] = F
             f_ext[u_offset + 3: u_offset + 6] = T
         return f_ext
 
-    def compute_inverse_mass_matrix(self, engine: Engine) -> sparse.bsr_matrix:
+    def _compute_inverse_mass_matrix(self, engine: Engine) -> sparse.bsr_matrix:
         """
         This function computes the inverse mass matrix of all the rigid bodies in the engine.
 
@@ -208,12 +181,11 @@ class StateStorage:
         W = D.tobsr(blocksize=(3, 3))
         return W
 
+    # TODO 2024-07-28 Kenny: Can we refactor code to drop Engine argument.
     def compute_total_energy(self, engine) -> Tuple[float, float]:
         """
-        Compute the total kinetic and potential energy of the whole system in the engine. This function is
-        used to monitor energies during simulation, which is a beneficial debug and analysis tool. The energies are
-        computed and collected in each time step if the simulator is running in debug mode. One may invoke the function
-        directly if the energies are needed, as the function does not update or change any information in the engine.
+        Compute the total kinetic and potential energy of the whole system in the engine.
+        This function is used to monitor energies during simulation, which is a beneficial debug and analysis tool.
 
         :param engine:  A reference to the engine that is holding all the rigid bodies.
         :return:        A pair of floats that represent the total kinetic energy and potential energy (in that order).
@@ -222,6 +194,8 @@ class StateStorage:
         potential = 0.0
         for (k, body) in enumerate(engine.bodies.values()):
 
+            # TODO 2024-07-28 Kenny: The body fixed  below is one reason why we need the engine instance as an
+            #  argument.
             if body.is_fixed:
                 continue
 
@@ -234,12 +208,15 @@ class StateStorage:
             v = self.u[u_offset: u_offset + 3]
             w = self.u[u_offset + 3: u_offset + 6]
 
+            # TODO 2024-07-28 Kenny: The body mass and inertia access is another reason why we need the engine instance.
             m = body.mass
             I_bf = body.inertia
             I_wcs = MASS.update_inertia_tensor(R, I_bf)
 
             G = V3.make(0, 0, 0)
             has_gravity = False
+            # TODO 2024-07-28 Kenny: The engine is the only place that can tells us about forces attached to a rigid
+            #  body.
             for force in engine.forces:
                 if isinstance(engine.forces[force], Gravity):
                     gravity_force = engine.forces[force]
@@ -255,3 +232,66 @@ class StateStorage:
             kinetic += 0.5 * (m * (v.dot(v)) + wIw)
 
         return kinetic, potential
+
+    def velocity_update(self, delta_u: np.ndarray) -> None:
+        """
+        Update the generalized velocity vector by adding the change in velocity.
+
+        :param delta_u:  The change in the generalized velocity vector.
+        """
+        if self.u is not None:
+            self.u += delta_u
+        else:
+            raise ValueError("Generalized velocity vector 'u' is not initialized.")
+
+    # TODO 2024-07-28 Kenny: Can we refactor code to drop Engine argument.
+    def position_update(self, dt: float, engine: Engine, u: np.ndarray = None) -> None:
+        """
+         Performs an explicit Euler update of the kinematic relation between positions and velocities.
+
+        This function updates the position of the object using the explicit Euler method, taking into account the
+        complexities introduced by quaternion representation.
+
+        The update process involves solving the following equation:
+
+        .. math::
+
+            Q^{t+1} \leftarrow q^{t} + \Delta t \, {\Omega} \otimes q^t
+
+        Where
+
+            - :Math:`q` is the quaternion,
+            - :math:`\Delta t` the time-step size,
+            - :math:`\Omega` is the angular velocity written as a quaternion,
+            - :math:`\otimes` is the quaternion product.
+
+        Due to the nonlinearity of this update rule, :math:`q^{t+1}` must be renormalized after the update.
+
+        This function encapsulates all the ugliness of this time-integration.
+
+        :param dt:      The time-step size.
+        :param u:       The generalized velocity vector. If set to None, then the internal velocity of state is used.
+        :param engine:  A reference to the engine holding all the rigid bodies.
+        :return:        Nothing.
+        """
+        if self.x is None or self.u is None:
+            raise ValueError("Generalized position vector 'x' or velocity vector 'u' is not initialized.")
+
+        u = self.u if u is None else u
+        for (k, body) in enumerate(engine.bodies.values()):
+            x_offset = 7 * k
+            u_offset = 6 * k
+
+            r = self.x[x_offset: x_offset + 3]
+            q = self.x[x_offset + 3: x_offset + 7]
+            v = u[u_offset: u_offset + 3]
+            w = u[u_offset + 3: u_offset + 6]
+
+            # TODO 2024-07-28 Kenny: The body instance below is the only reason why we need the engine instance as an
+            #  argument.
+            if not body.is_fixed:
+                r += v * dt
+                q += Q.prod(Q.from_vector3(w), q) * dt * 0.5
+
+            self.x[x_offset: x_offset + 3] = r
+            self.x[x_offset + 3: x_offset + 7] = Q.unit(q)

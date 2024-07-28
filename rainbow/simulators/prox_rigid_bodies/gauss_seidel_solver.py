@@ -11,7 +11,7 @@ import numpy as np
 from rainbow.util.timer import Timer
 
 
-def solve(engine, Problems: list, performance_data: dict, profiling_on: bool, prefix: str) -> None:
+def solve(engine, Problems: list, performance_data: dict[str, any], profiling_on: bool, prefix: str) -> None:
     """
 
     :param engine:
@@ -21,12 +21,11 @@ def solve(engine, Problems: list, performance_data: dict, profiling_on: bool, pr
     :param prefix:
     :return:
     """
-    timer = None
+    timer = Timer(prefix + "gauss-seidel-solver") if profiling_on else None
     if profiling_on:
         performance_data[prefix + "residuals"] = (
                 np.ones(engine.params.max_iterations, dtype=np.float64) * np.inf
         )
-        timer = Timer("Gauss Seidel")
         timer.start()
 
     # Extract parameter values for controlling the adaptive r-factor strategy; this is for readability of the code.

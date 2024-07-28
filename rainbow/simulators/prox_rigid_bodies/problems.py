@@ -16,6 +16,7 @@ TODO 2024-07-27 Kenny: The current design is great for supporting a generic way 
 """
 
 from abc import ABC, abstractmethod
+from typing import Optional
 
 import numpy as np
 import scipy.sparse as sparse
@@ -36,11 +37,11 @@ class Problem(ABC):
     """
 
     def __init__(self, name: str):
-        self.name = name  # The name of the problem type that is solved.
-        self.error = None  # The residual vector, basically error = x - sol.
-        self.sol = None  # Last known good solution.
-        self.x = None  # The current solution.
-        self.r = None  # The R-factor values.
+        self.name: str = name  # The name of the problem type that is solved.
+        self.error: Optional[np.ndarray] = None  # The residual vector, basically error = x - sol.
+        self.sol: Optional[np.ndarray] = None  # Last known good solution.
+        self.x: Optional[np.ndarray] = None  # The current solution.
+        self.r: Optional[np.ndarray] = None  # The R-factor values.
 
     def rollback_iterate(self) -> None:
         """
@@ -114,15 +115,15 @@ class Contacts(Problem):
 
     def __init__(self):
         super().__init__("contact_problem")
-        self.K = 0  # The number of contact points in the contact problem
-        self.J = None  # The contact Jacobian.
-        self.WJT = None
-        self.g = None
-        self.e = None
-        self.mu = None
-        self.b = None
-        self.diag = None
-        self.delta_u = None
+        self.K: int = 0  # The number of contact points in the contact problem
+        self.J: Optional[sparse.csr_matrix] = None  # The contact Jacobian.
+        self.WJT: Optional[sparse.csr_matrix] = None  # The inverse mass matrix multiplied by Jacobian transpose,
+        self.g: Optional[np.ndarray] = None  # The gap vector.
+        self.e: Optional[np.ndarray] = None   # Restitution coefficient vector.
+        self.mu: Optional[np.ndarray] = None  # Friction coefficient vector.
+        self.b: Optional[np.ndarray] = None   # The right-hand side vector in v = A x + b
+        self.diag: Optional[np.ndarray] = None  # Diagonal of Delassus operator, A-matrix.
+        self.delta_u: Optional[np.ndarray] = None  # Velocity change vector given by the Lagrange multiplier solution.
 
     def initialize(self, dt: float, state: STORAGE.StateStorage, engine: Engine) -> None:
         """
@@ -387,13 +388,13 @@ class Hinges(Problem):
 
     def __init__(self):
         super().__init__("hinges_problem")
-        self.K = 0  # The number of hinge joints.
-        self.J = None
-        self.WJT = None
-        self.g = None
-        self.b = None
-        self.diag = None
-        self.delta_u = None
+        self.K: int = 0  # The number of hinge joints.
+        self.J: Optional[sparse.csr_matrix] = None  # The contact Jacobian.
+        self.WJT: Optional[sparse.csr_matrix] = None  # The inverse mass matrix multiplied by Jacobian transpose,
+        self.g: Optional[np.ndarray] = None  # The gap vector.
+        self.b: Optional[np.ndarray] = None   # The right-hand side vector in v = A x + b
+        self.diag: Optional[np.ndarray] = None  # Diagonal of Delassus operator, A-matrix.
+        self.delta_u: Optional[np.ndarray] = None  # Velocity change vector given by the Lagrange multiplier solution.
 
     def initialize(self, dt: float, state: STORAGE.StateStorage, engine: Engine):
         """
@@ -592,12 +593,12 @@ class PostStabilization(Problem):
 
     def __init__(self, contact_problem: Contacts):
         super().__init__("post_stabilization_problem")
-        self.K = contact_problem.K  # The number of contact points in the contact problem
-        self.J = contact_problem.J  # The contact Jacobian.
-        self.WJT = contact_problem.WJT
-        self.g = None
-        self.diag = contact_problem.diag.copy()
-        self.delta_r = None
+        self.K: int = contact_problem.K  # The number of contact points in the contact problem
+        self.J: Optional[sparse.csr_matrix] = contact_problem.J  # The contact Jacobian.
+        self.WJT: Optional[sparse.csr_matrix] = contact_problem.WJT  # The inverse mass matrix multiplied by Jacobian transpose,
+        self.g: Optional[np.ndarray] = None  # The gap vector.
+        self.diag: Optional[np.ndarray] = contact_problem.diag.copy()  # Diagonal of Delassus operator, A-matrix.
+        self.delta_r: Optional[np.ndarray] = None  # Positional change vector given by the Lagrange multiplier solution.
 
     def initialize(self, dt: float, state: STORAGE.StateStorage, engine: Engine) -> None:
         """

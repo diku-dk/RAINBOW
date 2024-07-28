@@ -1,4 +1,9 @@
+"""
+This module provides functionality to compute mass properties of rigid bodies.
+"""
+
 import numpy as np
+
 import rainbow.math.vector3 as V3
 import rainbow.math.matrix3 as M3
 import rainbow.math.quaternion as Q
@@ -9,22 +14,22 @@ class MassProperties:
     Mass properties.
     This class holds information about mass properties, which is the total
     mass, the center of mass potion, and the inertia tensor. As the inertia tensor
-    is always symmetric not all terms are saved, but only the symmetric part.
+    is always symmetric, not all terms are saved, but only the symmetric part.
     """
 
     def __init__(self):
-        self.mass = 0.0  # Total mass
-        self.x = 0.0  # Center of mass
-        self.y = 0.0
-        self.z = 0.0
-        self.Ixx = 0.0  # Inertia tensor
-        self.Iyy = 0.0
-        self.Izz = 0.0
-        self.Ixy = 0.0
-        self.Ixz = 0.0
-        self.Iyz = 0.0
+        self.mass: float = 0.0  # Total mass
+        self.x: float = 0.0  # Center of mass
+        self.y: float = 0.0
+        self.z: float = 0.0
+        self.Ixx: float = 0.0  # Inertia tensor
+        self.Iyy: float = 0.0
+        self.Izz: float = 0.0
+        self.Ixy: float = 0.0
+        self.Ixz: float = 0.0
+        self.Iyz: float = 0.0
 
-    def __str__(self):
+    def __str__(self) -> str:
         layout = ".2f"
         txt = "( m="
         txt = txt + format(self.mass, layout)
@@ -130,15 +135,15 @@ def __compute_projected_face_integral(V, T, idx, X, Y):
     return P1, Pa, Paa, Paaa, Pb, Pbb, Pbbb, Pab, Paab, Pabb
 
 
-def compute_mass_properties(V, T, density: float):
+def compute_mass_properties(V: np.ndarray, T: np.ndarray, density: float) -> MassProperties:
     """
     Compute mass properties of the given triangle surface mesh. It is assumed
     that the mesh is watertight and not self-intersecting.
 
     Details can be found in this paper: https://doi.org/10.1080/10867651.1996.10487458
 
-    :param V:        The vertex coordinates of the triangle mesh. Assumed to be N-by-3 where N is number of nodes.
-    :param T:        The triangle elements of the triangle mesh. Assumes to be K-by-3 where K is number of triangles.
+    :param V:        The vertex coordinates of the triangle mesh. Assumed to be N-by-3 where N is the number of nodes.
+    :param T:        The triangle elements of the triangle mesh. Assumes to be K-by-3 where K is the number of triangles.
     :param density:  The mass density value to use.
     :return:         The mass properties wrt the model space (aka the space the input mesh lives in)
     """
@@ -262,8 +267,8 @@ def compute_mass_properties(V, T, density: float):
         raise RuntimeError(
             "compute_mass_properties(): internal error, bad mesh encountered"
         )
-    # We clamp computed values to zero if they are very tiny numbers. This is mainly due making inertia tensor more
-    # human-readable when printing it.
+    # We clamp computed values to zero if they are very tiny numbers.
+    # This is mainly due to making inertia tensor more human-readable when printing it.
     too_small = 1.0e-10
     prop.mass = prop.mass if prop.mass > too_small else 0.0
     prop.Ixx = prop.Ixx if prop.Ixx > too_small else 0.0
@@ -278,7 +283,7 @@ def compute_mass_properties(V, T, density: float):
     return prop
 
 
-def __rotate_to_model_space_orientation(prop):
+def __rotate_to_model_space_orientation(prop: MassProperties) -> tuple[np.ndarray, np.ndarray]:
     """
     Retrieve body space to model space rotation and inertia tensor wrt body space orientation
     :param prop:   Mass properties given in some "model space"
@@ -320,11 +325,11 @@ def __rotate_to_model_space_orientation(prop):
     return q, I_body
 
 
-def __translate_to_body_space_origin(prop_model):
+def __translate_to_body_space_origin(prop_model: MassProperties) -> tuple[np.ndarray, MassProperties]:
     """
     Transforms inertia tensor given wrt model space origin to inertia tensor given wrt body space origin.
 
-    :param prop_model: Mass properties wrt to model space.
+    :param prop_model: The mass properties with respect to the model space coordinate system.
     :return:           Mass properties translated into body space.
     """
     prop_body = MassProperties()
@@ -358,11 +363,11 @@ def __translate_to_body_space_origin(prop_model):
     return r, prop_body
 
 
-def xform_model_2_body_space(prop):
+def xform_model_2_body_space(prop: MassProperties) -> tuple[np.ndarray, np.ndarray, MassProperties, np.ndarray]:
     """
     Transform mass properties from model space into body space.
 
-    :param prop:   Model space mass properties
+    :param prop:   The model space mass properties.
     :return:       A tuple that gives the rigid body transformation from body space to model space and
                    the body space mass properties.
     """
@@ -373,13 +378,13 @@ def xform_model_2_body_space(prop):
     #
     # Transformations work as the following rigid body transformation
     #
-    #     [p]_mf = q * [p]_bf  - r
+    #     [p]_mf = q * [p]_bf - r
     #
-    #   T_bf2mf = |  q -r |
-    #             |  0  1 |
+    #   T_bf2mf = | q -r |
+    #             | 0  1 |
     #
-    #   | p_mf | = |  q -r | | p_bf |
-    #   |  1   |   |  0  1 | | 1    |
+    #   | p_mf | = | q -r | | p_bf |
+    #   |  1   |   | 0  1 | | 1    |
     #
     r_bf2mf = -r
     q_bf2mf = q
@@ -387,7 +392,7 @@ def xform_model_2_body_space(prop):
     return r_bf2mf, q_bf2mf, m, I_body
 
 
-def update_inertia_tensor(R, Bv):
+def update_inertia_tensor(R: np.ndarray, Bv: np.ndarray) -> np.ndarray:
     """
     Inertia Update Method.
     Computes, W = R B R^T. This method has been optimized to
@@ -397,7 +402,7 @@ def update_inertia_tensor(R, Bv):
     Note: Further optimization may be possible by exploiting common sub-terms.
 
     :param R: The orientation as a rotation matrix.
-    :param Bv: An inertia tensor entity in body frame (ie a vector not a matrix)
+    :param Bv: An inertia tensor entity in body frame (it is a vector not a matrix)
     :return: The inertia tensor entity in the corresponding world frame.
     """
     """
