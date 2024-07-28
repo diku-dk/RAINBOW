@@ -581,7 +581,7 @@ class Hinges(Problem):
 
             u = V3.cross(n_p, n_c)
 
-            g[offset:offset + 3] = (r_p - r_c)
+            g[offset:offset + 3] = (r_c - r_p)
             g[offset + 3] = t_p.dot(u)
             g[offset + 4] = b_p.dot(u)
         rate = engine.params.gap_reduction / dt
