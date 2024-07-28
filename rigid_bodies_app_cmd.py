@@ -32,13 +32,13 @@ def setup_scene(engine):
     API.set_velocity(engine, 'B', V3.make(0.0, 0.0, 0.0))
     API.set_spin(engine, 'B', V3.make(0.0, 0.0, 0.0))
 
-    API.create_gravity_force(engine,"earthish", 10.0, V3.j() )
-    API.create_damping_force(engine, "windish", 0.001, 0.001)
+    API.create_gravity_force(engine,"earth-like", 10.0, V3.j() )
+    API.create_damping_force(engine, "windy-like", 0.001, 0.001)
 
-    API.connect_force(engine, "A", "earthish")
-    API.connect_force(engine, "B", "earthish")
-    API.connect_force(engine, "A", "windish")
-    API.connect_force(engine, "B", "windish")
+    API.connect_force(engine, "A", "earth-like")
+    API.connect_force(engine, "B", "earth-like")
+    API.connect_force(engine, "A", "windy-like")
+    API.connect_force(engine, "B", "windy-like")
 
 
 def simulate(engine):
@@ -47,24 +47,23 @@ def simulate(engine):
     fps = 1.0 / dt
     steps = int(np.round(T * fps))
     for i in range(steps):
-        API.simulate(engine, dt, debug_on=True)
+        API.simulate(engine, dt, profiling_on=True)
         print("simulated ", i, " steps, with ", len(engine.contact_points), " contact points")
 
 
 def plot(engine):
-    stats = API.get_log(engine)
-    fig = plt.figure()
+    profile_data = API.get_log(engine)
+    plt.figure()
     ax = plt.subplot(111)
-    ax.set_title('Converegence rates')
+    ax.set_title('Convergence rate')
     ax.set_xlabel('Iterations')
     ax.set_ylabel('Merit')
     plt.grid(True)
-    for i in range(len(stats)):
-        data = stats[i]
+    for i in range(len(profile_data)):
+        data = profile_data[i]
         if 'residuals' in data.keys():
             residuals = data['residuals']
-            reject = data['reject']
-            ax.plot(residuals[np.where(reject == False)])
+            ax.plot(residuals)
     plt.show()
 
 
