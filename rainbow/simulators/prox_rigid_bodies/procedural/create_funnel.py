@@ -1,6 +1,20 @@
+"""
+This script contains code to create a funnel scene.
+"""
+
+import numpy as np
+import igl   # Only using igl.read_triangle_mesh to read obj files.
+
+import rainbow.math.vector3 as V3
+import rainbow.math.quaternion as Q
+import rainbow.geometry.surface_mesh as MESH
+import rainbow.simulators.prox_rigid_bodies.api as API
+from rainbow.simulators.prox_rigid_bodies.types import Engine
+from .create_grid import _create_grid
+
 
 def create_funnel(
-        engine,
+        engine: Engine,
         funnel_height,
         funnel_radius,
         grid_width,
@@ -9,10 +23,26 @@ def create_funnel(
         I,
         J,
         K,
-        density,
-        material_name,
-        use_random_orientation=True,
-):
+        density: float,
+        material_name: str,
+        use_random_orientation: bool = True
+        ) -> list[str]:
+    """
+
+    :param engine:
+    :param funnel_height:
+    :param funnel_radius:
+    :param grid_width:
+    :param grid_height:
+    :param grid_depth:
+    :param I:
+    :param J:
+    :param K:
+    :param density:
+    :param material_name:
+    :param use_random_orientation:
+    :return:
+    """
     height = grid_height
     width = grid_width
     depth = grid_depth
@@ -20,7 +50,7 @@ def create_funnel(
     shape_names = []
     shape_name = API.generate_unique_name("jack")
 
-    V, T = igl.read_triangle_mesh("../data/jack.obj")
+    V, T = igl.read_triangle_mesh(filename="../data/jack.obj", dtypef=np.float64)
     mesh = API.create_mesh(V, T)
     MESH.scale_to_unit(mesh)
     s = (
@@ -50,7 +80,7 @@ def create_funnel(
     )
 
     shape_name = API.generate_unique_name("funnel")
-    V, T = igl.read_triangle_mesh("../data/funnel.obj")
+    V, T = igl.read_triangle_mesh(filename="../data/funnel.obj", dtypef=np.float64)
     mesh = API.create_mesh(V, T)
 
     MESH.scale_to_unit(mesh)
@@ -70,7 +100,7 @@ def create_funnel(
     API.connect_shape(engine, body_name, shape_name)
 
     r = V3.make(0.0, 1.5 * funnel_height, 0.0)
-    q = Q.Rx(pi)
+    q = Q.Rx(np.pi)
     API.set_position(engine, body_name, r, True)
     API.set_orientation(engine, body_name, q, True)
 
@@ -79,4 +109,3 @@ def create_funnel(
     API.set_mass_properties(engine, body_name, density)
 
     return body_names
-
