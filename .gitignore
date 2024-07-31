@@ -131,12 +131,8 @@ dmypy.json
 .pyre/
 
 # More catches
-*/*.stl
 .DS_Store
 .idea/
-cpp/external/Eigen3/
-__init__.py
-data/test.mat
 
 # usd*.files
 *.usd*
@@ -148,14 +144,3 @@ data/test.mat
 nohup.out
 imgui.ini
 .polyscope.ini
-python/arch.xml
-python/dome.xml
-python/pillar.xml
-python/tower.xml
-python/colosseum.xml
-python/funnel.xml
-python/glasses.xml
-python/pantheon.xml
-python/poles.xml
-python/temple.xml
-python/sandbox.xml
