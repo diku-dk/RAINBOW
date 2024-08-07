@@ -11,7 +11,7 @@ import rainbow.simulators.prox_rigid_bodies.api as API
 from rainbow.simulators.prox_rigid_bodies.types import Engine
 
 
-def create_grid(
+def create_lattice(
         engine: Engine,
         r: np.ndarray,
         q: np.ndarray,

@@ -8,10 +8,10 @@ import numpy as np
 import rainbow.geometry.surface_mesh as MESH
 import rainbow.simulators.prox_rigid_bodies.api as API
 from rainbow.simulators.prox_rigid_bodies.types import Engine
-from .create_grid import create_grid
+from .create_lattice import create_lattice
 
 
-def create_jack_grid(
+def create_jack_lattice(
         engine: Engine,
         r: np.ndarray,
         q: np.ndarray,
@@ -57,7 +57,7 @@ def create_jack_grid(
 
     shape_names.append(shape_name)
 
-    body_names = create_grid(
+    body_names = create_lattice(
         engine,
         r,
         q,

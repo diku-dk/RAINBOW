@@ -155,7 +155,7 @@ def setup_scene(engine, scene_name: str):
             density=1.0,
             material_name='default'
         )
-        PROC.create_jack_grid(
+        PROC.create_jack_lattice(
             engine,
             r=V3.make(-20, 40, -20),
             q=Q.identity(),
@@ -371,7 +371,7 @@ def plotting(stats):
     ax.set_ylabel('Value')
     plt.grid(True)
     ax.plot(number_of_overlaps, label='Overlaps', color=colors[0])
-    ax.plot(step_sizes, label='Stepsize', color=colors[1])
+    ax.plot(step_sizes, label='Step size', color=colors[1])
     ax.plot(number_of_contact_points, label='Contacts', color=colors[2])
     ax.plot(penetrations, label='Penetrations', color=colors[6])
     ax.legend()

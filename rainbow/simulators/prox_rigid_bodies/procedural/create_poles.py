@@ -10,7 +10,7 @@ import rainbow.math.quaternion as Q
 import rainbow.geometry.surface_mesh as MESH
 import rainbow.simulators.prox_rigid_bodies.api as API
 from rainbow.simulators.prox_rigid_bodies.types import Engine
-from .create_grid import create_grid
+from .create_lattice import create_lattice
 
 
 def create_poles(
@@ -31,7 +31,6 @@ def create_poles(
 ) -> list[str]:
     """
     This function creates the pole scene.
-
 
     :param engine:                  The engine that will be used to create the dry stone rigid bodies in.
     :param pole_height:             The height of the poles.
@@ -59,7 +58,7 @@ def create_poles(
         "../data//dragon.obj",
         "../data//knot.obj",
         "../data//lamp.obj",
-        "../data//propella.obj",
+        "../data//propeller.obj",
         "../data//shuttle.obj",
     ]
 
@@ -75,7 +74,7 @@ def create_poles(
 
     r = V3.make(-width / 2.0, 2.0 * pole_height, -depth / 2.0)
     q = Q.identity()
-    body_names = create_grid(
+    body_names = create_lattice(
         engine,
         r,
         q,

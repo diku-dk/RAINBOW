@@ -9,8 +9,8 @@ from .create_dome import create_dome
 from .create_funnel import create_funnel
 from .create_gear_train import create_gear_train
 from .create_glasses import create_glasses
-from .create_grid import create_grid
-from .create_jack_grid import create_jack_grid
+from .create_lattice import create_lattice
+from .create_jack_lattice import create_jack_lattice
 from .create_pantheon import create_pantheon
 from .create_pillar import create_pillar
 from .create_poles import create_poles
@@ -26,9 +26,9 @@ __all__ = ["create_arch",
            "create_funnel",
            "create_gear_train",
            "create_glasses",
-           "create_grid",
+           "create_lattice",
            "create_ground",
-           "create_jack_grid",
+           "create_jack_lattice",
            "create_pantheon",
            "create_pillar",
            "create_poles",

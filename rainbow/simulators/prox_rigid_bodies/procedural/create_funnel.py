@@ -10,7 +10,7 @@ import rainbow.math.quaternion as Q
 import rainbow.geometry.surface_mesh as MESH
 import rainbow.simulators.prox_rigid_bodies.api as API
 from rainbow.simulators.prox_rigid_bodies.types import Engine
-from .create_grid import create_grid
+from .create_lattice import create_lattice
 
 
 def create_funnel(
@@ -64,7 +64,7 @@ def create_funnel(
 
     r = V3.make(-width / 2.0, 3.0 * funnel_height, -depth / 2.0)
     q = Q.identity()
-    body_names = create_grid(
+    body_names = create_lattice(
         engine,
         r,
         q,
