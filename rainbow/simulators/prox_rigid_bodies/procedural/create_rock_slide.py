@@ -40,7 +40,7 @@ def create_rock_slide(engine: Engine,
     body_names = []
 
     shape_name = API.generate_unique_name("landscape")
-    V, T = igl.read_triangle_mesh("../data/rock_slide/mountains.obj", dtypef=np.float64)
+    V, T = igl.read_triangle_mesh("./data/rock_slide/mountains.obj", dtypef=np.float64)
     mesh = API.create_mesh(V, T)
     API.create_shape(engine, shape_name, mesh)
     body_name = API.generate_unique_name("mountains")

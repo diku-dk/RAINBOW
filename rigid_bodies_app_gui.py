@@ -407,7 +407,9 @@ def plotting(stats):
 
 
 def create_visual_geometry(engine):
+    logger = logging.getLogger("main.create_visual_geometry")
     ps.remove_all_structures()
+    logger.info(f"Removed all visual geometries")
 
     for body in engine.bodies.values():
         transparency = 1.0
@@ -428,9 +430,12 @@ def create_visual_geometry(engine):
         T[:3, :3] = Q.to_matrix(body.q)
         T[:3, 3] = body.r
         ps.get_surface_mesh(body.name).set_transform(T)
+    logger.info(f"Done creating new visual geometries")
 
 
 def create_gui():
+    logger = logging.getLogger("main.create_visual_geometry")
+
     global app_params
     # if psim.BeginMainMenuBar():
     #    if psim.BeginMenu("My Custom Menu"):
@@ -442,20 +447,21 @@ def create_gui():
     #    psim.EndMainMenuBar()
     changed, app_params["simulate"] = psim.Checkbox("Simulate", app_params["simulate"])
     if changed:
-        print("Simulate = ", app_params["simulate"])
+        logger.info(f"Application will run simulation loop = {app_params["simulate"]}")
     changed, app_params["xml"] = psim.Checkbox("Save xml", app_params["xml"])
     if changed:
-        print("Save XML = ", app_params["xml"])
+        logger.info(f"Application will save XML files = {app_params["xml"]}")
+
 
     changed, app_params["stats"] = psim.Checkbox("Show stats", app_params["stats"])
     if changed:
-        print("Show stats = ", app_params["stats"])
+        logger.info(f"Application will show statistics and plots = {app_params["stats"]}")
     changed, app_params["selected"] = psim.Combo("Scene", app_params["selected"], app_params["names"])
     if changed:
-        print("Selected scene = ", app_params["selected"])
+        logger.info(f"Selected scene = {app_params["selected"]}")
     if psim.Button("Create scene"):
         scene_name = app_params["names"][app_params["selected"]]
-        print("Creating scene:", scene_name)
+        logger.info(f"Creating scene = {scene_name}")
 
         engine = API.create_engine()
 
