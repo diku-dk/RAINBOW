@@ -13,6 +13,8 @@ from .create_grid import create_grid
 from .create_jack_grid import create_jack_grid
 from .create_pantheon import create_pantheon
 from .create_pillar import create_pillar
+from .create_poles import create_poles
+from .create_rock_slide import create_rock_slide
 
 __all__ = ["create_arch",
            "create_chainmail",
@@ -25,5 +27,7 @@ __all__ = ["create_arch",
            "create_ground",
            "create_jack_grid",
            "create_pantheon",
-           "create_pillar"
+           "create_pillar",
+           "create_poles",
+           "create_rock_slide"
            ]

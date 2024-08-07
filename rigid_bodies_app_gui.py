@@ -22,7 +22,7 @@ def setup_scene(engine, scene_name: str):
                            stones=3,
                            density=1.0,
                            material_name='default'
-                           );
+                           )
     elif scene_name == "arch":
         PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default')
         PROC.create_arch(engine,
@@ -145,56 +145,61 @@ def setup_scene(engine, scene_name: str):
                            material_name='default'
                            )
     elif scene_name == "chainmail":
-        PROC.create_chainmail(engine,
-                              major_radius=2,
-                              minor_radius=0.5,
-                              width=10,
-                              height=10,
-                              stretch=0.75,
-                              density=1.0,
-                              material_name='default'
-                              )
-        PROC.create_jack_grid(engine,
-                              r=V3.make(-20,40,-20),
-                              q=Q.identity(),
-                              width=40.0,
-                              height=40.0,
-                              depth=40.0,
-                              I=5,
-                              J=5,
-                              K=5,
-                              density=1.0,
-                              material_name='default',
-                              use_random_orientation=True
-                              )
+        PROC.create_chainmail(
+            engine,
+            major_radius=2,
+            minor_radius=0.5,
+            columns=10,
+            rows=10,
+            stretch=0.75,
+            density=1.0,
+            material_name='default'
+        )
+        PROC.create_jack_grid(
+            engine,
+            r=V3.make(-20, 40, -20),
+            q=Q.identity(),
+            width=40.0,
+            height=40.0,
+            depth=40.0,
+            I=5,
+            J=5,
+            K=5,
+            density=1.0,
+            material_name='default',
+            use_random_orientation=True
+        )
     elif scene_name == "gear_train":
-        PROC.create_gear_train(engine,
-                               N = 14,
-                               density=1.0,
-                               material_name='default'
-                               )
+        PROC.create_gear_train(
+            engine,
+            N=14,
+            density=1.0,
+            material_name='default'
+        )
     elif scene_name == "rock_slide":
-        PROC.create_rockslide(engine,
-                              pile_width=8,
-                              pile_height=4,
-                              pile_depth=2,
-                              I_rocks=20,
-                              J_rocks=10,
-                              K_rocks=5,
-                              density=1.0,
-                              material_name='default'
-                              )
+        PROC.create_rock_slide(
+            engine,
+            pile_width=8,
+            pile_height=4,
+            pile_depth=2,
+            I_rocks=20,
+            J_rocks=10,
+            K_rocks=5,
+            density=1.0,
+            material_name='default'
+        )
     elif scene_name == "sandbox":
-        PROC.create_sandbox(engine,
-                            box_width = 10,
-                            box_height = 10,
-                            box_depth = 10,
-                            I_grains = 20,
-                            J_grains = 20,
-                            K_grains = 20,
-                            density=1.0,
-                            material_name='default'
-                            )
+        PROC.create_sandbox(
+            engine,
+            box_width=10,
+            box_height=10,
+            box_depth=10,
+            I_grains=20,
+            J_grains=20,
+            K_grains=20,
+            density=1.0,
+            material_name='default'
+        )
 
     API.create_gravity_force(engine=engine, force_name="earth", g=9.81, up=V3.j())
     API.create_damping_force(engine=engine, force_name="air", alpha=0.01, beta=0.01)
@@ -231,13 +236,13 @@ def export_to_xml(engine, xml_filename):
         if force.force_type == "Gravity":
             gravity_xml_node = ET.SubElement(forces_xml_node, "gravity")
             gravity_xml_node.set("name", force.name)
-            #print(force.force_type)
+            # print(force.force_type)
             gravity_xml_node.set("g", str(force.g))
             gravity_xml_node.set("up", np.array2string(force.up))
         if force.force_type == "Damping":
             damping_xml_node = ET.SubElement(forces_xml_node, "damping")
             damping_xml_node.set("name", force.name)
-            #print(force.force_type)
+            # print(force.force_type)
             damping_xml_node.set("alpha", str(force.alpha))
             damping_xml_node.set("beta", str(force.beta))
 
@@ -273,29 +278,51 @@ def export_to_xml(engine, xml_filename):
             value = getattr(engine.params, name)
             param_xml_node.set("name", str(name))
             param_xml_node.set("value", str(value))
-            param_xml_node.set("type",type(value).__name__)
+            param_xml_node.set("type", type(value).__name__)
 
     tree = ET.ElementTree(root)
     ET.indent(tree, '  ', level=0)
     ET.indent(tree, '  ', level=1)
     ET.indent(tree, '  ', level=2)
     ET.indent(tree, '  ', level=3)
-    tree.write(xml_filename
-               , encoding="utf-8"
-               , xml_declaration=True
-               , method = "xml"
-               , short_empty_elements = True
-               )
+
+    tree.write(
+        xml_filename,
+        encoding="utf-8",
+        xml_declaration=True,
+        method="xml",
+        short_empty_elements=True
+    )
 
 
 def plotting(stats):
     import matplotlib.pyplot as plt
-    colors = ['#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4',
-              '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff',
-              '#9a6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1',
-            '#000075', '#808080', '#ffffff', '#000000']
+    colors = [
+        '#e6194b',
+        '#3cb44b',
+        '#ffe119',
+        '#4363d8',
+        '#f58231',
+        '#911eb4',
+        '#46f0f0',
+        '#f032e6',
+        '#bcf60c',
+        '#fabebe',
+        '#008080',
+        '#e6beff',
+        '#9a6324',
+        '#fffac8',
+        '#800000',
+        '#aaffc3',
+        '#808000',
+        '#ffd8b1',
+        '#000075',
+        '#808080',
+        '#ffffff',
+        '#000000'
+    ]
 
-    fig = plt.figure()
+    plt.figure()
     ax = plt.subplot(111)
     ax.set_title('Convergence rates')
     ax.set_xlabel('Iterations')
@@ -317,7 +344,7 @@ def plotting(stats):
 
     time_stepper = [stats[i]['stepper_time'] for i in range(len(stats))]
 
-    fig = plt.figure()
+    plt.figure()
     ax = plt.subplot(111)
     ax.set_title('Profiling Timings')
     ax.set_xlabel('Step')
@@ -337,7 +364,7 @@ def plotting(stats):
     number_of_contact_points = [stats[i]['contact_points'] for i in range(1, len(stats))]
     penetrations = [stats[i]['max_penetration'] for i in range(1, len(stats))]
 
-    fig = plt.figure()
+    plt.figure()
     ax = plt.subplot(111)
     ax.set_title('Profiling data')
     ax.set_xlabel('Step')
@@ -353,7 +380,7 @@ def plotting(stats):
     kinetic_energy = [stats[i]['kinetic_energy'] for i in range(len(stats))]
     potential_energy = [stats[i]['potential_energy'] for i in range(len(stats))]
 
-    fig = plt.figure()
+    plt.figure()
     ax = plt.subplot(111)
     ax.set_title('Energy Plots')
     ax.set_xlabel('Step')
@@ -374,7 +401,14 @@ def create_visual_geometry(engine):
         color = V3.make(1.0, 0.1, 0.1)
         if body.is_fixed:
             color = V3.make(0.1, 0.1, 1.0)
-        ps.register_surface_mesh(body.name, body.shape.mesh.V, body.shape.mesh.T, smooth_shade=False, color=color, transparency=transparency)
+        ps.register_surface_mesh(
+            body.name,
+            body.shape.mesh.V,
+            body.shape.mesh.T,
+            smooth_shade=False,
+            color=color,
+            transparency=transparency
+        )
 
         T = np.eye(4)
         T[:3, :3] = Q.to_matrix(body.q)
@@ -384,7 +418,7 @@ def create_visual_geometry(engine):
 
 def create_gui():
     global app_params
-    #if psim.BeginMainMenuBar():
+    # if psim.BeginMainMenuBar():
     #    if psim.BeginMenu("My Custom Menu"):
     #        if psim.MenuItem("Item 1"):
     #            print("Item 1 pressed")
@@ -446,7 +480,7 @@ def simulate() -> None:
         T[:3, 3] = body.r
         ps.get_surface_mesh(body.name).set_transform(T)
 
-    API.simulate(engine=engine, T=engine.params.time_step, debug_on=True)
+    API.simulate(engine=engine, T=engine.params.time_step, profiling_on=True)
 
     app_params["step"] += 1
 

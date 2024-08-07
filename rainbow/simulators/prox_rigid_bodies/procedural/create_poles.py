@@ -32,21 +32,22 @@ def create_poles(
     """
     This function creates the pole scene.
 
-    :param engine:
-    :param pole_height:
-    :param pole_radius:
-    :param I_poles:
-    :param K_poles:
-    :param grid_width:
-    :param grid_height:
-    :param grid_depth:
-    :param I_grid:
-    :param J_grid:
-    :param K_grid:
-    :param density:
-    :param material_name:
-    :param use_random_orientation:
-    :return:
+
+    :param engine:                  The engine that will be used to create the dry stone rigid bodies in.
+    :param pole_height:             The height of the poles.
+    :param pole_radius:             The radius of the poles.
+    :param I_poles:                 The number of poles along the x-axis.
+    :param K_poles:                 The number of poles along the y-axis.
+    :param grid_width:              The width of a lattice with objects-shapes falling down onto the poles.
+    :param grid_height:             The height of a lattice with objects-shapes falling down onto the poles.
+    :param grid_depth:              The depth of a lattice with objects-shapes falling down onto the poles.
+    :param I_grid:                  The number of objects along the width-direction of the lattice.
+    :param J_grid:                  The number of objects along the height-direction of the lattice.
+    :param K_grid:                  The number of objects along the depth-direction of the lattice.
+    :param density:                 The mass density to use for all the rigid bodies.
+    :param material_name:           The material name to use for all the rigid bodies that are created.
+    :param use_random_orientation:  Boolean flag used to tell whether jack shapes should be randomly oriented or not.
+    :return:                        A list with the names of all the rigid bodies that were created.
     """
     height = grid_height
     width = grid_width
