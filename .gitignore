@@ -144,3 +144,4 @@ dmypy.json
 nohup.out
 imgui.ini
 .polyscope.ini
+*.xml
