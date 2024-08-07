@@ -24,20 +24,18 @@ def create_rock_slide(engine: Engine,
                       material_name: str = "default"
                       ) -> list[str]:
     """
+    This function creates a rock slide scene.
 
-    Args:
-        engine:
-        pile_width:
-        pile_height:
-        pile_depth:
-        I_rocks:
-        J_rocks:
-        K_rocks:
-        density:
-        material_name:
-
-    Returns:
-
+    :param engine:                  The engine that will be used to create the dry stone rigid bodies in.
+    :param pile_width:              The width of the rock pile.
+    :param pile_height:             The height of the rock pile.
+    :param pile_depth:              The depth of the rock pile..
+    :param I_rocks:                 The number of poles along the width-axis.
+    :param J_rocks:                 The number of poles along the height-axis.
+    :param K_rocks:                 The number of poles along the depth-axis.
+    :param density:                 The mass density to use for all the rigid bodies.
+    :param material_name:           The material name to use for all the rigid bodies that are created.
+    :return:                        A list with the names of all the rigid bodies that were created.
     """
     body_names = []
 

@@ -15,6 +15,9 @@ from .create_pantheon import create_pantheon
 from .create_pillar import create_pillar
 from .create_poles import create_poles
 from .create_rock_slide import create_rock_slide
+from .create_sandbox import create_sandbox
+from .create_temple import create_temple
+from .create_tower import create_tower
 
 __all__ = ["create_arch",
            "create_chainmail",
@@ -29,5 +32,7 @@ __all__ = ["create_arch",
            "create_pantheon",
            "create_pillar",
            "create_poles",
-           "create_rock_slide"
+           "create_rock_slide",
+           "create_sandbox",
+           "create_temple"
            ]

@@ -1,15 +1,39 @@
+"""
+This script contains code to create a sandbox scene.
+"""
+import rainbow.math.vector3 as V3
+import rainbow.math.quaternion as Q
+import rainbow.geometry.surface_mesh as MESH
+import rainbow.simulators.prox_rigid_bodies.api as API
+from rainbow.simulators.prox_rigid_bodies.types import Engine
+from .create_grid import create_grid
+
 
 def create_sandbox(
-        engine,
-        box_width,
-        box_height,
-        box_depth,
-        I_grains,
-        J_grains,
-        K_grains,
-        density,
-        material_name,
-):
+        engine: Engine,
+        box_width: float,
+        box_height: float,
+        box_depth: float,
+        I_grains: int,
+        J_grains: int,
+        K_grains: int,
+        density: float,
+        material_name: str,
+) -> list[str]:
+    """
+    This function creates a sandbox scene.
+
+    :param engine:                  The engine that will be used to create the dry stone rigid bodies in.
+    :param box_width:               The width of the box.
+    :param box_height:              The height of the box.
+    :param box_depth:               The depth of the box.
+    :param I_grains:                The number of grains along the width-axis.
+    :param J_grains:                The number of grains along the height-axis.
+    :param K_grains:                The number of grains along the depth-axis.
+    :param density:                 The mass density to use for all the rigid bodies.
+    :param material_name:           The material name to use for all the rigid bodies that are created.
+    :return:                        A list with the names of all the rigid bodies that were created.
+    """
     thickness = 0.1 * box_height
 
     shape_names = []
@@ -30,7 +54,7 @@ def create_sandbox(
 
     r = V3.make(-box_width / 2.0, 1.5 * box_height + thickness, -box_depth / 2.0)
     q = Q.identity()
-    body_names = _create_grid(
+    body_names = create_grid(
         engine,
         r,
         q,
@@ -144,4 +168,3 @@ def create_sandbox(
     API.set_mass_properties(engine, body_name, density)
 
     return body_names
-

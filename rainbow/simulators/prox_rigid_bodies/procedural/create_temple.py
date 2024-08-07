@@ -1,15 +1,41 @@
+"""
+This script contains code to create a temple scene.
+"""
+import numpy as np
+
+import rainbow.math.vector3 as V3
+import rainbow.math.quaternion as Q
+import rainbow.geometry.surface_mesh as MESH
+import rainbow.simulators.prox_rigid_bodies.api as API
+from rainbow.simulators.prox_rigid_bodies.types import Engine
+from .create_pillar import create_pillar
+
 
 def create_temple(
-        engine,
-        I_pillars,
-        K_pillars,
-        pillar_width,
-        pillar_height,
-        pillar_depth,
-        pillar_stones,
-        density,
-        material_name,
-):
+        engine: Engine,
+        I_pillars: int,
+        K_pillars: int,
+        pillar_width: float,
+        pillar_height: float,
+        pillar_depth: float,
+        pillar_stones: int,
+        density: float,
+        material_name: str,
+) -> list[str]:
+    """
+    Create a temple scene.
+
+    :param engine:              The engine that will be used to create the dry stone rigid bodies in.
+    :param I_pillars:           The number of pillars along the width-axis.
+    :param K_pillars:           The number of pillars along the height-axis.
+    :param pillar_width:        The width of a single pillar.
+    :param pillar_height:       The height of a single pillar.
+    :param pillar_depth:        The depth of a single pillar.
+    :param pillar_stones:       How many stones in the colum of a single pillar.
+    :param density:             The mass density to use for all the rigid bodies.
+    :param material_name:       The material name to use for all the rigid bodies that are created.
+    :return:                    A list with the names of all the rigid bodies that were created.
+    """
     if (K_pillars - 1) % 3 != 0:
         raise RuntimeError(
             "K pillars must be equal to 3*n+1 for a given positive integer n"
@@ -212,7 +238,7 @@ def create_temple(
 
         x_right = temple_width / 2.0 - pillar_width / 2.0
         r_g = V3.make(x_right, y, z)
-        q_g = Q.Ry(pi / 2.0)
+        q_g = Q.Ry(np.pi / 2.0)
 
         API.set_position(engine, body_name, r_g, True)
         API.set_orientation(engine, body_name, q_g, True)
@@ -224,7 +250,7 @@ def create_temple(
 
         x_left = -temple_width / 2.0 + pillar_width / 2.0
         r_g = V3.make(x_left, y, z)
-        q_g = Q.Ry(pi / 2.0)
+        q_g = Q.Ry(np.pi / 2.0)
 
         API.set_position(engine, body_name, r_g, True)
         API.set_orientation(engine, body_name, q_g, True)
@@ -264,7 +290,7 @@ def create_temple(
     x = temple_width / 2.0 - pillar_width * 1.5
     z = temple_depth / 2.0 - pillar_depth * 0.5
     r_g = V3.make(x, y, z)
-    q_g = Q.Rz(pi)
+    q_g = Q.Rz(np.pi)
 
     API.set_position(engine, body_name, r_g, True)
     API.set_orientation(engine, body_name, q_g, True)
@@ -277,7 +303,7 @@ def create_temple(
     x = -temple_width / 2.0 + pillar_width * 1.5
     z = -temple_depth / 2.0 + pillar_depth * 0.5
     r_g = V3.make(x, y, z)
-    q_g = Q.Rx(pi)
+    q_g = Q.Rx(np.pi)
 
     API.set_position(engine, body_name, r_g, True)
     API.set_orientation(engine, body_name, q_g, True)
@@ -290,7 +316,7 @@ def create_temple(
     x = temple_width / 2.0 - pillar_width * 1.5
     z = -temple_depth / 2.0 + pillar_depth * 0.5
     r_g = V3.make(x, y, z)
-    q_g = Q.Ry(-pi)
+    q_g = Q.Ry(-np.pi)
 
     API.set_position(engine, body_name, r_g, True)
     API.set_orientation(engine, body_name, q_g, True)
@@ -303,7 +329,7 @@ def create_temple(
     x = temple_width / 2.0 - pillar_width * 0.5
     z = temple_depth / 2.0 - pillar_depth * 1.5
     r_g = V3.make(x, y, z)
-    q_g = Q.Ry(pi / 2.0)
+    q_g = Q.Ry(np.pi / 2.0)
 
     API.set_position(engine, body_name, r_g, True)
     API.set_orientation(engine, body_name, q_g, True)
@@ -316,7 +342,7 @@ def create_temple(
     x = -temple_width / 2.0 + pillar_width * 0.5
     z = temple_depth / 2.0 - pillar_depth * 1.5
     r_g = V3.make(x, y, z)
-    q_g = Q.prod(Q.Ry(pi / 2.0), Q.Rx(pi))
+    q_g = Q.prod(Q.Ry(np.pi / 2.0), Q.Rx(np.pi))
 
     API.set_position(engine, body_name, r_g, True)
     API.set_orientation(engine, body_name, q_g, True)
@@ -329,7 +355,7 @@ def create_temple(
     x = -temple_width / 2.0 + pillar_width * 0.5
     z = -temple_depth / 2.0 + pillar_depth * 1.5
     r_g = V3.make(x, y, z)
-    q_g = Q.Ry(-pi / 2.0)
+    q_g = Q.Ry(-np.pi / 2.0)
 
     API.set_position(engine, body_name, r_g, True)
     API.set_orientation(engine, body_name, q_g, True)
@@ -342,7 +368,7 @@ def create_temple(
     x = temple_width / 2.0 - pillar_width * 0.5
     z = -temple_depth / 2.0 + pillar_depth * 1.5
     r_g = V3.make(x, y, z)
-    q_g = Q.prod(Q.Ry(-pi / 2.0), Q.Rx(pi))
+    q_g = Q.prod(Q.Ry(-np.pi / 2.0), Q.Rx(np.pi))
 
     API.set_position(engine, body_name, r_g, True)
     API.set_orientation(engine, body_name, q_g, True)
@@ -385,7 +411,7 @@ def create_temple(
 
         x = temple_width / 2.0 - pillar_width * 1.5
         r_g = V3.make(x, y, z)
-        q_g = Q.Ry(pi)
+        q_g = Q.Ry(np.pi)
 
         API.set_position(engine, body_name, r_g, True)
         API.set_orientation(engine, body_name, q_g, True)
@@ -428,7 +454,7 @@ def create_temple(
         API.connect_shape(engine, body_name, shape_name)
 
         r_g = V3.make(x_left, y, z_back)
-        q_g = Q.Rx(pi)
+        q_g = Q.Rx(np.pi)
 
         API.set_position(engine, body_name, r_g, True)
         API.set_orientation(engine, body_name, q_g, True)
@@ -439,7 +465,7 @@ def create_temple(
         API.connect_shape(engine, body_name, shape_name)
 
         r_g = V3.make(x_right, y, z_front)
-        q_g = Q.Rz(pi)
+        q_g = Q.Rz(np.pi)
 
         API.set_position(engine, body_name, r_g, True)
         API.set_orientation(engine, body_name, q_g, True)
@@ -450,7 +476,7 @@ def create_temple(
         API.connect_shape(engine, body_name, shape_name)
 
         r_g = V3.make(x_right, y, z_back)
-        q_g = Q.Ry(pi)
+        q_g = Q.Ry(np.pi)
 
         API.set_position(engine, body_name, r_g, True)
         API.set_orientation(engine, body_name, q_g, True)
@@ -522,7 +548,7 @@ def create_temple(
                 if i == 0 and j < I_pillars - 1:
                     shape_name = shape_name_edge
                 elif i == I_pillars - j - 1 and j < I_pillars - 1:
-                    q_g = Q.Ry(pi)
+                    q_g = Q.Ry(np.pi)
                     shape_name = shape_name_edge
                 else:
                     shape_name = shape_name_regular
@@ -704,4 +730,3 @@ def create_temple(
         API.set_mass_properties(engine, body_name, density)
 
     return body_names
-
