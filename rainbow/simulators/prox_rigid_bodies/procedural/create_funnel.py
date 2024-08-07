@@ -10,38 +10,39 @@ import rainbow.math.quaternion as Q
 import rainbow.geometry.surface_mesh as MESH
 import rainbow.simulators.prox_rigid_bodies.api as API
 from rainbow.simulators.prox_rigid_bodies.types import Engine
-from .create_grid import _create_grid
+from .create_grid import create_grid
 
 
 def create_funnel(
         engine: Engine,
-        funnel_height,
-        funnel_radius,
-        grid_width,
-        grid_height,
-        grid_depth,
-        I,
-        J,
-        K,
+        funnel_height: float,
+        funnel_radius: float,
+        grid_width: float,
+        grid_height: float,
+        grid_depth: float,
+        I: int,
+        J: int,
+        K: int,
         density: float,
         material_name: str,
         use_random_orientation: bool = True
         ) -> list[str]:
     """
+    This function is used to create a funnel scene.
 
-    :param engine:
-    :param funnel_height:
-    :param funnel_radius:
-    :param grid_width:
-    :param grid_height:
-    :param grid_depth:
-    :param I:
-    :param J:
-    :param K:
-    :param density:
-    :param material_name:
-    :param use_random_orientation:
-    :return:
+    :param engine:                    The engine that will be used to create the dry stone rigid bodies in.
+    :param funnel_height:             The height of the funnel.
+    :param funnel_radius:             The radius of the funnel.
+    :param grid_width:                The width of a lattice with jack-shapes falling down into the funnel.
+    :param grid_height:               The height of a lattice with jack-shapes falling down into the funnel.
+    :param grid_depth:                The depth of a lattice with jack-shapes falling down into the funnel.
+    :param I:                         The number of jacks along the width-direction of the lattice.
+    :param J:                         The number of jacks along the height-direction of the lattice.
+    :param K:                         The number of jacks along the depth-direction of the lattice.
+    :param density:                   The mass density to use for all the rigid bodies.
+    :param material_name:             The material name to use for all the rigid bodies that are created.
+    :param use_random_orientation:    Boolean flag used to tell whether jack shapes should be randomly oriented or not.
+    :return:                          A list with the names of all the rigid bodies that were created.
     """
     height = grid_height
     width = grid_width
@@ -63,7 +64,7 @@ def create_funnel(
 
     r = V3.make(-width / 2.0, 3.0 * funnel_height, -depth / 2.0)
     q = Q.identity()
-    body_names = _create_grid(
+    body_names = create_grid(
         engine,
         r,
         q,

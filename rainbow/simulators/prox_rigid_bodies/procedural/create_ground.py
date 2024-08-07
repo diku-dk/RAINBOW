@@ -1,13 +1,29 @@
+"""
+This script contains code to create a ground box.
+"""
+import numpy as np
 
-def create_ground(engine, r, q, density, material_name):
+import rainbow.math.vector3 as V3
+import rainbow.math.quaternion as Q
+import rainbow.geometry.surface_mesh as MESH
+import rainbow.simulators.prox_rigid_bodies.api as API
+from rainbow.simulators.prox_rigid_bodies.types import Engine
+
+
+def create_ground(engine: Engine,
+                  r: np.ndarray,
+                  q: np.ndarray,
+                  density: float,
+                  material_name: str) -> None:
     """
+    Creates a ground box in the world.
 
-    :param engine:
-    :param r:
-    :param q:
-    :param density:
-    :param material_name:
-    :return:
+    :param engine:          The engine that will be used to create the rigid bodies in.
+    :param r:               Translation of the ground box in the world.
+    :param q:               Rotation of the ground box in the world.
+    :param density:         The mass density to use for all the rigid bodies.
+    :param material_name:   The material name to use for all the rigid bodies that are created.
+    :return:                None.
     """
     shape_name = API.generate_unique_name("ground_shape")
 
@@ -30,4 +46,3 @@ def create_ground(engine, r, q, density, material_name):
     API.set_body_type(engine, body_name, "fixed")
     API.set_body_material(engine, body_name, material_name)
     API.set_mass_properties(engine, body_name, density)
-
