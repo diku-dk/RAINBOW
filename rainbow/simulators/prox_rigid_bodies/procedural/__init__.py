@@ -18,6 +18,7 @@ from .create_rock_slide import create_rock_slide
 from .create_sandbox import create_sandbox
 from .create_temple import create_temple
 from .create_tower import create_tower
+from .create_ground import create_ground
 
 __all__ = ["create_arch",
            "create_chainmail",

@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import polyscope as ps
 import polyscope.imgui as psim
@@ -11,6 +13,9 @@ app_params = {}         # Dictionary used to control parameters that affect appl
 
 
 def setup_scene(engine, scene_name: str):
+    logger = logging.getLogger("main.setup_scene")
+    logger.info(f"Setting up: {scene_name}")
+
     if scene_name == "pillar":
         PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default')
         PROC.create_pillar(engine,
@@ -206,9 +211,13 @@ def setup_scene(engine, scene_name: str):
     for body in engine.bodies.values():
         API.connect_force(engine=engine, body_name=body.name, force_name="earth")
         API.connect_force(engine=engine, body_name=body.name, force_name="air")
+    logger.info(f"Done with creating {scene_name}")
 
 
 def export_to_xml(engine, xml_filename):
+    logger = logging.getLogger("main.export_to_xml")
+    logger.info(f"Converting scene to xml file: {xml_filename}")
+
     import xml.etree.ElementTree as ET
 
     root = ET.Element("scene")
@@ -293,9 +302,13 @@ def export_to_xml(engine, xml_filename):
         method="xml",
         short_empty_elements=True
     )
+    logger.info(f"Done writing file: {xml_filename}")
 
 
 def plotting(stats):
+    logger = logging.getLogger("main.plotting")
+    logger.info(f"Starting plotting sub-routine")
+
     import matplotlib.pyplot as plt
     colors = [
         '#e6194b',
@@ -390,6 +403,7 @@ def plotting(stats):
     ax.plot(potential_energy, label='Potential Energy', color=colors[5])
     ax.legend()
     plt.show()
+    logger.info(f"Completed plotting")
 
 
 def create_visual_geometry(engine):
@@ -491,6 +505,8 @@ def callback():
 
 
 def main():
+    logging.basicConfig(level=logging.INFO)
+
     ps.set_up_dir('y_up')
     ps.init()
     ps.set_build_default_gui_panels(False)

@@ -51,7 +51,7 @@ def create_funnel(
     shape_names = []
     shape_name = API.generate_unique_name("jack")
 
-    V, T = igl.read_triangle_mesh(filename="../data/jack.obj", dtypef=np.float64)
+    V, T = igl.read_triangle_mesh(filename="./data/jack.obj", dtypef=np.float64)
     mesh = API.create_mesh(V, T)
     MESH.scale_to_unit(mesh)
     s = (
@@ -81,7 +81,7 @@ def create_funnel(
     )
 
     shape_name = API.generate_unique_name("funnel")
-    V, T = igl.read_triangle_mesh(filename="../data/funnel.obj", dtypef=np.float64)
+    V, T = igl.read_triangle_mesh(filename="./data/funnel.obj", dtypef=np.float64)
     mesh = API.create_mesh(V, T)
 
     MESH.scale_to_unit(mesh)

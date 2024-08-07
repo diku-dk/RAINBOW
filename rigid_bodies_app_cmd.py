@@ -46,7 +46,7 @@ def setup_scene(engine):
     API.set_velocity(engine, 'C', V3.make(0.0, 0.0, 0.0))
     API.set_spin(engine, 'C', V3.make(0.0, 0.0, 0.0))
 
-    API.create_gravity_force(engine,"earth-like", 10.0, V3.j())
+    API.create_gravity_force(engine, "earth-like", 10.0, V3.j())
     API.create_damping_force(engine, "windy-like", 0.001, 0.001)
 
     API.connect_force(engine, "A", "earth-like")

@@ -50,7 +50,7 @@ def create_glasses(
 
     shape_names = []
     shape_name = API.generate_unique_name("small_glass")
-    V, T = igl.read_triangle_mesh("../data/glass.obj", dtypef=np.float64)
+    V, T = igl.read_triangle_mesh("./data/glass.obj", dtypef=np.float64)
     mesh = API.create_mesh(V, T)
 
     MESH.scale_to_unit(mesh)
@@ -82,7 +82,7 @@ def create_glasses(
     )
 
     shape_name = API.generate_unique_name("glass")
-    V, T = igl.read_triangle_mesh("../data/glass.obj", dtypef=np.float64)
+    V, T = igl.read_triangle_mesh("./data/glass.obj", dtypef=np.float64)
     mesh = API.create_mesh(V, T)
 
     MESH.scale_to_unit(mesh)

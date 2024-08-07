@@ -54,12 +54,12 @@ def create_poles(
 
     shape_names = []
     obj_files = [
-        "../data/cow.obj",
-        "../data//dragon.obj",
-        "../data//knot.obj",
-        "../data//lamp.obj",
-        "../data//propeller.obj",
-        "../data//shuttle.obj",
+        "./data/cow.obj",
+        "./data//dragon.obj",
+        "./data//knot.obj",
+        "./data//lamp.obj",
+        "./data//propeller.obj",
+        "./data//shuttle.obj",
     ]
 
     for file in obj_files:
