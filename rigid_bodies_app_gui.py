@@ -305,7 +305,7 @@ def export_to_xml(engine, xml_filename):
     logger.info(f"Done writing file: {xml_filename}")
 
 
-def plotting(stats):
+def plotting(profiling_data):
     logger = logging.getLogger("main.plotting")
     logger.info(f"Starting plotting sub-routine")
 
@@ -341,21 +341,23 @@ def plotting(stats):
     ax.set_xlabel('Iterations')
     ax.set_ylabel('Merit')
     plt.grid(True)
-    for i in range(len(stats)):
-        data = stats[i]
+    for i in range(len(profiling_data)):
+        data = profiling_data[i]
         if 'residuals' in data.keys():
             residuals = data['residuals']
-            reject = data['reject']
-            ax.plot(residuals[np.where(reject == False)])
+            ax.semilogy(residuals,
+                        color=colors[i % 20],
+                        linewidth=2
+                        )
     plt.show()
 
-    time_update_bvh = [stats[i]['update_bvh'] for i in range(len(stats))]
-    time_narrow_phase = [stats[i]['narrow_phase'] for i in range(len(stats))]
-    time_contact_determination = [stats[i]['contact_determination'] for i in range(len(stats))]
-    time_contact_point_reduction = [stats[i]['contact_point_reduction'] for i in range(len(stats))]
-    time_collision_detection = [stats[i]['collision_detection_time'] for i in range(len(stats))]
+    time_update_bvh = [profiling_data[i]['update_bvh'] for i in range(len(profiling_data))]
+    time_narrow_phase = [profiling_data[i]['narrow_phase'] for i in range(len(profiling_data))]
+    time_contact_determination = [profiling_data[i]['contact_determination'] for i in range(len(profiling_data))]
+    time_contact_point_reduction = [profiling_data[i]['contact_point_reduction'] for i in range(len(profiling_data))]
+    time_collision_detection = [profiling_data[i]['collision_detection_time'] for i in range(len(profiling_data))]
 
-    time_stepper = [stats[i]['stepper_time'] for i in range(len(stats))]
+    time_stepper = [profiling_data[i]['stepper_time'] for i in range(len(profiling_data))]
 
     plt.figure()
     ax = plt.subplot(111)
@@ -372,10 +374,10 @@ def plotting(stats):
     ax.legend()
     plt.show()
 
-    number_of_overlaps = [stats[i]['number_of_overlaps'] for i in range(1, len(stats))]
-    step_sizes = [stats[i]['dt'] for i in range(1, len(stats))]
-    number_of_contact_points = [stats[i]['contact_points'] for i in range(1, len(stats))]
-    penetrations = [stats[i]['max_penetration'] for i in range(1, len(stats))]
+    number_of_overlaps = [profiling_data[i]['number_of_overlaps'] for i in range(1, len(profiling_data))]
+    step_sizes = [profiling_data[i]['dt'] for i in range(1, len(profiling_data))]
+    number_of_contact_points = [profiling_data[i]['contact_points'] for i in range(1, len(profiling_data))]
+    penetrations = [profiling_data[i]['max_penetration'] for i in range(1, len(profiling_data))]
 
     plt.figure()
     ax = plt.subplot(111)
@@ -390,8 +392,8 @@ def plotting(stats):
     ax.legend()
     plt.show()
 
-    kinetic_energy = [stats[i]['kinetic_energy'] for i in range(len(stats))]
-    potential_energy = [stats[i]['potential_energy'] for i in range(len(stats))]
+    kinetic_energy = [profiling_data[i]['kinetic_energy'] for i in range(len(profiling_data))]
+    potential_energy = [profiling_data[i]['potential_energy'] for i in range(len(profiling_data))]
 
     plt.figure()
     ax = plt.subplot(111)
@@ -437,14 +439,7 @@ def create_gui():
     logger = logging.getLogger("main.create_visual_geometry")
 
     global app_params
-    # if psim.BeginMainMenuBar():
-    #    if psim.BeginMenu("My Custom Menu"):
-    #        if psim.MenuItem("Item 1"):
-    #            print("Item 1 pressed")
-    #        if psim.MenuItem("Item 2"):
-    #            print("Item 2 pressed")
-    #        psim.EndMenu()
-    #    psim.EndMainMenuBar()
+
     changed, app_params["simulate"] = psim.Checkbox("Simulate", app_params["simulate"])
     if changed:
         logger.info(f"Application will run simulation loop = {app_params["simulate"]}")
@@ -453,9 +448,9 @@ def create_gui():
         logger.info(f"Application will save XML files = {app_params["xml"]}")
 
 
-    changed, app_params["stats"] = psim.Checkbox("Show stats", app_params["stats"])
+    changed, app_params["profiling"] = psim.Checkbox("Show profiling", app_params["profiling"])
     if changed:
-        logger.info(f"Application will show statistics and plots = {app_params["stats"]}")
+        logger.info(f"Application will show profiling and plots = {app_params["profiling"]}")
     changed, app_params["selected"] = psim.Combo("Scene", app_params["selected"], app_params["names"])
     if changed:
         logger.info(f"Selected scene = {app_params["selected"]}")
@@ -483,6 +478,7 @@ def create_gui():
 
 
 def simulate() -> None:
+    logger = logging.getLogger("main.simulate")
     engine = app_params["engine"]
 
     if engine is None:
@@ -494,6 +490,7 @@ def simulate() -> None:
     if app_params["step"] >= app_params["steps"]:
         return
 
+    logger.info(f"Running simulation step {app_params["step"]}")
     for body in engine.bodies.values():
         T = np.eye(4)
         T[:3, :3] = Q.to_matrix(body.q)
@@ -503,6 +500,7 @@ def simulate() -> None:
     API.simulate(engine=engine, T=engine.params.time_step, profiling_on=True)
 
     app_params["step"] += 1
+    logger.info(f"Completed simulation step")
 
 
 def callback():
@@ -522,7 +520,7 @@ def main():
     app_params["engine"] = None
     app_params["simulate"] = False
     app_params["xml"] = False
-    app_params["stats"] = False
+    app_params["profiling"] = False
     app_params["selected"] = 0
     app_params["names"] = [
         "pillar",
@@ -545,10 +543,10 @@ def main():
 
     ps.show()
 
-    if app_params["stats"]:
+    if app_params["profiling"]:
         engine = app_params["engine"]
-        stats = API.get_log(engine)
-        plotting(stats)
+        profiling_data = API.get_log(engine)
+        plotting(profiling_data)
 
 
 if __name__ == '__main__':
