@@ -1,21 +1,53 @@
+"""
+This script contains code to create a scene of a bunch of random objects falling onto a grid of poles.
+"""
+
+import numpy as np
+import igl   # Only using igl.read_triangle_mesh to read obj files.
+
+import rainbow.math.vector3 as V3
+import rainbow.math.quaternion as Q
+import rainbow.geometry.surface_mesh as MESH
+import rainbow.simulators.prox_rigid_bodies.api as API
+from rainbow.simulators.prox_rigid_bodies.types import Engine
+from .create_grid import create_grid
 
 
 def create_poles(
-        engine,
-        pole_height,
-        pole_radius,
-        I_poles,
-        K_poles,
-        grid_width,
-        grid_height,
-        grid_depth,
-        I_grid,
-        J_grid,
-        K_grid,
-        density,
-        material_name,
+        engine: Engine,
+        pole_height: float,
+        pole_radius: float,
+        I_poles: int,
+        K_poles: int,
+        grid_width: float,
+        grid_height: float,
+        grid_depth: float,
+        I_grid: int,
+        J_grid: int,
+        K_grid: int,
+        density: float,
+        material_name: str,
         use_random_orientation=True,
-):
+) -> list[str]:
+    """
+    This function creates the pole scene.
+
+    :param engine:
+    :param pole_height:
+    :param pole_radius:
+    :param I_poles:
+    :param K_poles:
+    :param grid_width:
+    :param grid_height:
+    :param grid_depth:
+    :param I_grid:
+    :param J_grid:
+    :param K_grid:
+    :param density:
+    :param material_name:
+    :param use_random_orientation:
+    :return:
+    """
     height = grid_height
     width = grid_width
     depth = grid_depth
@@ -32,7 +64,7 @@ def create_poles(
 
     for file in obj_files:
         shape_name = API.generate_unique_name("small_obj_shape")
-        V, T = igl.read_triangle_mesh(file)
+        V, T = igl.read_triangle_mesh(file, dtypef=np.float64)
         mesh = API.create_mesh(V, T)
         MESH.scale_to_unit(mesh)
         s = min(width / I_grid, height / J_grid, depth / K_grid)
@@ -42,7 +74,7 @@ def create_poles(
 
     r = V3.make(-width / 2.0, 2.0 * pole_height, -depth / 2.0)
     q = Q.identity()
-    body_names = _create_grid(
+    body_names = create_grid(
         engine,
         r,
         q,
@@ -89,4 +121,3 @@ def create_poles(
             API.set_mass_properties(engine, body_name, density)
 
     return body_names
-
