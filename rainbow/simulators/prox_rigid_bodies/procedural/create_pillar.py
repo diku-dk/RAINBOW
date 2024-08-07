@@ -1,17 +1,41 @@
+"""
+This script contains code to create a dry stone-masonry pillar.
+"""
 
-def create_pillar(engine, r, q, width, height, depth, stones, density, material_name):
+import numpy as np
+
+import rainbow.math.vector3 as V3
+import rainbow.math.quaternion as Q
+import rainbow.geometry.surface_mesh as MESH
+import rainbow.simulators.prox_rigid_bodies.api as API
+from rainbow.simulators.prox_rigid_bodies.types import Engine
+
+
+def create_pillar(
+        engine: Engine,
+        r: np.ndarray,
+        q: np.ndarray,
+        width: float,
+        height: float,
+        depth: float,
+        stones: int,
+        density: float,
+        material_name: str) -> list[str]:
     """
+    This function creates a dry stone-masonry pillar.
 
-    :param engine:
-    :param r:
-    :param q:
-    :param width:
-    :param height:
-    :param depth:
-    :param stones:
-    :param density:
-    :param material_name:
-    :return:
+    The origin of the pillar is at the mid-point of the base.
+
+    :param engine:          The engine that will be used to create the dry stone rigid bodies in.
+    :param r:               Translation of the stone pillar into the world.
+    :param q:               Rotation of the stone pillar in the world.
+    :param width:           The total width of the pillar.
+    :param height:          The total height of the pillar.
+    :param depth:           The depth of the stones used to crate the pillar.
+    :param stones:          The number of stones in the pillar column.
+    :param density:         The mass density to use for all the rigid bodies.
+    :param material_name:   The material name to use for all the rigid bodies that are created.
+    :return:                A list with the names of all the rigid bodies that were created.
     """
     pillar_width = width
     pillar_depth = depth
@@ -135,4 +159,3 @@ def create_pillar(engine, r, q, width, height, depth, stones, density, material_
         API.set_mass_properties(engine, body_name, density)
 
     return body_names
-
