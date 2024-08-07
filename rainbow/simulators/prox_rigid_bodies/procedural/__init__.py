@@ -11,6 +11,8 @@ from .create_gear_train import create_gear_train
 from .create_glasses import create_glasses
 from .create_grid import create_grid
 from .create_jack_grid import create_jack_grid
+from .create_pantheon import create_pantheon
+from .create_pillar import create_pillar
 
 __all__ = ["create_arch",
            "create_chainmail",
@@ -21,5 +23,7 @@ __all__ = ["create_arch",
            "create_glasses",
            "create_grid",
            "create_ground",
-           "create_jack_grid"
+           "create_jack_grid",
+           "create_pantheon",
+           "create_pillar"
            ]
