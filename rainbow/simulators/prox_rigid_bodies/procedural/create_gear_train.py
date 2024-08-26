@@ -7,6 +7,7 @@ import numpy as np
 import rainbow.math.vector3 as V3
 import rainbow.math.quaternion as Q
 import rainbow.simulators.prox_rigid_bodies.api as API
+import rainbow.geometry.surface_mesh as MESH
 from rainbow.simulators.prox_rigid_bodies.types import Engine
 
 
@@ -360,6 +361,7 @@ def create_gear_train(engine: Engine,
     gear_specs = []
     gear_names = []
 
+    # Create and place all the gears
     q_m2w = Q.Rx(-np.pi / 2)  # Needed to change the z-up direction to a y-up direction.
 
     m = 1.0  # Gear module
@@ -413,5 +415,44 @@ def create_gear_train(engine: Engine,
         driven_gear_body_name = body_names[i + 1]
         API.set_position(engine, driven_gear_body_name, r_w, True)
         API.set_orientation(engine, driven_gear_body_name, q_w, True)
+
+    # Create a fixed object in the world
+    shape_name = API.generate_unique_name("ground_shape")
+
+    V, T = MESH.create_box(200.0, 1.0, 200.0)
+    mesh = API.create_mesh(V, T)
+    API.create_shape(engine, shape_name, mesh)
+
+    body_name = API.generate_unique_name("ground_body")
+    API.create_rigid_body(engine, body_name)
+    API.connect_shape(engine, body_name, shape_name)
+
+    r = V3.make(0.0, -0.5 - face_width, 0.0)
+    q = Q.identity()
+
+    API.set_position(engine, body_name, r, True)
+    API.set_orientation(engine, body_name, q, True)
+
+    API.set_body_type(engine, body_name, "fixed")
+    API.set_body_material(engine, body_name, material_name)
+    API.set_mass_properties(engine, body_name, density)
+    body_names.append(body_name)
+
+    # Create hinge-joints between gears and fixed object
+    parent_name = body_name
+    for i in range(N):
+        child_name = body_names[i]
+        hinge_name = parent_name + "_" + child_name
+        API.create_hinge(engine, hinge_name)
+        origin = API.get_position(engine, child_name) - V3.make(0.0, face_width/2.0, 0.0)
+        API.set_hinge(
+            engine=engine,
+            hinge_name=hinge_name,
+            parent_name=parent_name,
+            child_name=child_name,
+            origin= origin,
+            axis= V3.k(),
+            mode="world"
+        )
 
     return body_names

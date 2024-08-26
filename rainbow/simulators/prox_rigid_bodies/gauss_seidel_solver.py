@@ -11,7 +11,12 @@ import numpy as np
 from rainbow.util.timer import Timer
 
 
-def solve(engine, Problems: list, performance_data: dict[str, any], profiling_on: bool, prefix: str) -> None:
+def solve(
+        engine, Problems: list,
+        performance_data: dict[str, any],
+        profiling_on: bool,
+        prefix: str
+) -> None:
     """
 
     :param engine:

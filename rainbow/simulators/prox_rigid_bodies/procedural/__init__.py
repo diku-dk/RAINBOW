@@ -19,6 +19,12 @@ from .create_sandbox import create_sandbox
 from .create_temple import create_temple
 from .create_tower import create_tower
 from .create_ground import create_ground
+from .create_box_stack import create_box_stack
+from .create_cube_hinge_chain import create_cube_hinge_chain
+from .write_xml import write_xml
+from .create_scene import create_scene
+from .create_scene import get_scene_names
+
 
 __all__ = ["create_arch",
            "create_chainmail",
@@ -35,5 +41,10 @@ __all__ = ["create_arch",
            "create_poles",
            "create_rock_slide",
            "create_sandbox",
-           "create_temple"
+           "create_temple",
+           "create_box_stack",
+           "create_cube_hinge_chain",
+           "write_xml",
+           "create_scene",
+           "get_scene_names"
            ]

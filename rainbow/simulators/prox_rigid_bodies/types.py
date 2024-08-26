@@ -5,7 +5,7 @@ The top most type is the Engine type, which is the container of all information 
 rigid bodies.
 """
 from abc import ABC, abstractmethod
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
 
 import numpy as np
 
@@ -363,7 +363,7 @@ class Parameters:
         Create an instance of the parameter class.
         """
         self.time_step: float = (
-            0.001  # The desired time step size to use when taking one simulation solver step.
+            0.01  # The desired time step size to use when taking one simulation solver step.
         )
         self.max_iterations: int = 200  # Maximum number of Gauss Seidel iterations
         self.use_bounce: bool = False  # Turning bounce on and off
@@ -436,7 +436,7 @@ class Engine:
         """
         self.simulator_type: str = 'rigid_body'  # The simulation type for the engine
         self.bodies: dict[str, RigidBody] = dict()
-        self.forces: dict[str, ForceCalculator] = dict()
+        self.forces: dict[str,  Union[Gravity, Damping]] = dict()
         self.shapes: dict[str, Shape] = dict()
         self.hinges: dict[str, Hinge] = dict()  # All hinge joints in the current simulation
         self.contact_points: list[ContactPoint] = []

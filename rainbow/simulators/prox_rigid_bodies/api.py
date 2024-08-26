@@ -16,6 +16,7 @@ import rainbow.geometry.kdop_bvh as BVH
 import rainbow.math.coordsys as FRAME
 import rainbow.simulators.prox_rigid_bodies.steppers as STEPPERS
 from rainbow.simulators.prox_rigid_bodies.types import *
+import rainbow.math.matrix3 as M3
 
 
 def generate_unique_name(name: str) -> str:
@@ -77,60 +78,77 @@ def create_hinge(engine, hinge_name: str) -> None:
     engine.hinges[hinge_name] = hinge
 
 
-def set_hinge_sockets(engine, hinge_name: str,
-                      parent_name: str,
-                      r_parent: np.ndarray,
-                      q_parent: np.ndarray,
-                      child_name: str,
-                      r_child: np.ndarray,
-                      q_child: np.ndarray
-                      ) -> None:
+def set_hinge(
+        engine: Engine,
+        hinge_name: str,
+        parent_name: str,
+        child_name: str,
+        origin: np.ndarray,
+        axis: np.ndarray,
+        mode: str = "world"
+) -> None:
     """
+    Set hinge joint parameters.
 
-    :param engine:
-    :param hinge_name:
-    :param parent_name:
-    :param r_parent:
-    :param q_parent:
-    :param child_name:
-    :param r_child:
-    :param q_child:
+    :param engine:        The engine that contains the hinge.
+    :param hinge_name:    The name of the hinge.
+    :param parent_name:   The name of the parent body (link).
+    :param child_name:    The name of the child body (link).
+    :param origin:        The position of the origin for the joint frame.
+    :param axis:          The joint axis of the hinge.
+    :param mode:          This controls the coordinate space in which axis and origin are given with respect
+                          to.
+                          It can be either "world", "body" frame of parent body, or "model" frame of parent.
     """
     if hinge_name in engine.hinges:
         hinge = engine.hinges[hinge_name]
     else:
-        raise RuntimeError("set_hinge_sockets() no such rigid body exist with that name")
+        raise RuntimeError("set_hinge() no such rigid body exist with that name")
     if parent_name in engine.bodies:
-        parent = engine.bodies[parent_name]
+        parent_link = engine.bodies[parent_name]
     else:
-        raise RuntimeError("set_hinge_sockets() no such rigid body exist with that name")
+        raise RuntimeError("set_hinge() no such rigid body exist with that name")
     if child_name in engine.bodies:
-        child = engine.bodies[child_name]
+        child_link = engine.bodies[child_name]
     else:
-        raise RuntimeError("set_hinge_sockets() no such rigid body exist with that name")
+        raise RuntimeError("set_hinge() no such rigid body exist with that name")
 
-    socket_parent = FRAME.make(r_parent, q_parent)
-    socket_child = FRAME.make(r_child, q_child)
+    o_world = None
+    s_world = None
 
-    # Currently, we assume that the socket joint frames live in the body frame coordinate systems
-    # of the rigid bodies they belong to.
-    #
-    # A socket is a coordinate mapping from joint frame space to body-space of the link.
-    #
-    # When rigging a simulation, it may be that the rigging person does not know the body
-    # frames.
-    # Instead, what is known is the model frames of the rigid bodies.
-    #
-    #  R_parent_bf2mf = np.copy(parent.shape.r)
-    #  q_parent_bf2mf = np.copy(parent.shape.q)
-    #
-    #
-    # Hence, we know (bf->mf) we are given (jf->mf) and we need to compute (jf->bf)
-    #
-    # Xjb = Xjm Xmb
-    #
-    hinge.set_parent_socket(parent, socket_parent)
-    hinge.set_parent_socket(child, socket_child)
+    if mode == "world":
+        o_world = np.copy(origin)
+        s_world = np.copy(axis)
+    elif mode == "body":
+        # Convert o and s from body frame to world frame
+        o_world = Q.rotate(parent_link.q, origin) + parent_link.r
+        s_world = Q.rotate(parent_link.q, axis)
+    elif mode == "model":
+        # Convert o and s from model frame to body frame
+        r_b2m = np.copy(parent_link.shape.r)
+        q_b2m = np.copy(parent_link.shape.q)
+        o_body = Q.rotate(Q.conjugate(q_b2m), origin - r_b2m)
+        s_body = Q.rotate(Q.conjugate(q_b2m), axis)
+        # Convert o and s from body frame to world frame
+        o_world = Q.rotate(parent_link.q, o_body) + parent_link.r
+        s_world = Q.rotate(parent_link.q, s_body)
+    else:
+        raise ValueError(f"set_hinge() no such mode {mode} is supported")
+
+    # Observe, we use convention that n (the local z-axis) will be the joint axis.
+    t, b, n = V3.make_orthonormal_vectors(s_world)
+    R_world = M3.make_from_cols(t, b, n)
+    q_world = Q.from_matrix(R_world)
+
+    q_parent_socket = Q.prod(Q.conjugate(parent_link.q), q_world)
+    q_child_socket = Q.prod(Q.conjugate(child_link.q), q_world)
+    r_parent_socket = Q.rotate(Q.conjugate(parent_link.q), o_world - parent_link.r)
+    r_child_socket = Q.rotate(Q.conjugate(child_link.q), o_world - child_link.r)
+
+    parent_socket = FRAME.make(r_parent_socket, q_parent_socket)
+    child_socket = FRAME.make(r_child_socket, q_child_socket)
+    hinge.set_parent_socket(parent_link, parent_socket)
+    hinge.set_child_socket(child_link, child_socket)
 
 
 def create_mesh(V: np.ndarray, T: np.ndarray) -> MESH.Mesh:
@@ -387,6 +405,21 @@ def set_position(engine, body_name: str, r: np.ndarray, use_model_frame=False) -
         body.r = np.copy(r)
 
 
+def get_position(engine, body_name: str) -> np.ndarray:
+    """
+    Retrieve the center of mass position for the rigid body.
+
+    :param engine:           The engine that stores the rigid body.
+    :param body_name:        The name of the rigid body.
+    :return:                 The center of mass position for the given rigid body.
+    """
+    if body_name in engine.bodies:
+        body = engine.bodies[body_name]
+    else:
+        raise RuntimeError("get_position() no such rigid body exist with that name")
+    return np.copy(body.r)
+
+
 def set_orientation(engine, body_name: str, q: np.ndarray, use_model_frame=False) -> None:
     """
     Set orientation of rigid body.
@@ -446,6 +479,21 @@ def set_orientation(engine, body_name: str, q: np.ndarray, use_model_frame=False
         body.q = Q.unit(q)
 
 
+def get_orientation(engine, body_name: str) -> np.ndarray:
+    """
+    Retrieve body frame orientation for the rigid body.
+
+    :param engine:           The engine that stores the rigid body.
+    :param body_name:        The name of the rigid body.
+    :return:                 The orientation of the body frame for the given rigid body.
+    """
+    if body_name in engine.bodies:
+        body = engine.bodies[body_name]
+    else:
+        raise RuntimeError("get_orientation() no such rigid body exist with that name")
+    return np.copy(body.q)
+
+
 def set_velocity(engine, body_name: str, v: np.ndarray) -> None:
     """
     Set the linear velocity of a rigid body.
@@ -462,6 +510,21 @@ def set_velocity(engine, body_name: str, v: np.ndarray) -> None:
     body.v = np.copy(v)
 
 
+def get_velocity(engine, body_name: str) -> np.ndarray:
+    """
+    Retrieve the linear velocity for the rigid body.
+
+    :param engine:           The engine that stores the rigid body.
+    :param body_name:        The name of the rigid body.
+    :return:                 The linear velocity for the given rigid body.
+    """
+    if body_name in engine.bodies:
+        body = engine.bodies[body_name]
+    else:
+        raise RuntimeError("get_velocity() no such rigid body exist with that name")
+    return np.copy(body.v)
+
+
 def set_spin(engine, body_name: str, w: np.ndarray) -> None:
     """
     Set the angular velocity of a rigid body.
@@ -476,6 +539,21 @@ def set_spin(engine, body_name: str, w: np.ndarray) -> None:
     else:
         raise RuntimeError("set_spin() no such rigid body exist with that name")
     body.w = np.copy(w)
+
+
+def get_spin(engine, body_name: str) -> np.ndarray:
+    """
+    Retrieve the angular velocity for the rigid body.
+
+    :param engine:           The engine that stores the rigid body.
+    :param body_name:        The name of the rigid body.
+    :return:                 The angular velocity for the given rigid body.
+    """
+    if body_name in engine.bodies:
+        body = engine.bodies[body_name]
+    else:
+        raise RuntimeError("get_spin() no such rigid body exist with that name")
+    return np.copy(body.w)
 
 
 def set_mass_properties(engine, body_name: str, density: float) -> None:
