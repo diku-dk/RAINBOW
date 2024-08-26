@@ -28,16 +28,15 @@ jobs:
         run: |
             conda install numpy
             conda install scipy
+            conda install sympy
             conda install matplotlib
             conda install coverage
             conda install pyparsing
-            conda install ipython_genutils 
-            conda install meshplot
-            conda install numba=0.58.1
-            conda install networkx
+            conda install numba
             pip install usd-core
-            pip install igl
-            coverage run  -m unittest python/unit_tests/test_*.py
+            pip install libigl
+            pip install polyscope
+            coverage run  -m unittest unit_tests/test_*.py
             coverage report
       - name: Format the code
         shell: bash -l {0}
