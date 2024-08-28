@@ -3,10 +3,45 @@ This file contains a function to import the scene content from an URDF file.
 """
 import logging
 import numpy as np
-import xml.etree.ElementTree as ET
 
 import rainbow.math.quaternion as Q
 import rainbow.simulators.prox_rigid_bodies.types as TYPES
+
+import xml.etree.ElementTree as ET
+
+
+def _parse_geometry(element):
+    if element is None:
+        return None
+
+    geometry = element.find('geometry')
+    if geometry is not None:
+        shape_element = list(geometry)[0]  # e.g., 'box', 'cylinder', 'sphere', 'mesh'
+        shape = shape_element.tag
+
+        if shape == 'mesh':
+            filename = shape_element.attrib.get('filename', '')
+            scale = shape_element.attrib.get('scale', '1 1 1')
+            return {'shape': 'mesh', 'filename': filename, 'scale': scale}
+        else:
+            dimensions = shape_element.attrib
+            return {'shape': shape, 'dimensions': dimensions}
+    return None
+
+
+def _parse_inertial(inertial):
+    if inertial is None:
+        return None
+
+    origin = inertial.find('origin').attrib if inertial.find('origin') is not None else {}
+    mass = inertial.find('mass').attrib if inertial.find('mass') is not None else {}
+    inertia = inertial.find('inertia').attrib if inertial.find('inertia') is not None else {}
+    return {'origin': origin, 'mass': mass, 'inertia': inertia}
+
+
+
+
+
 
 
 def create_from_urdf(engine: TYPES.Engine, urdf_filename: str) :
@@ -21,63 +56,54 @@ def create_from_urdf(engine: TYPES.Engine, urdf_filename: str) :
 
     tree = ET.parse(urdf_filename)
     root = tree.getroot()
-
-    # Parse links
+    robot_name = root.attrib.get('name')
     links = []
-    for link in root.findall('link'):
-        link_name = link.get('name')
-        links.append(link_name)
-
-    # Parse joints
     joints = []
+
+    for link in root.findall('link'):
+        link_name = link.attrib['name']
+        visual = link.find('visual')
+        collision = link.find('collision')
+        inertial = link.find('inertial')
+
+        link_info = {
+            'name': link_name,
+            'visual': _parse_geometry(visual),
+            'collision': _parse_geometry(collision),
+            'inertial': _parse_inertial(inertial)
+        }
+        links.append(link_info)
+
     for joint in root.findall('joint'):
-        #
-        # <joint name="shoulder_lift_joint" type="revolute">
-        #     <parent link="shoulder_link"/>
-        #     <child link="upper_arm_link"/>
-        #     <origin rpy="0.0 1.570796325 0.0" xyz="0.0 0.13585 0.0"/>
-        #     <axis xyz="0 1 0"/>
-        #     <limit effort="150.0" lower="-3.14159265" upper="3.14159265" velocity="3.15"/>
-        #   </joint>
-        #
-        # The rpy attribute stands for roll, pitch and yaw. These are naming conventions that are defined as follows:
-        #
-        # Roll: Rotation around the x-axis
-        # Pitch: Rotation around the y-axis
-        # Yaw: Rotation around the z-axis
-        #
-        # The URDF tells us the rotation angle in radiants, so in order to get to the third coordinate frame we must
-        # rotate 1.570796325 rad (90 degrees) around the y-axis. This scheme is continued until we end up at the last
-        # frame at the last robot joint.
-        #
-        joint_name = joint.get('name')
-        parent_link = joint.find('parent').get('link')
-        child_link = joint.find('child').get('link')
-        joint_type = joint.get('type')
-        joints.append({
+        joint_name = joint.attrib['name']
+        joint_type = joint.attrib['type']
+        parent = joint.find('parent').attrib['link']
+        child = joint.find('child').attrib['link']
+        origin = joint.find('origin').attrib if joint.find('origin') is not None else {}
+        axis = joint.find('axis').attrib if joint.find('axis') is not None else {}
+        limit = joint.find('limit').attrib if joint.find('limit') is not None else {}
+
+        joint_info = {
             'name': joint_name,
-            'parent': parent_link,
-            'child': child_link,
-            'type': joint_type
-        })
+            'type': joint_type,
+            'parent': parent,
+            'child': child,
+            'origin': origin,
+            'axis': axis,
+            'limit': limit
+        }
+        joints.append(joint_info)
 
-    return links, joints
+    return robot_name, links, joints
 
 
+if __name__ == "__main__":
+    engine = TYPES.Engine()
 
+    urdf_filename = '/Users/kenny/Documents/GitHub/libRAINBOW/data/urdf/ur_description/ur5e.urdf'
 
+    name, links, joints = create_from_urdf(engine, urdf_filename)
 
-# Example usage:
-urdf_file = 'path_to_urdf_file.urdf'
-links, joints = parse_urdf(urdf_file)
-
-print("Links:")
-for link in links:
-    print(f"  {link}")
-
-print("\nJoints:")
-for joint in joints:
-    print(f"  Joint Name: {joint['name']}")
-    print(f"    Parent Link: {joint['parent']}")
-    print(f"    Child Link: {joint['child']}")
-    print(f"    Joint Type: {joint['type']}")
+    print(f"robot name is {name}")
+    print("Links:", links)
+    print("Joints:", joints)
