@@ -32,7 +32,8 @@ def get_scene_names() -> list[str]:
         "rock_slide",
         "sandbox",
         "box_stack",
-        "cube_hinge_chain"
+        "cube_hinge_chain",
+        "simple",
     ]
     return names
 
@@ -262,6 +263,24 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
             K_cubes=5,
             density=1.0,
             material_name='default'
+        )
+    elif scene_name == scene_names[16]:
+        PROC.create_ground(
+            engine,
+            V3.zero(),
+            Q.identity(),
+            density=1.0,
+            material_name='default'
+        )
+        PROC.create_box_stack(
+            engine,
+            box_width=10.0,
+            box_height=10.0,
+            box_depth=10.0,
+            K_boxes=1,
+            density=1000.0,
+            material_name='default',
+            base_height=10.0,
         )
 
     API.create_gravity_force(engine=engine, force_name="earth", g=9.81, up=V3.j())

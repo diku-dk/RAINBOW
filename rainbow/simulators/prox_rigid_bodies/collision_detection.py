@@ -281,6 +281,7 @@ def _contact_reduction(engine: Engine, profile_data: dict, profiling_on: bool) -
                 cp1.p == cp2.p
             ).all():
                 unique = False
+                break
         if unique:
             reduced_list.append(cp1)
     engine.contact_points = reduced_list
