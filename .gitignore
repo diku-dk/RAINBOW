@@ -146,3 +146,6 @@ imgui.ini
 .polyscope.ini
 *.xml
 data/test.mat
+
+# images
+*.png
