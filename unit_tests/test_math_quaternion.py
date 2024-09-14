@@ -698,3 +698,23 @@ class TestQuaternionAPI(unittest.TestCase):
         input_ = "[01,3]"
         with self.assertRaises(AssertionError):
             Q.from_string(input_)
+
+    def test_to_euler_1(self):
+        q = Q.identity()
+        actual = Q.to_euler(q)
+        expected = np.array([0, 0, 0])
+        self.assertTrue(TEST.is_array_equal(actual, expected))
+
+    def test_to_euler_2(self):
+        q = Q.Rx(0.5)
+        actual = Q.to_euler(q)
+        expected = np.array([0.5, 0, 0])
+        self.assertTrue(TEST.is_array_equal(actual, expected))
+
+    def test_to_euler_3(self):
+        q = Q.Rx(0.5)
+        q = Q.prod(Q.Ry(0.75), q)
+        q = Q.prod(Q.Rz(1.25), q)
+        actual = Q.to_euler(q)
+        expected = np.array([0.5, 0.75, 1.25])
+        self.assertTrue(TEST.is_array_equal(actual, expected))
