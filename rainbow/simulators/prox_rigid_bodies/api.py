@@ -18,6 +18,7 @@ import rainbow.simulators.prox_rigid_bodies.steppers as STEPPERS
 from rainbow.simulators.prox_rigid_bodies.types import *
 import rainbow.math.matrix3 as M3
 
+unique_name_counter = 0
 
 def generate_unique_name(name: str) -> str:
     """
@@ -28,9 +29,11 @@ def generate_unique_name(name: str) -> str:
     """
     import datetime
     import random
+    
+    global unique_name_counter
 
-    n = random.random()
-    unique_name = name + "_" + str(n) + "_" + str(datetime.datetime.now())
+    unique_name = name + str(unique_name_counter)
+    unique_name_counter += 1
     return unique_name
 
 

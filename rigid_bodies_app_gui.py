@@ -9,7 +9,10 @@ import rainbow.math.quaternion as Q
 import rainbow.simulators.prox_rigid_bodies.api as API
 import rainbow.simulators.prox_rigid_bodies.procedural as PROC
 
+from rainbow.util.USD import USD
+
 app_params = {}  # Dictionary used to control parameters that affect application
+usd_scene: USD | None = None 
 
 
 def plotting(profiling_data):
@@ -145,7 +148,7 @@ def create_visual_geometry(engine):
 def create_gui():
     logger = logging.getLogger("main.create_visual_geometry")
 
-    global app_params
+    global app_params, usd_scene
 
     changed, app_params['simulate'] = psim.Checkbox('Simulate', app_params['simulate'])
     if changed:
@@ -182,8 +185,9 @@ def create_gui():
 
         app_params['engine'] = engine
 
-
 def simulate() -> None:
+    global usd_scene
+    
     logger = logging.getLogger("main.simulate")
     engine: API.Engine = app_params['engine']
 
@@ -194,7 +198,20 @@ def simulate() -> None:
         return
 
     if app_params['step'] >= app_params['steps']:
+        if usd_scene is not None:
+            usd_scene.save()
+            usd_scene = None
         return
+    
+    if app_params['step'] == 0:
+        usd_scene = USD(f'./animation.usda')
+        usd_scene.set_frames_per_second(app_params['total time'] / app_params['steps'])
+        usd_scene.set_animation_time(app_params['steps'])
+        for body in engine.bodies.values():
+            #usd_scene.add_rigid_body(body)
+            usd_scene.add_mesh(body.name, body.shape.mesh.V, body.shape.mesh.T)
+            V_world = Q.rotate_array(body.q, body.shape.mesh.V) + body.r
+            usd_scene.set_mesh_positions(body.name, V_world, 0)
 
     logger.info(f"Running simulation step {app_params['step']}")
     for body in engine.bodies.values():
@@ -202,6 +219,10 @@ def simulate() -> None:
         T[:3, :3] = Q.to_matrix(body.q)
         T[:3, 3] = body.r
         ps.get_surface_mesh(body.name).set_transform(T)
+        
+        if usd_scene is not None:
+            V_world = Q.rotate_array(body.q, body.shape.mesh.V) + body.r
+            usd_scene.set_mesh_positions(body.name, V_world, app_params['step'])
 
     API.simulate(engine=engine, T=engine.params.time_step, profiling_on=True)
 

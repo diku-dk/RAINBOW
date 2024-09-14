@@ -274,11 +274,11 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
         )
         PROC.create_box_stack(
             engine,
-            box_width=10.0,
-            box_height=10.0,
-            box_depth=10.0,
-            K_boxes=1,
-            density=1000.0,
+            box_width=1.0,
+            box_height=1.0,
+            box_depth=1.0,
+            K_boxes=16,
+            density=1.0,
             material_name='default',
             base_height=10.0,
         )
