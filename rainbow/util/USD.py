@@ -43,30 +43,45 @@ class USD:
         assert body.shape is not None
         assert body.shape.mesh is not None
         
-        
         path = f'/scene/xform/{body.name}'
         print(path)
         mesh = UsdGeom.Mesh.Define(self.stage, path)
         
-        mesh.CreatePointsAttr().Set(body.shape.mesh.V)
-        mesh.CreateFaceVertexCountsAttr().Set([len(face) for face in body.shape.mesh.T])
-        mesh.CreateFaceVertexIndicesAttr().Set(np.concatenate(body.shape.mesh.T))
+        mesh.GetPointsAttr().Set(body.shape.mesh.V)
+        mesh.GetFaceVertexIndicesAttr().Set(body.shape.mesh.T)
+        mesh.GetFaceVertexCountsAttr().Set([3] * len(body.shape.mesh.T))
         
-        mesh_xform = UsdGeom.Xform.Define(self.stage, path)
-        xform_api = UsdGeom.XformCommonAPI(mesh_xform)
-        
-        xform_api.SetTranslate(Gf.Vec3d(*body.r))
-        xform_api.SetRotate(Gf.Vec3f(*to_euler(body.q)))
-        
-        self.meshes[body.name] = xform_api
-        
+        xformable = UsdGeom.Xformable(mesh)
+        self.meshes[body.name] = xformable
+
     def update_rigid_body(self, body: RigidBody, time: float) -> None:
         if body.name not in self.meshes:
             raise ValueError(f'Mesh {body.name} does not exist')
         
-        mesh = self.meshes[body.name]
-        mesh.SetTranslate(Gf.Vec3d(*body.r), time)
-        mesh.SetRotate(Gf.Vec3f(*to_euler(body.q)), time=time)
+        xformable = self.meshes[body.name]
+        translation = Gf.Vec3d(*body.r)
+        quaternion = Gf.Quatf(*body.q)
+        
+        # Get or add the translate operation
+        translateOps = xformable.GetOrderedXformOps()
+        translateOp = None
+        for op in translateOps:
+            if op.GetOpType() == UsdGeom.XformOp.TypeTranslate:
+                translateOp = op
+                break
+        if translateOp is None:
+            translateOp = xformable.AddTranslateOp()  # Add only if it doesn't exist
+        translateOp.Set(translation, time=time)
+        
+        # Get or add the orient operation
+        orientOp = None
+        for op in translateOps:
+            if op.GetOpType() == UsdGeom.XformOp.TypeOrient:
+                orientOp = op
+                break
+        if orientOp is None:
+            orientOp = xformable.AddOrientOp()  # Add only if it doesn't exist
+        orientOp.Set(quaternion, time=time)
 
     def add_mesh(self, name: str, V: ArrayLike, T: ArrayLike) -> None:
         """ Add a mesh to the scene(or called the stage in USD)

@@ -168,8 +168,9 @@ def create_gui():
         logger.info(f"Creating scene = {scene_name}")
 
         engine = API.create_engine()
+        engine.params.time_step = 0.0001
 
-        total_time = 10.0
+        total_time = 5.0
         steps = int(np.round(total_time / engine.params.time_step))
         app_params['total time'] = total_time
         app_params['steps'] = steps
@@ -208,10 +209,8 @@ def simulate() -> None:
         usd_scene.set_frames_per_second(app_params['total time'] / app_params['steps'])
         usd_scene.set_animation_time(app_params['steps'])
         for body in engine.bodies.values():
-            #usd_scene.add_rigid_body(body)
-            usd_scene.add_mesh(body.name, body.shape.mesh.V, body.shape.mesh.T)
-            V_world = Q.rotate_array(body.q, body.shape.mesh.V) + body.r
-            usd_scene.set_mesh_positions(body.name, V_world, 0)
+            usd_scene.add_rigid_body(body)
+            usd_scene.update_rigid_body(body, 0)
 
     logger.info(f"Running simulation step {app_params['step']}")
     for body in engine.bodies.values():
@@ -221,8 +220,7 @@ def simulate() -> None:
         ps.get_surface_mesh(body.name).set_transform(T)
         
         if usd_scene is not None:
-            V_world = Q.rotate_array(body.q, body.shape.mesh.V) + body.r
-            usd_scene.set_mesh_positions(body.name, V_world, app_params['step'])
+            usd_scene.update_rigid_body(body, app_params['step'])
 
     API.simulate(engine=engine, T=engine.params.time_step, profiling_on=True)
 
