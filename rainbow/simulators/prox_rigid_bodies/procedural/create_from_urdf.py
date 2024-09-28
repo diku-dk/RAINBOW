@@ -9,6 +9,8 @@ import igl
 import rainbow.math.quaternion as Q
 import rainbow.math.vector3 as V3
 import rainbow.simulators.prox_rigid_bodies.types as TYPES
+import rainbow.simulators.prox_rigid_bodies.api as API
+
 
 import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import Element
@@ -176,20 +178,70 @@ def create_from_urdf(engine: TYPES.Engine, package_folder: str, urdf_file_path: 
         joint_type = joint_tag.attrib['type']
         parent = joint_tag.find('parent').attrib['link']
         child = joint_tag.find('child').attrib['link']
-        origin = joint_tag.find('origin').attrib if joint_tag.find('origin') is not None else {}
-        axis = joint_tag.find('axis').attrib if joint_tag.find('axis') is not None else {}
+        origin_dict = joint_tag.find('origin').attrib if joint_tag.find('origin') is not None else {}
+        axis_dict = joint_tag.find('axis').attrib if joint_tag.find('axis') is not None else { 'xyz': '1 0 0'}
         limit = joint_tag.find('limit').attrib if joint_tag.find('limit') is not None else {}
+
+        origin_frame = _convert_frame(origin_dict)
+        axis = V3.unit(_convert_frame(axis_dict)[0])
 
         joint_info = {
             'name': joint_name,
             'type': joint_type,
             'parent': parent,
             'child': child,
-            'origin': origin,
+            'origin': origin_frame,
             'axis': axis,
             'limit': limit
         }
         joints.append(joint_info)
+
+    for link in links:
+        body_name = link['name']
+        if link['collision'] is None:
+            logger.info(f'Body {body_name} did not have any shape, likely virtual body, ignoring it')
+            continue
+        V = link['collision']['vertices']
+        F = link['collision']['faces']
+        mesh = API.create_mesh(V, F)
+        shape_name = body_name + "shape"
+        API.create_shape(engine, shape_name, mesh)
+
+        # Transform from link frame to body frame
+        r_g = link['collision']['origin'][0]
+        q_g = link['collision']['origin'][1]
+
+        mass = link['inertial']['mass']
+        ixx, iyy, izz, ixy, ixz, iyz = link['inertial']['inertia']
+
+        # Transform from link frame to body frame
+        r_b = link['inertial']['origin'][0]
+        q_b = link['inertial']['origin'][1]
+
+        API.create_rigid_body(engine, body_name)
+        API.connect_shape(engine, body_name, shape_name)
+        # Overriding API.set_mass_properties(engine, body_name, density)
+        engine.bodies[body_name].mass = mass
+        engine.bodies[body_name].inertia = V3.make(ixx, iyy, izz)
+
+        API.set_position(engine, body_name, r_b, use_model_frame=True)
+        API.set_orientation(engine, body_name, q_b, use_model_frame=True)
+
+    for joint in joints:
+        joint_name = joint['name']
+        joint_type = joint['type']
+        if type!='revolute':
+            logger.info(f'Joint {joint_name} has {joint_type} type that is not supported, ignoring it')
+            continue
+        API.create_hinge(engine, joint_name)
+
+        parent_name = joint['parent']
+        child_name = joint['child']
+        r_j = joint['origin'][0]   # Transform from parent link to child link
+        q_j = joint['origin'][1]
+        axis = joint['axis']       # Unit vector in the joint frame
+
+        #API.set_hinge(engine, joint_name, parent_name, child_name, origin, axis, mode="model")
 
     return robot_name, links, joints
 
