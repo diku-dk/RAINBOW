@@ -127,15 +127,15 @@ class USD:
         else:
             raise ValueError(f"No positions set for mesh {name} at time {time}")
 
-    def set_animation_time(self, duration: int) -> None:
+    def set_animation_time(self, duration: float) -> None:
         """ Set the total animation time of the scene
 
         Args:
-            duration (int): The total animation time of the scene
+            duration (float): The total animation time of the scene
         """
         print(f'End time code: {duration}')
         self.stage.SetStartTimeCode(0)
-        self.stage.SetEndTimeCode(int(duration))
+        self.stage.SetEndTimeCode(duration)
 
     def set_frames_per_second(self, fps: float):
         self.stage.SetFramesPerSecond(fps)
