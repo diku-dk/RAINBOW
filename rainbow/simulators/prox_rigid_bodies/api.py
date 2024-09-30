@@ -168,7 +168,7 @@ def create_mesh(V: np.ndarray, T: np.ndarray) -> MESH.Mesh:
     return mesh
 
 
-def create_shape(engine, shape_name: str, mesh: MESH.Mesh) -> None:
+def create_shape(engine, shape_name: str, mesh: MESH.Mesh, transform_to_body_frame: bool = True) -> None:
     """
     This function creates a new shape in the rigid body engine. The shape instance describes
     how a rigid body "looks" like as well as hold information about mass properties, and
@@ -183,10 +183,14 @@ def create_shape(engine, shape_name: str, mesh: MESH.Mesh) -> None:
     created and place these in the world without ever knowing anything about what a body frame
     really is.
 
-    :param engine:           The engine where the new shape should be created in.
-    :param shape_name:       A unique name of the new shape.
-    :param mesh:             A triangle surface mesh that is supposed to be used to create the geometry of the shape.
-    :return:                 Nothing.
+    :param engine:                   The engine where the new shape should be created in.
+    :param shape_name:               A unique name of the new shape.
+    :param mesh:                     A triangle surface mesh that is supposed to be used to create the
+                                     geometry of the shape.
+    :param transform_to_body_frame:  The Default behavior is to compute the body frame automatically and
+                                     transform the mesh geometry to this coordinate frame. This boolean flag can be
+                                     used to turn of this behavior. In this case the mesh shape is left unchanged.
+
     """
     if shape_name in engine.shapes:
         raise RuntimeError(
@@ -216,8 +220,9 @@ def create_shape(engine, shape_name: str, mesh: MESH.Mesh) -> None:
     # shape.r and shape.q give the rigid body transform from body to model space
     # We need to do the inverse transform here
     #
-    MESH.translate(shape.mesh, -shape.r)
-    MESH.rotate(shape.mesh, Q.conjugate(shape.q))
+    if transform_to_body_frame:
+        MESH.translate(shape.mesh, -shape.r)
+        MESH.rotate(shape.mesh, Q.conjugate(shape.q))
 
     max_length = (shape.mesh.V.max(axis=0) - shape.mesh.V.min(axis=0)).max()
     boundary = max(max_length * 0.1, engine.params.envelope * 2)
