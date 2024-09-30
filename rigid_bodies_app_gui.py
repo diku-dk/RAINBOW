@@ -219,9 +219,9 @@ def main():
 
     ps.set_up_dir('y_up')
     ps.init()
-    ps.set_build_default_gui_panels(False)
-    ps.set_ground_plane_mode('none')
-    ps.look_at((0., 0., 100.), (0., 0., 0.))
+    #ps.set_build_default_gui_panels(False)
+    #ps.set_ground_plane_mode('none')
+    #ps.look_at((0., 0., 100.), (0., 0., 0.))
 
     app_params['engine'] = None
     app_params['simulate'] = False
