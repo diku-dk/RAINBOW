@@ -36,8 +36,6 @@ class URDF:
         if 'xyz' in frame:
             xyz = URDF._read_numbers_from_string(frame['xyz'])
 
-        print(rpy)
-
         Qx = Q.Rx(rpy[0])  # Roll
         Qy = Q.Ry(rpy[1])  # Pitch
         Qz = Q.Rz(rpy[2])  # Yaw
