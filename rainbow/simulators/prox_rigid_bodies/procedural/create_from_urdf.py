@@ -36,9 +36,11 @@ class URDF:
         if 'xyz' in frame:
             xyz = URDF._read_numbers_from_string(frame['xyz'])
 
-        Qx = Q.Rx(rpy[0])
-        Qy = Q.Ry(rpy[1])
-        Qz = Q.Rz(rpy[2])
+        print(rpy)
+
+        Qx = Q.Rx(rpy[0])  # Roll
+        Qy = Q.Ry(rpy[1])  # Pitch
+        Qz = Q.Rz(rpy[2])  # Yaw
 
         Qtot = Q.prod(Qz, Q.prod(Qy, Qx))
         Ttot = V3.make(xyz[0], xyz[1], xyz[2])
@@ -192,7 +194,7 @@ class LinkBody:
 
     def __init__(self, name: str, X_b2r):
         self.name = name
-        self.X_b2r = X_b2r   # Transform from body frame to link frame
+        self.X_b2r = X_b2r   # Transform from body frame to the reference frame
         self.children = []
         self.parent = None
         self.joints = []     # Joint frame information
@@ -250,7 +252,12 @@ def create_from_urdf(engine: TYPES.Engine, package_folder: str, urdf_file_path: 
 
         mesh = API.create_mesh(V, F)
         shape_name = body_name + "shape"
-        API.create_shape(engine, shape_name, mesh)
+        API.create_shape(
+            engine,
+            shape_name,
+            mesh,
+            transform_to_body_frame=False  # We want the body frame to be given by the URDF and not computed automatically from the input geometry.
+        )
 
         mass = link['inertial']['mass']
         ixx, iyy, izz, ixy, ixz, iyz = link['inertial']['inertia']
@@ -267,7 +274,7 @@ def create_from_urdf(engine: TYPES.Engine, package_folder: str, urdf_file_path: 
             )
 
         API.create_rigid_body(engine, body_name)
-        API.connect_shape(engine, body_name, shape_name)
+        API.connect_shape( engine, body_name, shape_name)
         # Overriding API.set_mass_properties(engine, body_name, density)
         engine.bodies[body_name].mass = mass
         engine.bodies[body_name].inertia = V3.make(ixx, iyy, izz)
