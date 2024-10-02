@@ -38,7 +38,7 @@ def solve(
     nu_increase = engine.params.nu_increase
     too_small_merit_change = engine.params.too_small_merit_change
 
-    last_merit_values = [np.Inf for _ in Problems]
+    last_merit_values = [np.inf for _ in Problems]
     global_last_merit = np.inf
 
     for iteration in range(engine.params.max_iterations):
