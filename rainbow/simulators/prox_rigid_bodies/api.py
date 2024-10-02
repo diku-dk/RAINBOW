@@ -18,8 +18,6 @@ import rainbow.simulators.prox_rigid_bodies.steppers as STEPPERS
 from rainbow.simulators.prox_rigid_bodies.types import *
 import rainbow.math.matrix3 as M3
 
-unique_name_counter = 0
-
 def generate_unique_name(name: str) -> str:
     """
     This function helps to generate unique names, such that one can always locate objects based on name only.
@@ -30,10 +28,14 @@ def generate_unique_name(name: str) -> str:
     import datetime
     import random
     
-    global unique_name_counter
+    n = random.random()
+    unique_name = name + "_" + str(n) + "_" + str(datetime.datetime.now())
+    
+    # name causes issues with USD format, so we replace all invalid characters with an underscore.
+    invalid_chars = [' ', '.', ':', '-']
+    for ic in invalid_chars:
+        unique_name = unique_name.replace(ic, '_')
 
-    unique_name = name + str(unique_name_counter)
-    unique_name_counter += 1
     return unique_name
 
 
