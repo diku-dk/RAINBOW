@@ -33,7 +33,7 @@ def get_scene_names() -> list[str]:
         "sandbox",
         "box_stack",
         "cube_hinge_chain",
-        "urdf"
+        "ur5"
     ]
     return names
 
