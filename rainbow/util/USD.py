@@ -37,28 +37,27 @@ class USD:
         self.file_path = file_path
 
     def add_rigid_body(self, name: str, V: ArrayLike, T: ArrayLike) -> None:
-        """ Add a rigid body to the scene.
+        """
+        Add a rigid body to the scene.
         
-        Args:
-            name (str): The name of the rigid body.
-            V (ArrayLike): The vertex positions of the mesh.
-            T (ArrayLike): The triangle faces of the mesh.
+        :param name: The name of the rigid body.
+        :param V: The vertex positions of the mesh.
+        :param T: The triangle faces of the mesh.
         """
         assert name not in self.meshes
         self.meshes[name] = _XFormableWrapper(self.stage, name, V, T)
 
     def update_rigid_body(self, name: str, translation: ArrayLike, orientation: ArrayLike, time: float) -> None:
-        """ Update the translation and orientation of a rigid body.
+        """
+        Update the translation and orientation of a rigid body.
         
-        Args:
-            name (str): The name of the rigid body.
-            translation (ArrayLike): The translation of the rigid body.
-            orientation (ArrayLike): The orientation (a quaternion) of the rigid body.
-            time (float): The timestamp for the translation and orientation.
+        :param name: The name of the rigid body.
+        :param translation: The translation of the rigid body.
+        :param orientation: The orientation (a quaternion) of the rigid body.
+        :param time: The timestamp for the translation and orientation.
 
-        Raises:
-            ValueError: If the rigid body does not exist in the scene.
-            TypeError: If the type of the rigid body is incorrect. This will be thrown if the rigid body was added with `add_mesh`.
+        :raises ValueError: If the rigid body does not exist in the scene.
+        :raises TypeError: If the type of the rigid body is incorrect. This will be thrown if the rigid body was added with `add_mesh`.
         """
         xformable = self.meshes.get(name)
         if xformable is None:
@@ -147,14 +146,15 @@ class USD:
 
 
 class _XFormableWrapper:
+    
     def __init__(self, stage: Usd.Stage, name: str, V: ArrayLike, T: ArrayLike):
-        """ Initializes an Xformable in the given stage.
+        """
+        Initializes an Xformable in the given stage.
 
-        Args:
-            stage (Usd.Stage): The stage the Xformable should be added to.
-            name (str): The name of the Xformable.
-            V (ArrayLike): The vertex positions of the Xformable.
-            T (ArrayLike): The triangle faces of the Xformable.
+        :param stage: The stage the Xformable should be added to.
+        :param name: The name of the Xformable.
+        :param V: The vertex positions of the Xformable.
+        :param T: The triangle faces of the Xformable.
         """
         self.name = name
 
@@ -167,32 +167,32 @@ class _XFormableWrapper:
         self.xformable = UsdGeom.Xformable(mesh)
     
     def set_translation(self, translation: ArrayLike, time: float):
-        """ Set the translation at the given time.
+        """
+        Set the translation at the given time.
         
-        Args:
-            translation (ArrayLike): Translation of the Xformable.
-            time (float): The timestamp for the translation.
+        :param translation: Translation of the Xformable.
+        :param time: The timestamp for the translation.
         """
         assert len(translation) == 3
         translateOp = self._get_xform_op(UsdGeom.XformOp.TypeTranslate)
         translateOp.Set(Gf.Vec3d(*translation), time=time)
 
     def set_orientation(self, orientation: ArrayLike, time: float):
-        """ Set the orientation at the given time.
+        """
+        Set the orientation at the given time.
         
-        Args:
-            orientation (ArrayLike): Orientation of the Xformable.
-            time (float): The timestamp for the orientation.
+        :param orientation: Orientation of the Xformable.
+        :param time: The timestamp for the orientation.
         """
         assert len(orientation) == 4
         orientOp = self._get_xform_op(UsdGeom.XformOp.TypeOrient)
         orientOp.Set(Gf.Quatd(*orientation), time=time)
 
     def _get_xform_op(self, xformOpType: UsdGeom.XformOp):
-        """ Get or add an XformOp of the given type.
+        """
+        Get or add an XformOp of the given type.
         
-        Args:
-            xformOpType (UsdGeom.XformOp): The type of transformation.
+        :param xformOpType: The type of transformation.
         """
         ops = self.xformable.GetOrderedXformOps()
         for op in ops:
