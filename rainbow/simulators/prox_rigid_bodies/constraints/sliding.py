@@ -57,7 +57,44 @@ class SlidingJoints(Problem):
 
         - Problem.sweep: for the base method documentation.
         """
-        raise NotImplementedError()
+        w = self.WJT.dot(self.x)
+        for k in range(self.K):
+            block = range(5 * k, 5 * k + 5)
+            x_b = self.x[block]
+            delta = (
+                x_b.copy()
+            )  # Used to keep the old values and compute the change in values
+            r_b = self.r[block]
+            b_b = self.b[block]
+            # By definition
+            #       z = x - r (J WJ^T x  + b)
+            #         = x - r ( A x  + b)
+            # We use
+            #        w =  WJ^T x
+            # so
+            #       z  = x - r ( J w  + b)
+            #
+            #
+            # Next we solve:
+            #
+            #          x = prox_{inf}( x - r (A x + b) )
+            #          x = prox_{inf}( z )
+            #          x = z
+            x_b -= np.multiply(r_b, (self.J.dot(w)[block] + b_b))
+
+            # Put updated contact forces back into solution vector
+            self.x[block] = x_b
+            # Get the change in the x_block
+            np.subtract(x_b, delta, delta)
+            # Updating w, so it reflects the change in x, remember w = WJT delta
+
+            # TODO 2020-08-17 Kristian: WJT is in bsr matrix format, which does not support indexing and we can
+            #  therefore not access the block sub-matrix.
+            #  Currently we circumvent this by converting it to a csr matrix instead, however another solution might
+            #  be better.
+
+            w += self.WJT.tocsr()[:, block].dot(delta)
+
     
     @staticmethod
     def _compute_jacobian_matrix(engine: Engine) -> sparse.csr_matrix:
