@@ -8,11 +8,13 @@ One uses the problem classes to pass information about the constraints to the so
 
 import numpy as np
 
+from rainbow.simulators.prox_rigid_bodies.constraints.problem import Problem
 from rainbow.util.timer import Timer
+from rainbow.simulators.prox_rigid_bodies.types import *
 
 
 def solve(
-        engine, Problems: list,
+        engine: Engine, Problems: list[Problem],
         performance_data: dict[str, any],
         profiling_on: bool,
         prefix: str
