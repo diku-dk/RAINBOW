@@ -236,9 +236,7 @@ def set_sliding_joint(
 
     parent_socket = FRAME.make(r_parent_socket, q_parent_socket)
     child_socket = FRAME.make(r_child_socket, q_child_socket)
-    sliding_joint.set_parent_socket(parent_link, parent_socket)
-    sliding_joint.set_child_socket(child_link, child_socket)
-
+    sliding_joint.connect(parent_link, parent_socket, child_link, child_socket)
 
 def create_mesh(V: np.ndarray, T: np.ndarray) -> MESH.Mesh:
     """

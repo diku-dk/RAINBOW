@@ -375,31 +375,29 @@ class SlidingJoint:
         self.axis_p: Optional[np.ndarray] = None # Sliding axis wrt local coordinates frame of the parent.
         self.axis_c: Optional[np.ndarray] = None # Sliding axis wrt local coordinates frame of the child.
 
-    def set_parent_socket(self, body: RigidBody, socket: JointFrame) -> None:
+    def connect(self,
+            parent_body: RigidBody,
+            parent_socket: JointFrame,
+            child_body: RigidBody,
+            child_socket: JointFrame
+) -> None:
         """
         Set the parent link information of the joint.
 
-        :param body:        A reference to the rigid body that will be the parent link of the joint.
-        :param socket:      A reference to the joint frame that will define the joint socket on the parent link.
-        :return:            None.
+        :param parent_body: A reference to the rigid body that will be the parent link of the joint.
+        :param parent_socket: A reference to the joint frame that will define the joint socket on the parent link.
+        :param child_body: A reference to the rigid body that will be the child link of the joint.
+        :param child_socket: A reference to the joint frame that will define the joint socket on the child link.
         """
-        self.parent = body
-        self.socket_p = socket
-        self.arm_p = socket.r.copy()
-        self.axis_p = Q.rotate(socket.q, V3.i())
-
-    def set_child_socket(self, body: RigidBody, socket: JointFrame) -> None:
-        """
-        Set the child link information of the joint.
-
-        :param body:        A reference to the rigid body that will be the child link of the joint.
-        :param socket:      A reference to the joint frame that will define the joint socket on the child link.
-        :return:            None.
-        """
-        self.child = body
-        self.socket_c = socket
-        self.arm_c = socket.r.copy()
-        self.axis_c = Q.rotate(socket.q, V3.i())
+        self.parent = parent_body
+        self.socket_p = parent_socket
+        self.axis_p = Q.rotate(parent_socket.q, V3.i())
+        
+        self.child = child_body
+        self.socket_c = child_socket
+        self.axis_c = Q.rotate(child_socket.q, V3.i())
+        
+        self.offset_init = Q.rotate(Q.conjugate(self.child.q), (self.child.r - self.parent.r))
 
 
 class Parameters:
