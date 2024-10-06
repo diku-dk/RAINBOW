@@ -353,6 +353,55 @@ class Hinge:
         self.axis_c = Q.rotate(socket.q, V3.k())
 
 
+class SlidingJoint:
+    """
+    A sliding joint class.
+    
+    A sliding joint is a joint that allows two bodies to slide relative to each other along a specified axis.
+    """
+    
+    def __init__(self, name: str) -> None:
+        """
+        Create an instance of a single sliding joint.
+        
+        :param name: Name of the new joint.
+        """
+        self.name = name
+        self.idx: Optional[int] = None # Unique index of sliding joint, used to access sliding joint information stored in arrays.
+        self.parent: Optional[RigidBody] = None # Reference to the parent link of the sliding joint.
+        self.child: Optional[RigidBody] = None # Reference to the parent link of the hinge
+        self.socket_p: Optional[JointFrame] = None # Joint frame on body A wrt body A's local body frame
+        self.socket_c: Optional[JointFrame] = None # Joint frame on body B wrt body B's local body frame
+        self.axis_p: Optional[np.ndarray] = None # Sliding axis wrt local coordinates frame of the parent.
+        self.axis_c: Optional[np.ndarray] = None # Sliding axis wrt local coordinates frame of the child.
+
+    def set_parent_socket(self, body: RigidBody, socket: JointFrame) -> None:
+        """
+        Set the parent link information of the joint.
+
+        :param body:        A reference to the rigid body that will be the parent link of the joint.
+        :param socket:      A reference to the joint frame that will define the joint socket on the parent link.
+        :return:            None.
+        """
+        self.parent = body
+        self.socket_p = socket
+        self.arm_p = socket.r.copy()
+        self.axis_p = Q.rotate(socket.q, V3.i())
+
+    def set_child_socket(self, body: RigidBody, socket: JointFrame) -> None:
+        """
+        Set the child link information of the joint.
+
+        :param body:        A reference to the rigid body that will be the child link of the joint.
+        :param socket:      A reference to the joint frame that will define the joint socket on the child link.
+        :return:            None.
+        """
+        self.child = body
+        self.socket_c = socket
+        self.arm_c = socket.r.copy()
+        self.axis_c = Q.rotate(socket.q, V3.i())
+
+
 class Parameters:
     """
     This class holds all numerical parameters that control the simulation behavior.
@@ -439,6 +488,7 @@ class Engine:
         self.forces: dict[str,  Union[Gravity, Damping]] = dict()
         self.shapes: dict[str, Shape] = dict()
         self.hinges: dict[str, Hinge] = dict()  # All hinge joints in the current simulation
+        self.sliding_joints: dict[str, SlidingJoint] = dict()
         self.contact_points: list[ContactPoint] = []
         self.surfaces_interactions = SurfacesInteractionLibrary()
         self.params = Parameters()
