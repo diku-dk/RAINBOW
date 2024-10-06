@@ -68,11 +68,14 @@ class SemiImplicitStepper:
         problems: list[PROBLEMS.Problem] = []
         contact_problem = PROBLEMS.Contacts()
         hinges_problem = PROBLEMS.Hinges()
+        sliding_joints_problem = PROBLEMS.SlidingJoints()
 
         if engine.contact_points:
             problems.append(contact_problem)
         if engine.hinges:
             problems.append(hinges_problem)
+        if engine.sliding_joints:
+            problems.append(sliding_joints_problem)
 
         if problems:
 
