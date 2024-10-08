@@ -379,7 +379,7 @@ class SlidingJoint:
             parent_body: RigidBody,
             parent_socket: JointFrame,
             child_body: RigidBody,
-            child_socket: JointFrame
+            child_socket: JointFrame,
 ) -> None:
         """
         Set the parent link information of the joint.
@@ -391,11 +391,11 @@ class SlidingJoint:
         """
         self.parent = parent_body
         self.socket_p = parent_socket
-        self.axis_p = Q.rotate(parent_socket.q, V3.i())
+        self.axis_p = Q.rotate(parent_socket.q, V3.k())
         
         self.child = child_body
         self.socket_c = child_socket
-        self.axis_c = Q.rotate(child_socket.q, V3.i())
+        self.axis_c = Q.rotate(parent_socket.q, V3.k())
         
         self.offset_init = Q.rotate(Q.conjugate(self.child.q), (self.child.r - self.parent.r))
 
