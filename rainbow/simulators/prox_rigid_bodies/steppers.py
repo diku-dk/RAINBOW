@@ -65,7 +65,7 @@ class SemiImplicitStepper:
 
         CD.run_collision_detection(engine, profile_data, profiling_on)
 
-        problems = []
+        problems: list[PROBLEMS.Problem] = []
         contact_problem = PROBLEMS.Contacts()
         hinges_problem = PROBLEMS.Hinges()
 
