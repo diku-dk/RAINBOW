@@ -140,7 +140,7 @@ class URDF:
 
     @staticmethod
     def parse_urdf_file(package_folder: str, urdf_file_path: str):
-        logger = logging.getLogger("rainbow.simulators.prox_rigid_bodies.procedural.create_from_urdf.URDF.parse_urdf_file")
+        logger = logging.getLogger("rainbow.simulators.prox_rigid_bodies.scenes.create_from_urdf.URDF.parse_urdf_file")
         if os.path.isabs(urdf_file_path):
             logger.info(f"The urdf file path was absolute trying to convert it to relative path")
             urdf_file_path = urdf_file_path.lstrip('/')
@@ -206,7 +206,7 @@ def read_urdf(engine: TYPES.Engine, package_folder: str, urdf_file_path: str):
     :param urdf_file_path:
     :return:
     """
-    logger = logging.getLogger("rainbow.simulators.prox_rigid_bodies.procedural.read_urdf")
+    logger = logging.getLogger("rainbow.simulators.prox_rigid_bodies.scenes.read_urdf")
     logger.info(f"Reading from urdf file path: {urdf_file_path} in package folder {package_folder}")
 
     robot_name, links, joints = URDF.parse_urdf_file(

@@ -16,7 +16,7 @@ def write_xml(engine: TYPES.Engine, xml_filename: str) -> None:
     :param engine:         The engine containing the scene.
     :param xml_filename:   The filename of the output xml file.
     """
-    logger = logging.getLogger("rainbow.simulators.prox_rigid_bodies.procedural.write_xml")
+    logger = logging.getLogger("rainbow.simulators.prox_rigid_bodies.scenes.write_xml")
     logger.info(f"Converting scene to xml file: {xml_filename}")
 
     import xml.etree.ElementTree as ET

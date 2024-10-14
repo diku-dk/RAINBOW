@@ -7,7 +7,7 @@ import polyscope.imgui as psim
 import rainbow.math.vector3 as V3
 import rainbow.math.quaternion as Q
 import rainbow.simulators.prox_rigid_bodies.api as API
-import rainbow.simulators.prox_rigid_bodies.procedural as PROC
+import rainbow.simulators.prox_rigid_bodies.scenes as SCENE
 
 from rainbow.util.USD import USD
 
@@ -175,11 +175,11 @@ def create_gui():
         app_params['steps'] = steps
         app_params['step'] = 0
 
-        PROC.create_scene(engine=engine, scene_name=scene_name)
+        SCENE.create_scene(engine=engine, scene_name=scene_name)
 
         if app_params['xml']:
             scene_name = app_params['names'][app_params['selected']]
-            PROC.write_xml(engine, scene_name + '.xml')
+            SCENE.write_xml(engine, scene_name + '.xml')
 
         create_visual_geometry(engine=engine)
 
@@ -246,7 +246,7 @@ def main():
     app_params['xml'] = False
     app_params['profiling'] = False
     app_params['selected'] = 0
-    app_params['names'] = PROC.get_scene_names()
+    app_params['names'] = SCENE.get_scene_names()
 
     ps.set_user_callback(callback)
 

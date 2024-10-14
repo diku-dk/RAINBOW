@@ -5,7 +5,7 @@ import logging
 
 import rainbow.simulators.prox_rigid_bodies.types as TYPES
 import rainbow.simulators.prox_rigid_bodies.api as API
-import rainbow.simulators.prox_rigid_bodies.procedural as PROC
+import rainbow.simulators.prox_rigid_bodies.scenes as PROC
 import rainbow.math.quaternion as Q
 import rainbow.math.vector3 as V3
 

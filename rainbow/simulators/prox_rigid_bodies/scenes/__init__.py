@@ -1,5 +1,5 @@
 """
-This package contains all procedural generation routines.
+This package contains all scenes generation routines.
 """
 
 from .create_arch import create_arch
