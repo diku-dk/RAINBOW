@@ -16,7 +16,7 @@ def write_xml(engine: TYPES.Engine, xml_filename: str) -> None:
     :param engine:         The engine containing the scene.
     :param xml_filename:   The filename of the output xml file.
     """
-    logger = logging.getLogger("rainbow.simulators.prox_rigid_bodies.procedural.write_xml")
+    logger = logging.getLogger("rainbow.simulators.prox_rigid_bodies.scenes.write_xml")
     logger.info(f"Converting scene to xml file: {xml_filename}")
 
     import xml.etree.ElementTree as ET
@@ -86,7 +86,9 @@ def write_xml(engine: TYPES.Engine, xml_filename: str) -> None:
         hinge_xml_node.set("name", hinge.name)
         hinge_xml_node.set("idx", str(idx))
         hinge_xml_node.set("parent", hinge.parent.name)
+        hinge_xml_node.set("parent-idx", str(hinge.parent.idx))
         hinge_xml_node.set("child", hinge.child.name)
+        hinge_xml_node.set("child-idx", str(hinge.child.idx))
         o_world = Q.rotate(hinge.parent.q, hinge.arm_p) + hinge.parent.r
         s_world = Q.rotate(hinge.parent.q, hinge.axis_p)
         hinge_xml_node.set("origin", np.array2string(o_world))

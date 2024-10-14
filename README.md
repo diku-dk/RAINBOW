@@ -7,12 +7,13 @@
 
 ### Imports
 First import the modules
+
 ```python
 import numpy as np
 import rainbow.math.vector3 as V3
 import rainbow.math.quaternion as Q
 import rainbow.simulators.prox_rigid_bodies.api as API
-import rainbow.simulators.prox_rigid_bodies.procedural as PROC
+import rainbow.simulators.prox_rigid_bodies.scenes as SCENE
 from rainbow.geometry.surface_mesh import create_sphere, create_box
 ```
 
@@ -126,7 +127,7 @@ First, initialize the environment.
 
 ```python
 engine = API.Engine()
-PROC.create_ground(engine, V3.zero(), Q.Rx(0.3*np.pi), density=1000.0, material_name='default');
+SCENE.create_ground(engine, V3.zero(), Q.Rx(0.3*np.pi), density=1000.0, material_name='default');
 
 API.create_rigid_body(engine,'sphere_body')
 
@@ -173,7 +174,7 @@ size = 6.0
 test_material = "material"
 API.create_surfaces_interaction(engine, test_material, test_material, 1, np.arctan(V3.make((0.09*np.pi), np.inf, np.inf)))
 
-PROC.create_ground(engine, V3.zero(), q_mu, density=1000.0, material_name=test_material)
+SCENE.create_ground(engine, V3.zero(), q_mu, density=1000.0, material_name=test_material)
 API.create_rigid_body(engine,'sphere_body')
 
 V_1, T_1 = create_box(size, size, size)
@@ -302,8 +303,8 @@ Let's make a sliding box to illustrate how friction. In the last example, we cre
 
 ```python
 engine = API.Engine()
-PROC.create_ground(engine, V3.zero(), Q.identity(), density=1000.0, material_name='default');
-PROC.create_dome(engine,
+SCENE.create_ground(engine, V3.zero(), Q.identity(), density=1000.0, material_name='default');
+SCENE.create_dome(engine,
                  r = V3.zero(),
                  q = Q.identity(),
                  outer_radius = 5.0,

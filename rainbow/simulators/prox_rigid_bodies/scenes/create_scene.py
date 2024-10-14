@@ -5,7 +5,7 @@ import logging
 
 import rainbow.simulators.prox_rigid_bodies.types as TYPES
 import rainbow.simulators.prox_rigid_bodies.api as API
-import rainbow.simulators.prox_rigid_bodies.procedural as PROC
+import rainbow.simulators.prox_rigid_bodies.scenes as PROC
 import rainbow.math.quaternion as Q
 import rainbow.math.vector3 as V3
 
@@ -32,7 +32,8 @@ def get_scene_names() -> list[str]:
         "rock_slide",
         "sandbox",
         "box_stack",
-        "cube_hinge_chain"
+        "cube_hinge_chain",
+        "ur5"
     ]
     return names
 
@@ -262,6 +263,14 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
             K_cubes=5,
             density=1.0,
             material_name='default'
+        )
+    elif scene_name == scene_names[16]:
+        package_folder = "/Users/kennyerleben/Documents/GitHub/"
+        urdf_file_path = 'example-robot-data/robots/ur_description/urdf/ur5_robot.urdf'
+        PROC.read_urdf(
+            engine,
+            package_folder,
+            urdf_file_path
         )
 
     API.create_gravity_force(engine=engine, force_name="earth", g=9.81, up=V3.j())
