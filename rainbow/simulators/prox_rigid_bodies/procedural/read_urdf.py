@@ -198,7 +198,7 @@ class LinkBody:
         self.joints = []     # Joint frame information
 
 
-def create_from_urdf(engine: TYPES.Engine, package_folder: str, urdf_file_path: str):
+def read_urdf(engine: TYPES.Engine, package_folder: str, urdf_file_path: str):
     """
 
     :param engine:
@@ -206,8 +206,8 @@ def create_from_urdf(engine: TYPES.Engine, package_folder: str, urdf_file_path: 
     :param urdf_file_path:
     :return:
     """
-    logger = logging.getLogger("rainbow.simulators.prox_rigid_bodies.procedural.create_from_urdf")
-    logger.info(f"Creating from urdf file path: {urdf_file_path} in package folder {package_folder}")
+    logger = logging.getLogger("rainbow.simulators.prox_rigid_bodies.procedural.read_urdf")
+    logger.info(f"Reading from urdf file path: {urdf_file_path} in package folder {package_folder}")
 
     robot_name, links, joints = URDF.parse_urdf_file(
         package_folder=package_folder,
@@ -401,7 +401,7 @@ if __name__ == "__main__":
     engine = TYPES.Engine()
 
     # Data is from https://github.com/Gepetto/example-robot-data
-    package_folder = "/Users/kenny/Documents/GitHub/"
+    package_folder = "/Users/kennyerleben/Documents/GitHub/"
     urdf_file_path = 'example-robot-data/robots/ur_description/urdf/ur5_robot.urdf'
 
-    create_from_urdf(engine, package_folder, urdf_file_path)
+    read_urdf(engine, package_folder, urdf_file_path)

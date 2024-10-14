@@ -24,7 +24,7 @@ from .create_cube_hinge_chain import create_cube_hinge_chain
 from .write_xml import write_xml
 from .create_scene import create_scene
 from .create_scene import get_scene_names
-from .create_from_urdf import create_from_urdf
+from .read_urdf import read_urdf
 
 
 __all__ = ["create_arch",
@@ -48,5 +48,5 @@ __all__ = ["create_arch",
            "write_xml",
            "create_scene",
            "get_scene_names",
-           "create_from_urdf"
+           "read_urdf"
            ]

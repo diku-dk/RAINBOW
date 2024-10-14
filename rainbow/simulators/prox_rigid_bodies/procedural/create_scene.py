@@ -265,9 +265,9 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
             material_name='default'
         )
     elif scene_name == scene_names[16]:
-        package_folder = "/Users/kenny/Documents/GitHub/"
+        package_folder = "/Users/kennyerleben/Documents/GitHub/"
         urdf_file_path = 'example-robot-data/robots/ur_description/urdf/ur5_robot.urdf'
-        PROC.create_from_urdf(
+        PROC.read_urdf(
             engine,
             package_folder,
             urdf_file_path
