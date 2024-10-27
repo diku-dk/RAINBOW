@@ -36,7 +36,6 @@ def get_scene_names() -> list[str]:
         "box_stack",
         "cube_hinge_chain",
         "ur5",
-        "simple",
         "slider",
     ]
     return names

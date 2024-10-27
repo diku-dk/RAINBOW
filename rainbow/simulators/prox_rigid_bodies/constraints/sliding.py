@@ -197,25 +197,25 @@ class SlidingJoints(Problem):
         g = np.zeros(5 * K, dtype=np.float64)
         if not engine.params.use_pre_stabilization:
             return g
-        for sliding_joint in engine.sliding_joints.values():
-            offset = sliding_joint.idx * 5
+        for joint in engine.sliding_joints.values():
+            offset = joint.idx * 5
 
             # compute rotational error
-            q_cur = Q.prod(Q.conjugate(sliding_joint.child.q), sliding_joint.parent.q)
-            q_err = Q.prod(q_cur, sliding_joint.q_initial_conj)
+            q_cur = Q.prod(Q.conjugate(joint.child.q), joint.parent.q)
+            q_err = Q.prod(q_cur, joint.q_initial_conj)
             v = q_err[1:]
             
             # compute translational error
-            axis = Q.rotate(sliding_joint.parent.q, sliding_joint.axis_p)
-            t1, t2, _ = V3.make_orthonormal_vectors(axis)
-
-            c = sliding_joint.child.r - sliding_joint.parent.r
-            r_off_init_wcs = Q.rotate(sliding_joint.child.q, sliding_joint.r_off_init)
+            n_p = Q.rotate(joint.parent.q, joint.axis_p)
+            t1_p, t2_p, n_p = V3.make_orthonormal_vectors(n_p)
+            
+            c = joint.child.r - joint.parent.r
+            r_off_init_wcs = Q.rotate(joint.child.q, joint.r_off_init)
             r_off_dif = r_off_init_wcs - c
             
             g[offset:offset + 3] = v
-            g[offset + 3] = t1.dot(r_off_dif)
-            g[offset + 4] = t2.dot(r_off_dif)
+            g[offset + 3] = t1_p.dot(r_off_dif)
+            g[offset + 4] = t2_p.dot(r_off_dif)
         rate = engine.params.gap_reduction / dt
         g *= rate
         return g
