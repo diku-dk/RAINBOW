@@ -123,7 +123,6 @@ def unit(a):
 def norm(a):                 #pragma: no cover
     return np.linalg.norm(a) #pragma: no cover 
 
-
 def max_abs_component(a):
     b = np.fabs(a)
     if b[0] > b[1] and b[0] > b[2]:

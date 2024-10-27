@@ -131,7 +131,7 @@ class SlidingJoints(Problem):
             n_p = Q.rotate(slider.parent.q, slider.axis_p)
             t1_p, t2_p, n_p = V3.make_orthonormal_vectors(n_p)
             
-            half_c = 0.5 * slider.offset_init
+            half_c = 0.5 * slider.r_off_init
             half_c_t1_p_T = np.cross(half_c, t1_p).T
             half_c_t2_p_T = np.cross(half_c, t2_p).T
             
@@ -200,19 +200,22 @@ class SlidingJoints(Problem):
         for sliding_joint in engine.sliding_joints.values():
             offset = sliding_joint.idx * 5
 
-            r_p = Q.rotate(sliding_joint.parent.q, sliding_joint.arm_p) + sliding_joint.parent.r
-            r_c = Q.rotate(sliding_joint.child.q, sliding_joint.arm_c) + sliding_joint.child.r
+            # compute rotational error
+            q_cur = Q.prod(Q.conjugate(sliding_joint.child.q), sliding_joint.parent.q)
+            q_err = Q.prod(q_cur, sliding_joint.q_initial_conj)
+            v = q_err[1:]
+            
+            # compute translational error
+            axis = Q.rotate(sliding_joint.parent.q, sliding_joint.axis_p)
+            t1, t2, _ = V3.make_orthonormal_vectors(axis)
 
-            n_p = Q.rotate(sliding_joint.parent.q, sliding_joint.axis_p)
-            t_p, b_p, n_p = V3.make_orthonormal_vectors(n_p)
-
-            n_c = Q.rotate(sliding_joint.child.q, sliding_joint.axis_c)
-
-            u = V3.cross(n_p, n_c)
-
-            g[offset:offset + 3] = (r_c - r_p)
-            g[offset + 3] = t_p.dot(u)
-            g[offset + 4] = b_p.dot(u)
+            c = sliding_joint.child.r - sliding_joint.parent.r
+            r_off_init_wcs = Q.rotate(sliding_joint.child.q, sliding_joint.r_off_init)
+            r_off_dif = r_off_init_wcs - c
+            
+            g[offset:offset + 3] = v
+            g[offset + 3] = t1.dot(r_off_dif)
+            g[offset + 4] = t2.dot(r_off_dif)
         rate = engine.params.gap_reduction / dt
         g *= rate
         return g

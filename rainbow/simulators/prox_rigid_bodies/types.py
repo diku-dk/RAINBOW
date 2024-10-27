@@ -389,15 +389,20 @@ class SlidingJoint:
         :param child_body: A reference to the rigid body that will be the child link of the joint.
         :param child_socket: A reference to the joint frame that will define the joint socket on the child link.
         """
+        # parent
         self.parent = parent_body
         self.socket_p = parent_socket
         self.axis_p = Q.rotate(parent_socket.q, V3.k())
         
+        # child
         self.child = child_body
         self.socket_c = child_socket
-        self.axis_c = Q.rotate(parent_socket.q, V3.k())
+        self.axis_c = Q.rotate(child_socket.q, V3.k())
         
-        self.offset_init = Q.rotate(Q.conjugate(self.child.q), (self.child.r - self.parent.r))
+        # initial rotation and offset vector
+        self.q_initial = Q.prod(Q.conjugate(self.child.q), self.parent.q)
+        self.q_initial_conj = Q.conjugate(self.q_initial)
+        self.r_off_init = Q.rotate(Q.conjugate(self.child.q), (self.child.r - self.parent.r))
 
 
 class Parameters:

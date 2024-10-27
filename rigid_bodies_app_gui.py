@@ -168,6 +168,7 @@ def create_gui():
         logger.info(f"Creating scene = {scene_name}")
 
         engine = API.create_engine()
+        engine.params.use_pre_stabilization = True
 
         total_time = 10.0
         steps = int(np.round(total_time / engine.params.time_step))
