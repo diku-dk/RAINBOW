@@ -346,31 +346,3 @@ def hat(q):
     :return:
     """
     return make(q[3], -q[2], q[1], -q[0])
-
-def to_euler(Q):
-    """
-    See: https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
-    """
-    q = unit(Q)
-    
-    qw = q[0]
-    qx = q[1]
-    qy = q[2]
-    qz = q[3]
-    
-    # x-axis
-    sinr_cosp = 2 * (qw * qx + qy * qz)
-    cosr_cosp = 1 - 2 * (qx * qx + qy * qy)
-    x = atan2(sinr_cosp, cosr_cosp)
-    
-    # y-axis
-    sinp = sqrt(1 + 2 * (qw * qy - qx * qz))
-    cosp = sqrt(1 - 2 * (qw * qy - qx * qz))
-    y = 2 * atan2(sinp, cosp) - pi / 2
-    
-    # z-axis
-    siny_cosp = 2 * (qw * qz + qx * qy)
-    cosy_cosp = 1 - 2 * (qy * qy + qz * qz)
-    z = atan2(siny_cosp, cosy_cosp)
-    
-    return np.array([x, y, z])

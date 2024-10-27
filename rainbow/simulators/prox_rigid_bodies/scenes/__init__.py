@@ -1,5 +1,5 @@
 """
-This package contains all procedural generation routines.
+This package contains all scenes generation routines.
 """
 
 from .create_arch import create_arch
@@ -24,6 +24,7 @@ from .create_cube_hinge_chain import create_cube_hinge_chain
 from .write_xml import write_xml
 from .create_scene import create_scene
 from .create_scene import get_scene_names
+from .read_urdf import read_urdf
 
 
 __all__ = ["create_arch",
@@ -46,5 +47,6 @@ __all__ = ["create_arch",
            "create_cube_hinge_chain",
            "write_xml",
            "create_scene",
-           "get_scene_names"
+           "get_scene_names",
+           "read_urdf"
            ]

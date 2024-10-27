@@ -18,7 +18,6 @@ def create_box_stack(
         K_boxes: int,
         density: float,
         material_name: str,
-        base_height: float = 0.0,
 ) -> list[str]:
     """
     This function creates a box stack scene.
@@ -47,12 +46,10 @@ def create_box_stack(
         API.create_rigid_body(engine, body_name)
         API.connect_shape(engine, body_name, shape_name)
 
-        height = base_height + k*box_height + box_height/2.0
-        x = np.random.random()
-        y = np.random.random()
-        r = V3.make(x, height, y)
+        height = k*box_height + box_height/2.0
+        r = V3.make(0.0, height, 0.0)
 
-        radians = np.random.random() * 2 * np.pi
+        radians = k*np.pi/4
         q = Q.Ry(radians)
 
         API.set_position(engine, body_name, r, True)

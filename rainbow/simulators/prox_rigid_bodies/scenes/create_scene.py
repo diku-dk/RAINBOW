@@ -5,8 +5,8 @@ import logging
 
 import rainbow.simulators.prox_rigid_bodies.types as TYPES
 import rainbow.simulators.prox_rigid_bodies.api as API
-import rainbow.simulators.prox_rigid_bodies.procedural as PROC
 import rainbow.geometry.surface_mesh as MESH
+import rainbow.simulators.prox_rigid_bodies.scenes as PROC
 import rainbow.math.quaternion as Q
 import rainbow.math.vector3 as V3
 
@@ -35,6 +35,7 @@ def get_scene_names() -> list[str]:
         "sandbox",
         "box_stack",
         "cube_hinge_chain",
+        "ur5",
         "simple",
         "slider",
     ]
@@ -268,22 +269,12 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
             material_name='default'
         )
     elif scene_name == scene_names[16]:
-        PROC.create_ground(
+        package_folder = "/Users/kennyerleben/Documents/GitHub/"
+        urdf_file_path = 'example-robot-data/robots/ur_description/urdf/ur5_robot.urdf'
+        PROC.read_urdf(
             engine,
-            V3.zero(),
-            Q.identity(),
-            density=1.0,
-            material_name='default'
-        )
-        PROC.create_box_stack(
-            engine,
-            box_width=1.0,
-            box_height=1.0,
-            box_depth=1.0,
-            K_boxes=16,
-            density=1.0,
-            material_name='default',
-            base_height=10.0,
+            package_folder,
+            urdf_file_path
         )
     elif scene_name == scene_names[17]:
         density=1.0
