@@ -391,18 +391,16 @@ class SlidingJoint:
         """
         # parent
         self.parent = parent_body
-        self.socket_p = parent_socket
         self.axis_p = Q.rotate(parent_socket.q, V3.k())
         
         # child
         self.child = child_body
-        self.socket_c = child_socket
         self.axis_c = Q.rotate(child_socket.q, V3.k())
         
         # initial rotation and offset vector
         self.q_initial = Q.prod(Q.conjugate(self.child.q), self.parent.q)
         self.q_initial_conj = Q.conjugate(self.q_initial)
-        self.r_off_init = Q.rotate(Q.conjugate(self.child.q), (self.child.r - self.parent.r))
+        self.r_off_init = Q.rotate(Q.conjugate(self.child.q), self.child.r - self.parent.r)
 
 
 class Parameters:

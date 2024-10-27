@@ -125,33 +125,35 @@ class SlidingJoints(Problem):
         col = np.zeros(K * 60, dtype=np.float64)
         next_entry = 0
 
-        for slider in engine.sliding_joints.values():
-            k = slider.idx
+        for joint in engine.sliding_joints.values():
+            k = joint.idx
             
-            n_p = Q.rotate(slider.parent.q, slider.axis_p)
-            t1_p, t2_p, n_p = V3.make_orthonormal_vectors(n_p)
+            n_p = Q.rotate(joint.parent.q, joint.axis_p)
+            t1, t2, n_p = V3.make_orthonormal_vectors(n_p)
             
-            half_c = 0.5 * slider.r_off_init
-            half_c_t1_p_T = np.cross(half_c, t1_p).T
-            half_c_t2_p_T = np.cross(half_c, t2_p).T
+            c = joint.child.r - joint.parent.r
+            half_c_t1_p = V3.cross(c, t1) / 2
+            half_c_t2_p = V3.cross(c, t2) / 2
             
             # Compute Jacobian matrix blocks
             JA_v[0:3, :] = M3.zero()
-            JA_v[3, :] = t1_p.T
-            JA_v[4, :] = t2_p.T
-            JA_w[0:3, :] = M3.identity()
-            JA_w[3, :] = half_c_t1_p_T
-            JA_w[4, :] = half_c_t2_p_T
+            JA_v[3, :] = t1
+            JA_v[4, :] = t2
             
             JB_v[0:3, :] = M3.zero()
-            JB_v[3, :] = - t1_p.T
-            JB_v[4, :] = - t2_p.T
-            JB_w[0:3, :] = - M3.identity()
-            JB_w[3, :] = half_c_t1_p_T
-            JB_w[4, :] = half_c_t2_p_T
+            JB_v[3, :] = -t1
+            JB_v[4, :] = -t2
             
-            idx_A = slider.parent.idx
-            idx_B = slider.child.idx
+            JA_w[0:3, :] = M3.identity()
+            JA_w[3, :] = half_c_t1_p
+            JA_w[4, :] = half_c_t2_p
+            
+            JB_w[0:3, :] = -M3.identity()
+            JB_w[3, :] = half_c_t1_p
+            JB_w[4, :] = half_c_t2_p
+            
+            idx_A = joint.parent.idx
+            idx_B = joint.child.idx
             for i in range(5):
                 row_idx = k * 5 + i
                 col_idx = idx_A * 6
@@ -203,7 +205,6 @@ class SlidingJoints(Problem):
             # compute rotational error
             q_cur = Q.prod(Q.conjugate(joint.child.q), joint.parent.q)
             q_err = Q.prod(q_cur, joint.q_initial_conj)
-            v = q_err[1:]
             
             # compute translational error
             n_p = Q.rotate(joint.parent.q, joint.axis_p)
@@ -213,7 +214,7 @@ class SlidingJoints(Problem):
             r_off_init_wcs = Q.rotate(joint.child.q, joint.r_off_init)
             r_off_dif = r_off_init_wcs - c
             
-            g[offset:offset + 3] = v
+            g[offset:offset + 3] = 2 * q_err[1:]
             g[offset + 3] = t1_p.dot(r_off_dif)
             g[offset + 4] = t2_p.dot(r_off_dif)
         rate = engine.params.gap_reduction / dt
