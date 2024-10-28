@@ -205,6 +205,8 @@ class SlidingJoints(Problem):
             # compute rotational error
             q_cur = Q.prod(Q.conjugate(joint.child.q), joint.parent.q)
             q_err = Q.prod(q_cur, joint.q_initial_conj)
+            print(f'    {q_err=}')
+            v = q_err[1:]
             
             # compute translational error
             n_p = Q.rotate(joint.parent.q, joint.axis_p)
@@ -212,11 +214,15 @@ class SlidingJoints(Problem):
             
             c = joint.child.r - joint.parent.r
             r_off_init_wcs = Q.rotate(joint.child.q, joint.r_off_init)
-            r_off_dif = r_off_init_wcs - c
+            r_off_diff = r_off_init_wcs - c
             
-            g[offset:offset + 3] = 2 * q_err[1:]
-            g[offset + 3] = t1_p.dot(r_off_dif)
-            g[offset + 4] = t2_p.dot(r_off_dif)
+            g[offset:offset + 3] = 2.0 * v
+            g[offset + 3] = t1_p.dot(r_off_diff)
+            g[offset + 4] = t2_p.dot(r_off_diff)
+        
         rate = engine.params.gap_reduction / dt
         g *= rate
+        
+        print(f'  {g=}')
+        
         return g
