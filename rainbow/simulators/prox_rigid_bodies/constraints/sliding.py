@@ -220,8 +220,10 @@ class SlidingJoints(Problem):
             g[offset + 3] = t1_p.dot(r_off_diff)
             g[offset + 4] = t2_p.dot(r_off_diff)
         
-        rate = engine.params.gap_reduction / dt
-        g *= rate
+        k_erp = engine.params.sliding_joint_error_reduction
+        k_fps = 1 / dt
+        k_cor = k_erp * k_fps
+        g *= k_cor
         
         print(f'  {g=}')
         
