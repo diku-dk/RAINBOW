@@ -165,6 +165,7 @@ def create_gui():
         logger.info(f"Selected scene = {app_params['selected']}")
     if psim.Button('Create scene'):
         scene_name = app_params['names'][app_params['selected']]
+        app_params['scene name'] = scene_name
         logger.info(f"Creating scene = {scene_name}")
 
         engine = API.create_engine()
@@ -205,7 +206,7 @@ def simulate() -> None:
         return
     
     if app_params['step'] == 0:
-        usd_scene = USD(f'./animation.usda')
+        usd_scene = USD(f'./{app_params["scene name"]}.usda')
         usd_scene.set_frames_per_second(app_params['steps'] / app_params['total time'])
         usd_scene.set_animation_time(app_params['steps'])
         for body in engine.bodies.values():
