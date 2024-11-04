@@ -187,7 +187,7 @@ class SlidingJoints(Problem):
         return J
 
     @staticmethod
-    def _compute_error_vector(dt: float, engine: Engine) -> np.ndarray:
+    def compute_error_vector(engine: Engine) -> np.ndarray:
         """
         Compute and return the error vector.
 
@@ -197,15 +197,12 @@ class SlidingJoints(Problem):
         """
         K = len(engine.sliding_joints)
         g = np.zeros(5 * K, dtype=np.float64)
-        if not engine.params.use_pre_stabilization:
-            return g
         for joint in engine.sliding_joints.values():
             offset = joint.idx * 5
 
             # compute rotational error
             q_cur = Q.prod(Q.conjugate(joint.child.q), joint.parent.q)
             q_err = Q.prod(q_cur, joint.q_initial_conj)
-            print(f'    {q_err=}')
             v = q_err[1:]
             
             # compute translational error
@@ -220,11 +217,26 @@ class SlidingJoints(Problem):
             g[offset + 3] = t1_p.dot(r_off_diff)
             g[offset + 4] = t2_p.dot(r_off_diff)
         
+        return g
+
+    @staticmethod
+    def _compute_error_vector(dt: float, engine: Engine) -> np.ndarray:
+        """
+        Compute and return the error vector.
+
+        :param dt:
+        :param engine:
+        :return:
+        """
+        K = len(engine.sliding_joints)
+        if not engine.params.use_pre_stabilization:
+            return np.zeros(5 * K, dtype=np.float64)
+        
+        g = SlidingJoints.compute_error_vector(engine)
+        
         k_erp = engine.params.sliding_joint_error_reduction
         k_fps = 1 / dt
         k_cor = k_erp * k_fps
         g *= k_cor
-        
-        print(f'  {g=}')
         
         return g

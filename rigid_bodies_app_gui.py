@@ -4,6 +4,7 @@ import numpy as np
 import polyscope as ps
 import polyscope.imgui as psim
 
+from rainbow.simulators.prox_rigid_bodies.constraints.sliding import SlidingJoints
 import rainbow.math.vector3 as V3
 import rainbow.math.quaternion as Q
 import rainbow.simulators.prox_rigid_bodies.api as API
@@ -13,6 +14,63 @@ from rainbow.util.USD import USD
 
 app_params = {}  # Dictionary used to control parameters that affect application
 usd_scene: USD | None = None 
+sliding_joint_error_data = []
+
+def log_error():
+    global sliding_joint_error_data
+    
+    xs = np.arange(len(sliding_joint_error_data))
+    lat_errss = []
+    ang_errss = []
+    ys_lat_err = []
+    ys_ang_err = []
+    for i in range(len(sliding_joint_error_data)):
+        lat_errs = np.linalg.norm(sliding_joint_error_data[i]['lateral errors'], axis=1)
+        ang_errs = np.linalg.norm(sliding_joint_error_data[i]['angular errors'], axis=1)
+        lat_errss.append(lat_errs)
+        ang_errss.append(ang_errs)
+        ys_lat_err.append(np.average(lat_errs))
+        ys_ang_err.append(np.average(ang_errs))
+    
+    min_lat_err_i = np.argmin(lat_errss[-1])
+    max_lat_err_i = np.argmax(lat_errss[-1])
+    ys_min_lat_err = [lat_errss[i][min_lat_err_i] for i in range(len(lat_errss))]
+    ys_max_lat_err = [lat_errss[i][max_lat_err_i] for i in range(len(lat_errss))]
+    
+    min_ang_err_i = np.argmin(ang_errss[-1])
+    max_ang_err_i = np.argmax(ang_errss[-1])
+    ys_min_ang_err = [ang_errss[i][min_ang_err_i] for i in range(len(ang_errss))]
+    ys_max_ang_err = [ang_errss[i][max_ang_err_i] for i in range(len(ang_errss))]
+    
+    K = len(sliding_joint_error_data[0]['lateral errors'])
+    
+    import matplotlib.pyplot as plt
+    plt.title('Lateral Error')
+    plt.xlabel('$i$')
+    plt.ylabel('$e_{\\text{lat}, i}$')
+    if K < 2:
+        plt.plot(xs, ys_lat_err)
+    else:
+        plt.plot(xs, ys_max_lat_err, label='max', color='red')
+        plt.plot(xs, ys_lat_err, label='mean', color='blue')
+        plt.plot(xs, ys_min_lat_err, label='min', color='green')
+        plt.legend()
+    plt.savefig('lat.png')
+    plt.show()
+    plt.title('Angular Error')
+    plt.xlabel('$i$')
+    plt.ylabel('$e_{\\text{ang}, i}$')
+    if K < 2:
+        plt.plot(xs, ys_ang_err)
+    else:
+        plt.plot(xs, ys_max_ang_err, label='max', color='red')
+        plt.plot(xs, ys_ang_err, label='mean', color='blue')
+        plt.plot(xs, ys_min_ang_err, label='min', color='green')
+        plt.legend()
+    plt.savefig('ang.png')
+    plt.show()
+    
+    exit(0)
 
 
 def plotting(profiling_data):
@@ -188,7 +246,7 @@ def create_gui():
         app_params['engine'] = engine
 
 def simulate() -> None:
-    global usd_scene
+    global usd_scene, sliding_joint_error_data
     
     logger = logging.getLogger("main.simulate")
     engine: API.Engine = app_params['engine']
@@ -203,6 +261,17 @@ def simulate() -> None:
         if usd_scene is not None:
             usd_scene.save()
             usd_scene = None
+        
+        r1 = V3.zero()
+        q1 = Q.identity()
+        q2 = Q.Rz(-0.1)
+        joint_axis = Q.rotate(q2, V3.i())
+        r2 = r1 + 15.0 * joint_axis
+        
+        rs = [b.r for b in engine.bodies.values()]
+        print(f'{rs[1] - r2=}')
+        
+        log_error()
         return
     
     if app_params['step'] == 0:
@@ -224,6 +293,22 @@ def simulate() -> None:
             usd_scene.update_rigid_body(body.name, body.r, body.q, app_params['step'])
 
     API.simulate(engine=engine, T=engine.params.time_step, profiling_on=True)
+    
+    N = len(engine.sliding_joints)
+    
+    lateral_errors = np.zeros((N,3), dtype=np.float64)
+    angular_errors = np.zeros((N,2), dtype=np.float64)
+    errs = SlidingJoints.compute_error_vector(engine)
+    for joint in engine.sliding_joints.values():
+        err = errs[joint.idx * 5: joint.idx * 5 + 5]
+        lateral_errors[joint.idx] = err[:3]
+        angular_errors [joint.idx] = err[3:]
+    
+    data = {
+        'lateral errors': lateral_errors,
+        'angular errors': angular_errors,
+    }
+    sliding_joint_error_data.append(data)
 
     app_params['step'] += 1
     logger.info(f"Completed simulation step")
@@ -242,6 +327,7 @@ def main():
     #ps.set_build_default_gui_panels(False)
     ps.set_ground_plane_mode('none')
     ps.look_at((0., 0., 100.), (0., 0., 0.))
+    
 
     app_params['engine'] = None
     app_params['simulate'] = False

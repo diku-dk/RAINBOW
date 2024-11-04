@@ -36,7 +36,10 @@ def get_scene_names() -> list[str]:
         "box_stack",
         "cube_hinge_chain",
         "ur5",
-        "slider",
+        "simple_slider",
+        "many_simple_sliders",
+        "simple_linked_sliders",
+        "many_linked_sliders",
     ]
     return names
 
@@ -279,6 +282,74 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
         density=1.0
         material_name='default'
         
+        q1 = Q.identity()
+        r1 = V3.zero()
+        q2 = Q.Rz(-np.pi / 32)
+        joint_axis = Q.rotate(q2, V3.i())
+        r2 = r1 + 15.0 * joint_axis
+        
+        acceleration_due_to_gravity = joint_axis.dot(-9.81 * V3.j())
+        print(f'{acceleration_due_to_gravity=}')
+        a = acceleration_due_to_gravity
+        print(f'{0.5*a*5.0*5.0=}')
+        
+        parent_shape_name = API.generate_unique_name("parent_shape")
+
+        V, T = MESH.create_box(10.0, 10.0, 10.0)
+        mesh = API.create_mesh(V, T)
+        API.create_shape(engine, parent_shape_name, mesh)
+
+        # set up parent
+        parent_body_name = API.generate_unique_name("parent_body")
+        API.create_rigid_body(engine, parent_body_name)
+        API.connect_shape(engine, parent_body_name, parent_shape_name)
+
+        API.set_position(engine, parent_body_name, r1, True)
+        API.set_orientation(engine, parent_body_name, q1, True)
+        API.set_body_type(engine, parent_body_name, "fixed")
+        API.set_body_material(engine, parent_body_name, material_name)
+        API.set_mass_properties(engine, parent_body_name, density)
+        
+        # set up child
+        child_shape_name = API.generate_unique_name("child_shape")
+
+        V, T = MESH.create_box(10.0, 10.0, 10.0)
+        mesh = API.create_mesh(V, T)
+        API.create_shape(engine, child_shape_name, mesh)
+
+        child_body_name = API.generate_unique_name("child_body")
+        API.create_rigid_body(engine, child_body_name)
+        API.connect_shape(engine, child_body_name, child_shape_name)
+
+        API.set_position(engine, child_body_name, r2, True)
+        API.set_orientation(engine, child_body_name, q2, True)
+        API.set_body_type(engine, child_body_name, "free")
+        API.set_body_material(engine, child_body_name, material_name)
+        API.set_mass_properties(engine, child_body_name, density)
+        
+        joint_name = parent_body_name + '_' + child_body_name
+        API.create_sliding_joint(engine, joint_name)
+        
+        r_parent = API.get_position(engine, parent_body_name)
+        r_child = API.get_position(engine, child_body_name)
+        
+        s_world = r_child - r_parent
+        s_world /= np.linalg.norm(s_world)
+        o_world = (r_parent + r_child) / 2
+        
+        API.set_sliding_joint(
+            engine,
+            joint_name,
+            parent_body_name,
+            child_body_name,
+            o_world,
+            s_world,
+            mode="world"
+        )
+    elif scene_name == scene_names[18]:
+        density=1.0
+        material_name='default'
+        
         def create_slider_pair(r: np.ndarray, q: np.ndarray):
             parent_shape_name = API.generate_unique_name("parent_shape")
 
@@ -336,10 +407,108 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
                 mode="world"
             )
         
-        for i in range(8):
+        for i in range(100):
+            np.random.random() * 2 * np.pi
             r = V3.k() * (i * -20)
-            q = Q.Rz(-np.pi / 4 * i)
+            q = Q.Rz(np.random.random() * 2 * np.pi)
             create_slider_pair(r, q)
+    elif scene_name == scene_names[19]:
+        density=1.0
+        material_name='default'
+        
+        r = V3.zero()
+        q = Q.identity()
+        
+        # create root cube
+        parent_shape_name = API.generate_unique_name("parent_shape")
+        V, T = MESH.create_box(10.0, 10.0, 10.0)
+        mesh = API.create_mesh(V, T)
+        API.create_shape(engine, parent_shape_name, mesh)
+        parent_body_name = API.generate_unique_name("parent_body")
+        API.create_rigid_body(engine, parent_body_name)
+        API.connect_shape(engine, parent_body_name, parent_shape_name)
+
+        API.set_position(engine, parent_body_name, r, True)
+        API.set_orientation(engine, parent_body_name, q, True)
+        API.set_body_type(engine, parent_body_name, "fixed")
+        API.set_body_material(engine, parent_body_name, material_name)
+        API.set_mass_properties(engine, parent_body_name, density)
+        
+        for i in range(1, 3):
+            if i == 1:
+                q = Q.Rz(np.pi / 4)
+            if i == 2:
+                q = Q.Rz(3 * np.pi / 4)
+            
+            joint_axis = Q.rotate(q, V3.i())
+            r = r + 20.0 * joint_axis + -11.0 * V3.k()
+            
+            child_shape_name = API.generate_unique_name(f"child_{i}_shape")
+            V, T = MESH.create_box(10.0, 10.0, 10.0)
+            mesh = API.create_mesh(V, T)
+            API.create_shape(engine, child_shape_name, mesh)
+            child_body_name = API.generate_unique_name(f"child_{i}_body")
+            API.create_rigid_body(engine, child_body_name)
+            API.connect_shape(engine, child_body_name, child_shape_name)
+            API.set_position(engine, child_body_name, r, True)
+            API.set_orientation(engine, child_body_name, q, True)
+            API.set_body_type(engine, child_body_name, "free")
+            API.set_body_material(engine, child_body_name, material_name)
+            API.set_mass_properties(engine, child_body_name, density)
+            
+            sliding_joint_name = API.generate_unique_name(f"sliding_joint_{i}")
+            API.create_sliding_joint(engine, sliding_joint_name)
+            API.set_sliding_joint(engine, sliding_joint_name, parent_body_name, child_body_name, V3.zero(), joint_axis)
+            
+            parent_body_name = child_body_name
+        
+    elif scene_name == scene_names[20]:
+        density=1.0
+        material_name='default'
+        
+        r = V3.zero()
+        q = Q.identity()
+        
+        # create root cube
+        parent_shape_name = API.generate_unique_name("parent_shape")
+        V, T = MESH.create_box(10.0, 10.0, 10.0)
+        mesh = API.create_mesh(V, T)
+        API.create_shape(engine, parent_shape_name, mesh)
+        parent_body_name = API.generate_unique_name("parent_body")
+        API.create_rigid_body(engine, parent_body_name)
+        API.connect_shape(engine, parent_body_name, parent_shape_name)
+
+        API.set_position(engine, parent_body_name, r, True)
+        API.set_orientation(engine, parent_body_name, q, True)
+        API.set_body_type(engine, parent_body_name, "fixed")
+        API.set_body_material(engine, parent_body_name, material_name)
+        API.set_mass_properties(engine, parent_body_name, density)
+        
+        for i in range(1, 50):
+            q = Q.Rz(2 * np.pi * np.random.random_sample())
+            
+            joint_axis = Q.rotate(q, V3.i())
+            r = r + 12.0 * joint_axis + -11.0 * V3.k()
+            
+            child_shape_name = API.generate_unique_name(f"child_{i}_shape")
+            V, T = MESH.create_box(10.0, 10.0, 10.0)
+            mesh = API.create_mesh(V, T)
+            API.create_shape(engine, child_shape_name, mesh)
+            child_body_name = API.generate_unique_name(f"child_{i}_body")
+            API.create_rigid_body(engine, child_body_name)
+            API.connect_shape(engine, child_body_name, child_shape_name)
+            API.set_position(engine, child_body_name, r, True)
+            API.set_orientation(engine, child_body_name, q, True)
+            API.set_body_type(engine, child_body_name, "free")
+            API.set_body_material(engine, child_body_name, material_name)
+            API.set_mass_properties(engine, child_body_name, density)
+            
+            sliding_joint_name = API.generate_unique_name(f"sliding_joint_{i}")
+            API.create_sliding_joint(engine, sliding_joint_name)
+            API.set_sliding_joint(engine, sliding_joint_name, parent_body_name, child_body_name, V3.zero(), joint_axis)
+            
+            parent_body_name = child_body_name
+        
 
     API.create_gravity_force(engine=engine, force_name="earth", g=9.81, up=V3.j())
     API.create_damping_force(engine=engine, force_name="air", alpha=0.01, beta=0.01)
