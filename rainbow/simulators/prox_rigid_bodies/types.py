@@ -424,7 +424,7 @@ class Parameters:
             False  # Turning post-stabilization on and off for correcting drift errors
         )
         self.sliding_joint_error_reduction: float = (
-            0.00001 # The error reduction parameter used during stabilization for the sliding joint
+            0 # The error reduction parameter used during stabilization for the sliding joint
         )
         self.gap_reduction: float = (
             0.5  # The amount of gap (=penetration) to reduce during stabilization

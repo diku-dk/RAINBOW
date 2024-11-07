@@ -417,11 +417,11 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
         material_name='default'
         
         r = V3.zero()
-        q = Q.identity()
+        q = Q.Rz(np.pi / 4)
         
         # create root cube
         parent_shape_name = API.generate_unique_name("parent_shape")
-        V, T = MESH.create_box(10.0, 10.0, 10.0)
+        V, T = MESH.create_box(10.0, 5.0, 5.0)
         mesh = API.create_mesh(V, T)
         API.create_shape(engine, parent_shape_name, mesh)
         parent_body_name = API.generate_unique_name("parent_body")
@@ -444,7 +444,6 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
             r = r + 20.0 * joint_axis + -11.0 * V3.k()
             
             child_shape_name = API.generate_unique_name(f"child_{i}_shape")
-            V, T = MESH.create_box(10.0, 10.0, 10.0)
             mesh = API.create_mesh(V, T)
             API.create_shape(engine, child_shape_name, mesh)
             child_body_name = API.generate_unique_name(f"child_{i}_body")
@@ -471,7 +470,7 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
         
         # create root cube
         parent_shape_name = API.generate_unique_name("parent_shape")
-        V, T = MESH.create_box(10.0, 10.0, 10.0)
+        V, T = MESH.create_box(10.0, 5.0, 5.0)
         mesh = API.create_mesh(V, T)
         API.create_shape(engine, parent_shape_name, mesh)
         parent_body_name = API.generate_unique_name("parent_body")
@@ -491,7 +490,6 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
             r = r + 12.0 * joint_axis + -11.0 * V3.k()
             
             child_shape_name = API.generate_unique_name(f"child_{i}_shape")
-            V, T = MESH.create_box(10.0, 10.0, 10.0)
             mesh = API.create_mesh(V, T)
             API.create_shape(engine, child_shape_name, mesh)
             child_body_name = API.generate_unique_name(f"child_{i}_body")

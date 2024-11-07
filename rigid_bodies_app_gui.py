@@ -16,8 +16,22 @@ app_params = {}  # Dictionary used to control parameters that affect application
 usd_scene: USD | None = None 
 sliding_joint_error_data = []
 
+showed_plots = False
+
 def log_error():
-    global sliding_joint_error_data
+    global sliding_joint_error_data, showed_plots
+    
+    if showed_plots:
+        return
+    
+    """ import pickle
+    
+    file_postfix = 'lat_err'
+    
+    with open(f"{app_params['scene name']}_{app_params['engine'].params.sliding_joint_error_reduction}_{file_postfix}.pkl", "wb") as f:
+        pickle.dump(sliding_joint_error_data, f, pickle.HIGHEST_PROTOCOL)
+    
+    exit(0) """
     
     xs = np.arange(len(sliding_joint_error_data))
     lat_errss = []
@@ -26,7 +40,7 @@ def log_error():
     ys_ang_err = []
     for i in range(len(sliding_joint_error_data)):
         lat_errs = np.linalg.norm(sliding_joint_error_data[i]['lateral errors'], axis=1)
-        ang_errs = np.linalg.norm(sliding_joint_error_data[i]['angular errors'], axis=1)
+        ang_errs = sliding_joint_error_data[i]['angular errors']
         lat_errss.append(lat_errs)
         ang_errss.append(ang_errs)
         ys_lat_err.append(np.average(lat_errs))
@@ -44,10 +58,16 @@ def log_error():
     
     K = len(sliding_joint_error_data[0]['lateral errors'])
     
+    import matplotlib as mpl
     import matplotlib.pyplot as plt
+    
+    mpl.rcParams['figure.dpi'] = 300
+    mpl.rcParams['font.size'] = 14
+    
+    plt.figure(dpi=600, figsize=(10,8))
     plt.title('Lateral Error')
-    plt.xlabel('$i$')
-    plt.ylabel('$e_{\\text{lat}, i}$')
+    plt.xlabel('$i$ (# Iterations)')
+    plt.ylabel('Error in meters')
     if K < 2:
         plt.plot(xs, ys_lat_err)
     else:
@@ -57,9 +77,11 @@ def log_error():
         plt.legend()
     plt.savefig('lat.png')
     plt.show()
+    
+    plt.figure(dpi=600, figsize=(8,6))
     plt.title('Angular Error')
-    plt.xlabel('$i$')
-    plt.ylabel('$e_{\\text{ang}, i}$')
+    plt.xlabel('$i$ (# Iterations)')
+    plt.ylabel('Error in radians')
     if K < 2:
         plt.plot(xs, ys_ang_err)
     else:
@@ -70,7 +92,7 @@ def log_error():
     plt.savefig('ang.png')
     plt.show()
     
-    exit(0)
+    showed_plots = True
 
 
 def plotting(profiling_data):
@@ -227,9 +249,8 @@ def create_gui():
         logger.info(f"Creating scene = {scene_name}")
 
         engine = API.create_engine()
-        engine.params.use_pre_stabilization = True
 
-        total_time = 10.0
+        total_time = 5.0
         steps = int(np.round(total_time / engine.params.time_step))
         app_params['total time'] = total_time
         app_params['steps'] = steps
@@ -269,7 +290,6 @@ def simulate() -> None:
         r2 = r1 + 15.0 * joint_axis
         
         rs = [b.r for b in engine.bodies.values()]
-        print(f'{rs[1] - r2=}')
         
         log_error()
         return
@@ -296,13 +316,19 @@ def simulate() -> None:
     
     N = len(engine.sliding_joints)
     
-    lateral_errors = np.zeros((N,3), dtype=np.float64)
-    angular_errors = np.zeros((N,2), dtype=np.float64)
+    angular_errors = np.zeros((N,), dtype=np.float64)
+    lateral_errors = np.zeros((N,2), dtype=np.float64)
     errs = SlidingJoints.compute_error_vector(engine)
     for joint in engine.sliding_joints.values():
+        
+        q_cur = Q.prod(Q.conjugate(joint.child.q), joint.parent.q)
+        q_err = Q.prod(q_cur, joint.q_initial_conj)
+        
+        theta_err = 2 * np.arccos(q_err[0])
+        
         err = errs[joint.idx * 5: joint.idx * 5 + 5]
-        lateral_errors[joint.idx] = err[:3]
-        angular_errors [joint.idx] = err[3:]
+        angular_errors[joint.idx] = theta_err
+        lateral_errors[joint.idx] = err[3:]
     
     data = {
         'lateral errors': lateral_errors,
