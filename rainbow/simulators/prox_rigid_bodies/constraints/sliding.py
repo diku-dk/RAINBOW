@@ -140,13 +140,13 @@ class SlidingJoints(Problem):
             JA_v[3, :] = t1
             JA_v[4, :] = t2
             
-            JB_v[0:3, :] = M3.zero()
-            JB_v[3, :] = -t1
-            JB_v[4, :] = -t2
-            
             JA_w[0:3, :] = M3.identity()
             JA_w[3, :] = half_c_t1_p
             JA_w[4, :] = half_c_t2_p
+            
+            JB_v[0:3, :] = M3.zero()
+            JB_v[3, :] = -t1
+            JB_v[4, :] = -t2
             
             JB_w[0:3, :] = -M3.identity()
             JB_w[3, :] = half_c_t1_p
@@ -229,8 +229,8 @@ class SlidingJoints(Problem):
         :return:
         """
         K = len(engine.sliding_joints)
-        if not engine.params.use_pre_stabilization:
-            return np.zeros(5 * K, dtype=np.float64)
+        #if not engine.params.use_pre_stabilization:
+        #    return np.zeros(5 * K, dtype=np.float64)
         
         g = SlidingJoints.compute_error_vector(engine)
         

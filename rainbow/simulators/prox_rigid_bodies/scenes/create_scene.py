@@ -3,6 +3,7 @@ This script contains a high-level function to create different scenes.
 """
 import logging
 
+from rainbow.simulators.prox_rigid_bodies.constraints.sliding import SlidingJoints
 import rainbow.simulators.prox_rigid_bodies.types as TYPES
 import rainbow.simulators.prox_rigid_bodies.api as API
 import rainbow.geometry.surface_mesh as MESH
@@ -55,6 +56,7 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
     logger.info(f"Setting up: {scene_name}")
 
     scene_names = get_scene_names()
+    use_external_forces = True
 
     if scene_name == scene_names[0]:
         PROC.create_ground(engine, V3.zero(), Q.identity(), density=1.0, material_name='default')
@@ -282,20 +284,18 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
         density=1.0
         material_name='default'
         
+        use_external_forces = False
+        
         q1 = Q.identity()
         r1 = V3.zero()
-        q2 = Q.Rz(-np.pi / 32)
-        joint_axis = Q.rotate(q2, V3.i())
-        r2 = r1 + 15.0 * joint_axis
-        
-        acceleration_due_to_gravity = joint_axis.dot(-9.81 * V3.j())
-        print(f'{acceleration_due_to_gravity=}')
-        a = acceleration_due_to_gravity
-        print(f'{0.5*a*5.0*5.0=}')
+        q2 = Q.identity()
+        #q2 = Q.Rz(-np.pi / 32)
+        s_world = Q.rotate(q2, V3.i())
+        r2 = r1 + 20.0 * s_world
         
         parent_shape_name = API.generate_unique_name("parent_shape")
 
-        V, T = MESH.create_box(10.0, 10.0, 10.0)
+        V, T = MESH.create_box(10.0, 2.0, 2.0)
         mesh = API.create_mesh(V, T)
         API.create_shape(engine, parent_shape_name, mesh)
 
@@ -313,7 +313,6 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
         # set up child
         child_shape_name = API.generate_unique_name("child_shape")
 
-        V, T = MESH.create_box(10.0, 10.0, 10.0)
         mesh = API.create_mesh(V, T)
         API.create_shape(engine, child_shape_name, mesh)
 
@@ -330,22 +329,22 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
         joint_name = parent_body_name + '_' + child_body_name
         API.create_sliding_joint(engine, joint_name)
         
-        r_parent = API.get_position(engine, parent_body_name)
-        r_child = API.get_position(engine, child_body_name)
-        
-        s_world = r_child - r_parent
-        s_world /= np.linalg.norm(s_world)
-        o_world = (r_parent + r_child) / 2
-        
         API.set_sliding_joint(
             engine,
             joint_name,
             parent_body_name,
             child_body_name,
-            o_world,
+            V3.zero(),
             s_world,
             mode="world"
         )
+        
+        # Add displacement to test error correction
+        if True:
+            r2 = r2 - 1 * V3.j()
+            API.set_position(engine, child_body_name, r2, True)
+        
+        
     elif scene_name == scene_names[18]:
         density=1.0
         material_name='default'
@@ -353,7 +352,7 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
         def create_slider_pair(r: np.ndarray, q: np.ndarray):
             parent_shape_name = API.generate_unique_name("parent_shape")
 
-            V, T = MESH.create_box(10.0, 10.0, 10.0)
+            V, T = MESH.create_box(10.0, 2.0, 2.0)
             mesh = API.create_mesh(V, T)
             API.create_shape(engine, parent_shape_name, mesh)
 
@@ -371,7 +370,6 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
             # set up child
             child_shape_name = API.generate_unique_name("child_shape")
 
-            V, T = MESH.create_box(10.0, 10.0, 10.0)
             mesh = API.create_mesh(V, T)
             API.create_shape(engine, child_shape_name, mesh)
 
@@ -407,9 +405,9 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
                 mode="world"
             )
         
-        for i in range(100):
+        for i in range(50):
             np.random.random() * 2 * np.pi
-            r = V3.k() * (i * -20)
+            r = V3.k() * (i * -10)
             q = Q.Rz(np.random.random() * 2 * np.pi)
             create_slider_pair(r, q)
     elif scene_name == scene_names[19]:
@@ -440,8 +438,8 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
             if i == 2:
                 q = Q.Rz(3 * np.pi / 4)
             
-            joint_axis = Q.rotate(q, V3.i())
-            r = r + 20.0 * joint_axis + -11.0 * V3.k()
+            s_world = Q.rotate(q, V3.i())
+            r = r + 20.0 * s_world + -11.0 * V3.k()
             
             child_shape_name = API.generate_unique_name(f"child_{i}_shape")
             mesh = API.create_mesh(V, T)
@@ -457,7 +455,7 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
             
             sliding_joint_name = API.generate_unique_name(f"sliding_joint_{i}")
             API.create_sliding_joint(engine, sliding_joint_name)
-            API.set_sliding_joint(engine, sliding_joint_name, parent_body_name, child_body_name, V3.zero(), joint_axis)
+            API.set_sliding_joint(engine, sliding_joint_name, parent_body_name, child_body_name, V3.zero(), s_world)
             
             parent_body_name = child_body_name
         
@@ -486,8 +484,8 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
         for i in range(1, 50):
             q = Q.Rz(2 * np.pi * np.random.random_sample())
             
-            joint_axis = Q.rotate(q, V3.i())
-            r = r + 12.0 * joint_axis + -11.0 * V3.k()
+            s_world = Q.rotate(q, V3.i())
+            r = r + 12.0 * s_world + -11.0 * V3.k()
             
             child_shape_name = API.generate_unique_name(f"child_{i}_shape")
             mesh = API.create_mesh(V, T)
@@ -503,14 +501,18 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
             
             sliding_joint_name = API.generate_unique_name(f"sliding_joint_{i}")
             API.create_sliding_joint(engine, sliding_joint_name)
-            API.set_sliding_joint(engine, sliding_joint_name, parent_body_name, child_body_name, V3.zero(), joint_axis)
+            API.set_sliding_joint(engine, sliding_joint_name, parent_body_name, child_body_name, V3.zero(), s_world)
             
             parent_body_name = child_body_name
         
 
-    API.create_gravity_force(engine=engine, force_name="earth", g=9.81, up=V3.j())
-    API.create_damping_force(engine=engine, force_name="air", alpha=0.01, beta=0.01)
-    for body in engine.bodies.values():
-        API.connect_force(engine=engine, body_name=body.name, force_name="earth")
-        API.connect_force(engine=engine, body_name=body.name, force_name="air")
+    if use_external_forces:
+        API.create_gravity_force(engine=engine, force_name="earth", g=9.81, up=V3.j())
+        API.create_damping_force(engine=engine, force_name="air", alpha=0.01, beta=0.01)
+        for body in engine.bodies.values():
+            API.connect_force(engine=engine, body_name=body.name, force_name="earth")
+            API.connect_force(engine=engine, body_name=body.name, force_name="air")
+        logger.info("Added external forces.")
+    else:
+        logger.info("External forces disabled.")
     logger.info(f"Done with creating {scene_name}")
