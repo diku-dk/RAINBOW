@@ -73,8 +73,13 @@ class GearFactory:
         theta = np.linspace(t_min, t_max, 12)
         if reverse:
             theta = -theta[::-1]
-        ix = r_base * (np.cos(theta + shift) + theta * np.sin(theta + shift))
-        iy = r_base * (np.sin(theta + shift) - theta * np.cos(theta + shift))
+        
+        inv_x = INV.create_involute_x_function(r_base, shift)
+        inv_y = INV.create_involute_y_function(r_base, shift)
+        
+        ix = inv_x(theta)
+        iy = inv_y(theta)
+        
         return ix, iy
 
     @staticmethod
@@ -361,7 +366,7 @@ def create_gear_train(engine: Engine,
     q_m2w = Q.Rx(-np.pi / 2)  # Needed to change the z-up direction to a y-up direction.
 
     m = 1.0  # Gear module
-    numbers = np.array([7, 12, 15, 28], dtype=int)  # Possible gear teeth to use.
+    numbers = np.array([7, 12, 15, 28, 35, 41, 55, 65, 74, 89, 101], dtype=int)  # Possible gear teeth to use.
     Z = np.random.choice(numbers, size=(N,))  # An N-long random list of gear teeth values.
     alpha = 20  # Pressure angle.
     face_width = 10.0  # Width of the gear.
