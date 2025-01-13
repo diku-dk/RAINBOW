@@ -4,6 +4,7 @@ This script contains code to create gear shapes and gear mechanisms.
 
 import numpy as np
 
+import rainbow.math.involute as INV
 import rainbow.math.vector3 as V3
 import rainbow.math.quaternion as Q
 import rainbow.simulators.prox_rigid_bodies.api as API
@@ -17,18 +18,6 @@ class GearFactory:
     """
 
     @staticmethod
-    def _roll_angle(r_base: float, r_top: float) -> float:
-        """
-        Compute the roll angle.
-
-        :param r_base:  The radius of the inner circle.
-        :param r_top:   The radius of the outer circle.
-        :return:        The roll angle of the inner circle that will create an involute curve connecting to the
-                        outer circle.
-        """
-        return np.sqrt((r_top / r_base) ** 2 - 1)
-
-    @staticmethod
     def _span_angle(roll_angle: float) -> float:
         """
         This function computes the span angle of the involute curve.
@@ -38,13 +27,14 @@ class GearFactory:
         :param roll_angle:      The roll angle of the involute curve.
         :return:                The span angle of the involute curve.
         """
-        x = (np.cos(roll_angle) + roll_angle * np.sin(roll_angle))
-        y = (np.sin(roll_angle) - roll_angle * np.cos(roll_angle))
-        return np.arctan2(y, x)
+        
+        alpha = np.arctan(roll_angle)
+        return INV.involute(alpha)
 
     @staticmethod
     def _make_involute_curve(r_base: float,
                              r_top: float,
+                             r_root: float,
                              shift: float = 0,
                              reverse: bool = False
                              ) -> tuple[np.ndarray, np.ndarray]:
@@ -74,7 +64,13 @@ class GearFactory:
         :return:        A curve represented as tuple of two numpy arrays. The First one is x-coordinates,
                         and the second is y-coordinates of points on the curve.
         """
-        theta = np.linspace(0, GearFactory._roll_angle(r_base, r_top), 12)
+        t_min = 0
+        t_max = INV.roll_angle(r_base, r_top)
+        if r_base < r_root:
+            # when root circle is larger than base circle the involute curve starts at the roll angle that 
+            t_min = INV.roll_angle(r_base, r_root)
+        
+        theta = np.linspace(t_min, t_max, 12)
         if reverse:
             theta = -theta[::-1]
         ix = r_base * (np.cos(theta + shift) + theta * np.sin(theta + shift))
@@ -113,8 +109,8 @@ class GearFactory:
         R_b = R_p * np.cos(rad)  # Radius of the base circle which is the basis for the involute curve
 
         # Generate teeth profile
-        pitch_roll = GearFactory._roll_angle(R_b, R_p)
-        top_roll = GearFactory._roll_angle(R_b, R_t)
+        pitch_roll = INV.roll_angle(R_b, R_p)
+        top_roll = INV.roll_angle(R_b, R_t)
 
         delta = GearFactory._span_angle(
             pitch_roll)  # Angle spanned by involute curve going from base circle to pitch circle
@@ -130,7 +126,7 @@ class GearFactory:
             forward_shift = shift - delta
             reverse_shift = shift + delta + beta
             # Generate the involute curve going from base circle to the top circle
-            forward_x, forward_y = GearFactory._make_involute_curve(r_base=R_b, r_top=R_t, shift=forward_shift)
+            forward_x, forward_y = GearFactory._make_involute_curve(r_base=R_b, r_top=R_t, r_root=R_r, shift=forward_shift)
             # Generate top circle arch between the forward and reverse involute curves
             start_top_theta = shift + gamma
             end_top_theta = shift + beta - gamma
@@ -138,7 +134,7 @@ class GearFactory:
             top_x = R_t * np.cos(theta)
             top_y = R_t * np.sin(theta)
             # Generate the involute curve going from top circle to the base circle
-            rev_x, rev_y = GearFactory._make_involute_curve(r_base=R_b, r_top=R_t, shift=reverse_shift, reverse=True)
+            rev_x, rev_y = GearFactory._make_involute_curve(r_base=R_b, r_top=R_t, r_root=R_r, shift=reverse_shift, reverse=True)
             # Generate the circular arch on root circle from this tooth end to the next tooth start point.
             start_root_theta = shift + beta + delta
             end_root_theta = shift + 2 * beta - delta
