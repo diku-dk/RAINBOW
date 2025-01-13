@@ -3,7 +3,7 @@ import numpy as np
 
 import rainbow.math.involute as INV
 
-class InvoluteGearSpec:
+class SpurGearSpec:
     def __init__(self, m: float, z: int, alpha: float = 20.0) -> None:
         """
         Create a new involute gear specification.
@@ -38,9 +38,11 @@ class InvoluteGearSpec:
         self.delta_bp = INV.involute(self.alpha) # involute pitch from base to pitch circle
         self.delta_ba = INV.involute(np.arctan(self.t_max)) # involute pitch from base to addendum circle
         self.delta_pa = self.delta_ba - self.delta_bp # involute pitch from pitch to addendum circle
+        self.delta_bd = None if self.rb >= self.rd else INV.involute(np.arctan(self.t_min)) # involute pitch from base to dedendum circle (Only applies if rb < rd)
         
         self.gamma_p = np.pi / self.z # angular pitch
         self.gamma_b = self.gamma_p + 2 * self.delta_bp # base pitch
         self.gamma_a = self.gamma_p - 2 * self.delta_pa # addendum pitch
+        self.gamma_d = self.gamma_b if self.delta_bd is None else self.gamma_b - 2 * self.delta_bd # dedendum pitch
         
-        self.theta_i = np.linspace(0, 2 * np.pi, z + 1) # tooth angles
+        self.theta_i = np.array([i * 2 * self.gamma_p for i in range(z)]) # tooth angles

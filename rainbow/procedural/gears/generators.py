@@ -1,5 +1,5 @@
 
-from .types import InvoluteGearSpec
+from .types import SpurGearSpec
 
-def create_involute_gear_mesh(spec: InvoluteGearSpec):
+def create_involute_gear_mesh(spec: SpurGearSpec):
     pass
