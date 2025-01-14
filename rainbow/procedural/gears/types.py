@@ -4,7 +4,7 @@ import numpy as np
 import rainbow.math.involute as INV
 
 class SpurGearSpec:
-    def __init__(self, m: float, z: int, alpha: float = 20.0) -> None:
+    def __init__(self, m: float, z: int, alpha: float = 20.0, is_internal: bool = False) -> None:
         """
         Create a new involute gear specification.
         
@@ -12,15 +12,17 @@ class SpurGearSpec:
         :param z:       The number of teeth.
         :param alpha:   The pressure angle in degrees.
         """
-        self.m = m # module
         if not (m > 0):
             raise ValueError("Module m must be positive.")
-        self.z = z # number of teeth
         if not (z > 4):
             raise ValueError("Number of teeth z must be greater than 4.")
         if not (0 <= alpha <= 90):
             raise ValueError("Pressure angle alpha must be between 0 and 90 degrees.")
+        
+        self.m = m # module
+        self.z = z # number of teeth
         self.alpha = np.deg2rad(alpha) # pressure angle
+        self.is_internal = is_internal # internal or external gear indicator
         
         self.ha = self.m # addendum
         self.hd = 1.25 * self.m # dedendum
