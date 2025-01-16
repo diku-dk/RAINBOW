@@ -4,24 +4,29 @@ import numpy as np
 import rainbow.math.involute as INV
 
 class GearSpec:
-    def __init__(self, m: float, z: int, alpha: float = 20.0, is_internal: bool = False) -> None:
+    def __init__(self, m: float, z: int, pressure_angle: float = 20.0, helix_angle: float | None = None, is_internal: bool = False) -> None:
         """
         Create a new involute gear specification.
         
-        :param m:       The module of the gear.
-        :param z:       The number of teeth.
-        :param alpha:   The pressure angle in degrees.
+        :param m: Module of the gear.
+        :param z: Number of teeth of the gear.
+        :param pressure_angle: Pressure angle of the gear in degrees.
+        :param helix_angle: Helix angle of the gear in degrees. If None, the gear is spur.
+        :param is_internal: Internal gear indicator.
+        
+        :raises ValueError: If m is not positive, z is less than or equal to 4, or pressure angle is not between 0 and 90 degrees.
         """
         if not (m > 0):
             raise ValueError("Module m must be positive.")
         if not (z > 4):
             raise ValueError("Number of teeth z must be greater than 4.")
-        if not (0 <= alpha <= 90):
+        if not (0 <= pressure_angle <= 90):
             raise ValueError("Pressure angle alpha must be between 0 and 90 degrees.")
         
         self.m = m # module
         self.z = z # number of teeth
-        self.alpha = np.deg2rad(alpha) # pressure angle
+        self.alpha = np.deg2rad(pressure_angle) # pressure angle
+        self.beta = np.deg2rad(helix_angle) if helix_angle is not None else None # helix angle
         self.is_internal = is_internal # internal or external gear indicator
         
         self.ha = self.m # addendum
