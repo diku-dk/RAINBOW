@@ -11,12 +11,12 @@ class GearFactory:
         self.top_points = top_points
         self.bottom_points = bottom_points
     
-    def create_involute_gear_mesh(self, spec: GearSpec, face_width: float) -> tuple[np.ndarray, np.ndarray]:
+    def create_involute_gear_mesh(self, spec: GearSpec, face_width: float, subdivisions: int = 3) -> tuple[np.ndarray, np.ndarray]:
         V_profile = self._create_profile_points(spec)
         V_cylinder = self._create_cylinder_points(spec)
         
         V, T = self._tessellation(spec, V_profile, V_cylinder)
-        V, T = self._extrude(spec, V, T, face_width)
+        V, T = self._extrude(spec, V, T, face_width, subdivisions)
         
         return V, T
 
@@ -117,37 +117,56 @@ class GearFactory:
         
         return V, np.array(T)
 
-    def _extrude(self, spec: GearSpec, V: np.ndarray, T: np.ndarray, face_width: float) -> np.ndarray:
-        total_gear_points = self.total_gear_points(spec)
+    def _extrude(self, spec: GearSpec, V: np.ndarray, T: np.ndarray, face_width: float, subdivisions: int) -> np.ndarray:
+        face_width_step = face_width / (subdivisions + 1)
         
         V1 = np.copy(V)
-        V2 = np.copy(V)
-        V2[:, 2] = face_width
+        Vs = [V1]
         
         T1 = np.copy(T)
-        T2 = T[:, ::-1] + len(V)
+        Ts = [T1]
+        
+        for i in range(subdivisions + 1):
+            Vi = np.copy(V)
+            Vi[:, 2] = (i + 1) * face_width_step
+            Vs.append(Vi)
+            Ts.append(self._connect_profiles(spec, len(V), len(V) * i))
+        
+        V2 = np.copy(V)
+        V2[:, 2] = face_width
+        Vs.append(V2)
+        
+        T2 = T[:, ::-1] + len(V) * (subdivisions + 1)
+        Ts.append(T2)
+        
+        V_final = np.vstack(Vs)
+        V_final[:, 2] -= face_width / 2
+        
+        T_final = np.vstack(Ts)
+        if spec.is_internal:
+            T_final = T_final[:,::-1]
+        
+        return V_final, T_final
+
+    def _connect_profiles(self, spec: GearSpec, total_points: int, index_shift: int):
+        total_gear_points = self.total_gear_points(spec)
+        
         T_profile = []
-        for i in range(total_gear_points):
-            j1 = i + V1.shape[0]
-            j2 = (i + 1) % total_gear_points
-            k = ((i + 1) % total_gear_points) + V1.shape[0]
+        for idx in range(total_gear_points):
+            i = idx + index_shift
+            j1 = i + total_points
+            j2 = (idx + 1) % total_gear_points + index_shift
+            k = ((idx + 1) % total_gear_points) + total_points + index_shift
             T_profile.append((i, k, j1))
             T_profile.append((i, j2, k))
 
         T_cylinder = []
         for idx in range(spec.z):
-            i = idx + total_gear_points
-            j1 = i + V1.shape[0]
-            j2 = (idx + 1) % spec.z + total_gear_points
-            k = ((idx + 1) % spec.z) + total_gear_points + V1.shape[0]
-            T_cylinder.append((i, j1, k))
-            T_cylinder.append((i, k, j2))
+            idx = idx + total_gear_points + index_shift
+            j1 = idx + total_points
+            j2 = (idx + 1) % spec.z + total_gear_points + index_shift
+            k = ((idx + 1) % spec.z) + total_gear_points + total_points + index_shift
+            T_cylinder.append((idx, j1, k))
+            T_cylinder.append((idx, k, j2))
         
-        V_final = np.vstack((V1, V2))
-        V_final[:, 2] -= face_width / 2
-        
-        T_final = np.vstack((T1, T2, T_profile, T_cylinder))
-        if spec.is_internal:
-            T_final = T_final[:,::-1]
-        
-        return V_final, T_final
+        return np.vstack((T_profile, T_cylinder))
