@@ -7,11 +7,26 @@ from .types import GearSpec
 
 class GearFactory:
     def __init__(self, side_points: int = 10, top_points: int = 3, bottom_points: int = 3) -> None:
+        """Creates a new gear factory.
+        
+        :param side_points: The number of side points for the gear.
+        :param top_points: The number of top points for the gear.
+        :param bottom_points: The number of bottom points for the gear.
+        """
+        
         self.side_points = side_points
         self.top_points = top_points
         self.bottom_points = bottom_points
     
     def create_involute_gear_mesh(self, spec: GearSpec, face_width: float, subdivisions: int = 3) -> tuple[np.ndarray, np.ndarray]:
+        """Creates the mesh for an involute gear.
+        
+        :param spec: The gear specification.
+        :param face_width: The face width of the gear.
+        :param subdivisions: The number of subdivisions for the face width.
+        :return: The gear vertices and triangles.
+        """
+        
         V_profile = self._create_profile_points(spec)
         V_cylinder = self._create_cylinder_points(spec)
         
@@ -21,6 +36,12 @@ class GearFactory:
         return V, T
 
     def points_per_tooth(self, spec: GearSpec) -> int:
+        """Calculates the number of points per tooth for the gear.
+        
+        :param spec: The gear specification.
+        :return: The number of points per tooth for the gear.
+        """
+        
         points = 2 * self.side_points # side points, left and right
         points += self.top_points # top points
         
@@ -35,9 +56,21 @@ class GearFactory:
         return points
 
     def total_gear_points(self, spec: GearSpec) -> int:
+        """Calculates the total number of points for the gear.
+        
+        :param spec: The gear specification.
+        :return: The total number of points for the gear.
+        """
+        
         return spec.z * self.points_per_tooth(spec)
 
     def _create_profile_points(self, spec: GearSpec) -> np.ndarray:
+        """Creates the gear profile vertices for the gear.
+        
+        :param spec: The gear specification.
+        :return: The gear profile vertices.
+        """
+        
         ts = np.linspace(spec.t_min, spec.t_max, self.side_points)
         rev_ts = -ts[::-1]
         
@@ -86,6 +119,12 @@ class GearFactory:
         return np.vstack((xs, ys, np.zeros_like(xs))).T
 
     def _create_cylinder_points(self, spec: GearSpec) -> np.ndarray:
+        """Creates the cylinder vertices for the gear.
+        
+        :param spec: The gear specification.
+        :return: The cylinder vertices.
+        """
+        
         r = 1.2 * spec.ra if spec.is_internal else 0.2 * spec.rp
         theta = np.linspace(0, 2 * np.pi, spec.z + 1)[:-1]
         if spec.is_internal:
@@ -97,6 +136,14 @@ class GearFactory:
         return np.vstack((xs, ys, np.zeros_like(xs))).T
 
     def _tessellation(self, spec: GearSpec, V_profile: np.ndarray, V_cylinder: np.ndarray) -> np.ndarray:
+        """Tessellates the gear profile and cylinder to create the gear teeth.
+        
+        :param spec: The gear specification.
+        :param V_profile: The gear profile vertices.
+        :param V_cylinder: The gear cylinder vertices.
+        :return: The gear vertices and triangles.
+        """
+        
         total_gear_points = self.total_gear_points(spec)
         points_per_tooth = self.points_per_tooth(spec)
         
@@ -118,23 +165,28 @@ class GearFactory:
         return V, np.array(T)
 
     def _extrude(self, spec: GearSpec, V: np.ndarray, T: np.ndarray, face_width: float, subdivisions: int) -> np.ndarray:
+        """Extrudes the gear profile to create the gear teeth.
+        
+        :param spec: The gear specification.
+        :param V: The gear profile vertices.
+        :param T: The gear profile triangles.
+        :param face_width: The face width of the gear.
+        :param subdivisions: The number of subdivisions for the face width.
+        :return: The gear vertices and triangles.
+        """
+        
         face_width_step = face_width / (subdivisions + 1)
         
-        V1 = np.copy(V)
-        Vs = [V1]
-        
-        T1 = np.copy(T)
-        Ts = [T1]
-        
+        # Create the vertices and triangles for each subdivision
+        Vs = [np.copy(V)]
+        Ts = [np.copy(T)]
         for i in range(subdivisions + 1):
-            Vi = np.copy(V)
-            Vi[:, 2] = (i + 1) * face_width_step
+            # Transform the profile. This translates and rotates the profile
+            Vi = self._transform_profile(spec, V, T, face_width, face_width_step, i, subdivisions)
+            # Connect the transformed profile to the previous profile
+            Ti = self._connect_profiles(spec, len(V), len(V) * i)
             Vs.append(Vi)
-            Ts.append(self._connect_profiles(spec, len(V), len(V) * i))
-        
-        V2 = np.copy(V)
-        V2[:, 2] = face_width
-        Vs.append(V2)
+            Ts.append(Ti)
         
         T2 = T[:, ::-1] + len(V) * (subdivisions + 1)
         Ts.append(T2)
@@ -149,6 +201,14 @@ class GearFactory:
         return V_final, T_final
 
     def _connect_profiles(self, spec: GearSpec, total_points: int, index_shift: int):
+        """Connects the gear profile vertices to form the gear teeth.
+        
+        :param spec: The gear specification.
+        :param total_points: The total number of points per tooth.
+        :param index_shift: The index shift for the profile vertices.
+        :return: The triangles connecting the gear profile vertices.
+        """
+        
         total_gear_points = self.total_gear_points(spec)
         
         T_profile = []
@@ -170,3 +230,34 @@ class GearFactory:
             T_cylinder.append((idx, k, j2))
         
         return np.vstack((T_profile, T_cylinder))
+
+    def _transform_profile(self, spec: GearSpec, V: np.ndarray, face_width_step: float, i: int, subdivisions: int) -> np.ndarray:
+        """Transforms the gear profile vertices by updating the z coordinate and optionally rotating the profile.
+        
+        :param spec: The gear specification.
+        :param V: The gear profile vertices.
+        :param T: The gear profile triangles.
+        :param face_width_step: The step size for the face width.
+        :param i: The current subdivision index.
+        :param subdivisions: The total number of subdivisions.
+        :return: The transformed gear profile vertices.
+        """
+        
+        # Create a copy and update the z coordinate
+        V_tmp = np.copy(V)
+        V_tmp[:, 2] = (i + 1) * face_width_step
+        
+        # Rotate the profile if necessary
+        if spec.beta is not None and spec.beta != 0:
+            # Create the rotation matrix
+            theta = spec.beta * (i + 1) / (subdivisions + 1)
+            R = np.array([
+                [np.cos(theta), -np.sin(theta), 0],
+                [np.sin(theta), np.cos(theta), 0],
+                [0, 0, 1]
+            ])
+        
+            # Transform the vertices
+            V_tmp = V_tmp @ R.T
+        
+        return V_tmp
