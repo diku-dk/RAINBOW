@@ -3,7 +3,7 @@ import numpy as np
 
 import rainbow.math.involute as INV
 
-class SpurGearSpec:
+class GearSpec:
     def __init__(self, m: float, z: int, alpha: float = 20.0, is_internal: bool = False) -> None:
         """
         Create a new involute gear specification.
