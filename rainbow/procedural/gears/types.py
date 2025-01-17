@@ -4,6 +4,10 @@ import numpy as np
 import rainbow.math.involute as INV
 
 class GearSpec:
+    """A class representing the specification of an involute gear.
+    
+    The gear specification includes the module, number of teeth, pressure angle, helix angle, and internal gear indicator.
+    """
     def __init__(self, m: float, z: int, pressure_angle: float = 20.0, helix_angle: float | None = None, is_internal: bool = False) -> None:
         """
         Create a new involute gear specification.
@@ -56,7 +60,13 @@ class GearSpec:
 
 
 class Gear:
-    def __init__(self, spec: GearSpec, V: np.ndarray, T: np.ndarray) -> None:        
+    def __init__(self, spec: GearSpec, V: np.ndarray, T: np.ndarray) -> None:     
+        """Create a new involute gear.
+        
+        :param spec: Gear specification.
+        :param V: Vertex array of the gear.
+        :param T: Triangle array of the gear.
+        """   
         self.spec = spec
         self.V = V
         self.T = T
