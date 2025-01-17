@@ -11,6 +11,9 @@ import rainbow.simulators.prox_rigid_bodies.api as API
 import rainbow.geometry.surface_mesh as MESH
 from rainbow.simulators.prox_rigid_bodies.types import Engine
 
+#from rainbow.procedural.gears.types import Gear, GearSpec
+import rainbow.procedural.gears.generators as GEAR
+
 
 class GearFactory:
     """
@@ -18,170 +21,8 @@ class GearFactory:
     """
 
     @staticmethod
-    def _span_angle(roll_angle: float) -> float:
-        """
-        This function computes the span angle of the involute curve.
-
-        That is, if projected onto its base circle, how big an angle does the resulting circle arch span?
-
-        :param roll_angle:      The roll angle of the involute curve.
-        :return:                The span angle of the involute curve.
-        """
-        
-        alpha = np.arctan(roll_angle)
-        return INV.involute(alpha)
-
-    @staticmethod
-    def _make_involute_curve(r_base: float,
-                             r_top: float,
-                             r_root: float,
-                             shift: float = 0,
-                             reverse: bool = False
-                             ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        This function is used to create an involute curve.
-        Let us look at the involute curve going in the ccw direction (we call this the forward direction).
-        The opposing direction we refer to the reverse direction.
-
-        The direction that the involute curve should wound around the inner circle. CCW is forward and CW is reserve.
-
-
-        A point on the involute curve is given by
-
-            Q(theta) = r_base (cos(theta), sin(theta))^T + r_base theta (sin(theta), -cos(theta))^T
-
-        Solving for the root of
-
-            Norm(q(beta))^2 - r_top^2 = 0
-
-        Gives us the roll angle beta. This function creates the involute curve going from 0 to beta which will
-        connect the circle with radius r_base to the circle with radius r_top.
-
-        :param r_base:  The radius of the inner circle.
-        :param r_top:   The radius of the outer circle.
-        :param shift:   The shifting angle for where the involute curve should start on the inner circle.
-        :param reverse: A boolean flag indicating if the involute curve should be reversed.
-        :return:        A curve represented as tuple of two numpy arrays. The First one is x-coordinates,
-                        and the second is y-coordinates of points on the curve.
-        """
-        t_min = 0
-        t_max = INV.roll_angle(r_base, r_top)
-        if r_base < r_root:
-            # when root circle is larger than base circle the involute curve starts at the roll angle that 
-            t_min = INV.roll_angle(r_base, r_root)
-        
-        theta = np.linspace(t_min, t_max, 12)
-        if reverse:
-            theta = -theta[::-1]
-        
-        inv_x = INV.create_involute_x_function(r_base, shift)
-        inv_y = INV.create_involute_y_function(r_base, shift)
-        
-        ix = inv_x(theta)
-        iy = inv_y(theta)
-        
-        return ix, iy
-
-    @staticmethod
-    def make_gear_specs(m: float = 1.0, Z: int = 12, alpha: float = 20.0) -> dict:
-        """
-        This function is used to create a gear geometry profile.
-
-        For assembling the gears, one should remember that mating gears must share the same module.
-
-        They must also have the same pressure angle.
-
-        Their pitch circles must be tangent.
-
-        The code is based on descriptions from https://www.stlgears.com/ and https://khkgears.net/new/gear_knowledge/
-
-        :param m: Module value
-        :param Z:  Number of teeth of the gear
-        :param alpha: The pressure angle given in units of degrees
-
-        :return: A dictionary with all the specification of the gear.
-        """
-        # First, we compute a lot of gear parameters that are used for defining the geometry of the gear.
-        rad = np.pi * alpha / 180.0  # Convert pressure angle to radians
-        h_a = m  # The distance from the reference circle to tooth tip
-        h_d = 1.25 * m  # Distance from reference circle to root of the teeth
-        h = 2.25 * m  # Total tooth height
-        p = np.pi * m  # The distance between corresponding points on the reference circle for two adjacent teeth
-        s = p / 2  # Tooth thickness on reference circle
-        R_p = m * Z / 2.0  # Radius of the reference circle also known as the pitch circle
-        R_r = R_p - h_d  # Radius of the dedendum circle (root circle)
-        R_t = R_p + h_a  # Radius of the addendum circle (tip circle)
-        R_b = R_p * np.cos(rad)  # Radius of the base circle which is the basis for the involute curve
-
-        # Generate teeth profile
-        pitch_roll = INV.roll_angle(R_b, R_p)
-        top_roll = INV.roll_angle(R_b, R_t)
-
-        delta = GearFactory._span_angle(
-            pitch_roll)  # Angle spanned by involute curve going from base circle to pitch circle
-        beta = np.pi / Z  # Angle spanned by tooth thickness at the pitch circle
-        gamma = GearFactory._span_angle(
-            top_roll) - delta  # Angle spanned by involute curve going from pitch circle to top circle
-
-        corners = []
-        gear_x_list = []
-        gear_y_list = []
-        for z in range(Z):
-            shift = z * beta * 2
-            forward_shift = shift - delta
-            reverse_shift = shift + delta + beta
-            # Generate the involute curve going from base circle to the top circle
-            forward_x, forward_y = GearFactory._make_involute_curve(r_base=R_b, r_top=R_t, r_root=R_r, shift=forward_shift)
-            # Generate top circle arch between the forward and reverse involute curves
-            start_top_theta = shift + gamma
-            end_top_theta = shift + beta - gamma
-            theta = np.linspace(start_top_theta, end_top_theta, 6)
-            top_x = R_t * np.cos(theta)
-            top_y = R_t * np.sin(theta)
-            # Generate the involute curve going from top circle to the base circle
-            rev_x, rev_y = GearFactory._make_involute_curve(r_base=R_b, r_top=R_t, r_root=R_r, shift=reverse_shift, reverse=True)
-            # Generate the circular arch on root circle from this tooth end to the next tooth start point.
-            start_root_theta = shift + beta + delta
-            end_root_theta = shift + 2 * beta - delta
-            theta = np.linspace(start_root_theta, end_root_theta, 6)
-            root_x = R_r * np.cos(theta)
-            root_y = R_r * np.sin(theta)
-            # Piece all the tooth curves together to one curve
-            tooth_x = np.concatenate((forward_x, top_x[1:-1], rev_x, root_x))
-            tooth_y = np.concatenate((forward_y, top_y[1:-1], rev_y, root_y))
-            # Put indices of tooth root vertices into a list for later
-            tooth_start_idx = len(gear_x_list) - 1
-            tooth_end_idx = len(gear_x_list) + len(tooth_x) - len(root_x)
-            corners.append([tooth_start_idx, tooth_end_idx])
-            # Append the tooth curve to all previous generated teeth
-            gear_x_list.extend(tooth_x)
-            gear_y_list.extend(tooth_y)
-
-        gear_x = np.array(gear_x_list, dtype=float)
-        gear_y = np.array(gear_y_list, dtype=float)
-
-        # Store all the technical specifications about the gear
-        specs = {'pitch radius': R_p,
-                 'top radius': R_t,
-                 'base radius': R_b,
-                 'root radius': R_r,
-                 'tooth thickness': s,
-                 'pitch': p,
-                 'tooth height': h,
-                 'module': m,
-                 'number of teeth': Z,
-                 'pressure angle': alpha,
-                 'beta': beta,  # Tooth thickness angle span on pitch circle
-                 'gamma': gamma,  # Involute angle span from pitch to top circle
-                 'delta': delta,  # Involute angle span from base to pitch circle
-                 'x': gear_x,  # The x coordinates of the gear profile
-                 'y': gear_y,  # The y coordinates of the gear profile
-                 'corners': np.array(corners, dtype=int)}
-        return specs
-
-    @staticmethod
-    def make_gears_assembly(drive_gear: dict,
-                            driven_gear: dict,
+    def make_gears_assembly(drive_gear: GEAR.GearSpec,
+                            driven_gear: GEAR.GearSpec,
                             cx: float,
                             cy: float,
                             theta: float,
@@ -202,14 +43,14 @@ class GearFactory:
         :param omega:        The connection angle to the drive gear.
         :return:             The position and orientation of the driven gear.
         """
-        PR1 = drive_gear['pitch radius']
-        PR2 = driven_gear['pitch radius']
-        M1 = drive_gear['module']
-        M2 = driven_gear['module']
-        PA1 = drive_gear['pressure angle']
-        PA2 = driven_gear['pressure angle']
-        Z1 = drive_gear['number of teeth']
-        Z2 = driven_gear['number of teeth']
+        PR1 = drive_gear.rp # pitch radius
+        PR2 = driven_gear.rp # pitch radius
+        M1 = drive_gear.m # module
+        M2 = driven_gear.m # module
+        PA1 = drive_gear.alpha # pressure angle
+        PA2 = driven_gear.alpha # pressure angle
+        Z1 = drive_gear.z # number of teeth
+        Z2 = driven_gear.z # number of teeth
         if M1 != M2:
             raise ValueError("Gears are not compatible, must have same module")
         if PA1 != PA2:
@@ -254,93 +95,6 @@ class GearFactory:
         phi = np.pi - ratio * (theta - omega) + omega
         return tx, ty, phi
 
-    @staticmethod
-    def make_gear_mesh(gear: dict, face_width: float = 1.0) -> tuple[np.ndarray, np.ndarray]:
-        """
-        This function converts a specification of a gear into a triangle mesh.
-
-        :param gear:           The specification/definition of the gear.
-        :param face_width:     The "width" of the gear.
-        :return:               A vertex and face array representation of a triangle mesh.
-        """
-        x = gear['x']
-        y = gear['y']
-        z = np.ones_like(x) * face_width / 2
-
-        V = np.row_stack(
-            (
-                np.column_stack((x, y, -z)),
-                np.column_stack((x, y, z))
-            )
-        )
-
-        N = len(x)
-        T = []
-        # Create the mesh of teeth profile for the gear
-        for i in range(N):
-            j = (i + 1) % N
-            k = N + j
-            m = N + i
-            T.append([i, j, k])
-            T.append([i, k, m])
-
-        # Create top and bottom caps of gear
-        C = gear['corners']
-        for start, stop in C:
-            # First, we do bottom teeth
-            indices = np.arange(start, stop + 1, 1, dtype=int)
-            indices[indices < 0] += N
-
-            tooth_center = np.mean(V[indices, :], axis=0)
-            V = np.row_stack((V, tooth_center))
-            idx_tooth_center = V.shape[0] - 1
-            M = len(indices)
-            for m in range(M):
-                j = indices[m]
-                k = indices[(m + 1) % M]
-                T.append([idx_tooth_center, k, j])
-
-            # Second, we do top teeth
-            indices += N
-            tooth_center = np.mean(V[indices, :], axis=0)
-            V = np.row_stack((V, tooth_center))
-            idx_tooth_center = V.shape[0] - 1
-            M = len(indices)
-            for m in range(M):
-                j = indices[m]
-                k = indices[(m + 1) % M]
-                T.append([idx_tooth_center, j, k])
-
-        cx = np.mean(x)
-        cy = np.mean(y)
-        bottom_center = np.array([cx, cy, -face_width / 2]).T
-        top_center = np.array([cx, cy, face_width / 2]).T
-        V = np.row_stack((V, bottom_center, top_center))
-        idx_top = V.shape[0] - 1
-        idx_bot = V.shape[0] - 2
-        for start, stop in C:
-            if start < 0:
-                start += N
-            T.append([idx_bot, stop, start])
-            T.append([idx_top, start + N, stop + N])
-
-        K = len(C)
-        for k in range(K):
-            start = C[k, 1]
-            stop = C[(k + 1) % K, 0]
-            if start < 0:
-                start += N
-            if stop < 0:
-                stop += N
-            for i in range(start, stop):
-                j = i + 1
-                T.append([idx_bot, j, i])
-            for i in range(start, stop):
-                j = i + 1
-                T.append([idx_top, i + N, j + N])
-        T = np.array(T, dtype=int)
-        return V, T
-
 
 def create_gear_train(engine: Engine,
                       N: int,
@@ -370,19 +124,22 @@ def create_gear_train(engine: Engine,
     Z = np.random.choice(numbers, size=(N,))  # An N-long random list of gear teeth values.
     alpha = 20  # Pressure angle.
     face_width = 10.0  # Width of the gear.
+    
+    gear_factory = GEAR.GearFactory()
 
     for i in range(N):
-        specs = GearFactory.make_gear_specs(m=m, Z=Z[i], alpha=alpha)
+        spec = GEAR.GearSpec(m, Z[i], alpha, helix_angle=20)
+
         shape_name = API.generate_unique_name("shape")
         body_name = API.generate_unique_name("body")
 
         body_names.append(body_name)
         gear_names.append(shape_name)
-        gear_specs.append(specs)
+        gear_specs.append(spec)
+        
+        gear = gear_factory.create_gear(spec, face_width)
 
-        V, T = GearFactory.make_gear_mesh(specs, face_width=face_width)
-
-        mesh = API.create_mesh(V, T)
+        mesh = API.create_mesh(gear.V, gear.T)
         API.create_shape(engine, shape_name, mesh)
 
         API.create_rigid_body(engine, body_name)
