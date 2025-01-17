@@ -53,3 +53,10 @@ class GearSpec:
         self.gamma_d = self.gamma_b if self.delta_bd is None else self.gamma_b - 2 * self.delta_bd # dedendum pitch
         
         self.theta_i = np.array([i * 2 * self.gamma_p for i in range(z)]) # tooth angles
+
+
+class Gear:
+    def __init__(self, spec: GearSpec, V: np.ndarray, T: np.ndarray) -> None:        
+        self.spec = spec
+        self.V = V
+        self.T = T

@@ -2,7 +2,7 @@ import numpy as np
 
 import rainbow.math.involute as INVOLUTE
 
-from .types import GearSpec
+from .types import Gear, GearSpec
 
 
 class GearFactory:
@@ -18,7 +18,7 @@ class GearFactory:
         self.top_points = top_points
         self.bottom_points = bottom_points
     
-    def create_involute_gear_mesh(self, spec: GearSpec, face_width: float, subdivisions: int = 3) -> tuple[np.ndarray, np.ndarray]:
+    def create_gear(self, spec: GearSpec, face_width: float, subdivisions: int = 3) -> Gear:
         """Creates the mesh for an involute gear.
         
         :param spec: The gear specification.
@@ -33,7 +33,7 @@ class GearFactory:
         V, T = self._tessellation(spec, V_profile, V_cylinder)
         V, T = self._extrude(spec, V, T, face_width, subdivisions)
         
-        return V, T
+        return Gear(spec, V, T)
 
     def points_per_tooth(self, spec: GearSpec) -> int:
         """Calculates the number of points per tooth for the gear.
