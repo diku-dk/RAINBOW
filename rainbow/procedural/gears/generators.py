@@ -246,21 +246,21 @@ class GearFactory:
         :return: The transformed gear profile vertices.
         """
         
-        # Create a copy and update the z coordinate
-        V_tmp = np.copy(V)
-        V_tmp[:, 2] = (i + 1) * face_width_step
+        # Create the hommogenous coordinates
+        hommogenous = np.hstack((V, np.ones((len(V), 1))))
         
-        # Rotate the profile if necessary
-        if spec.beta is not None and spec.beta != 0:
-            # Create the rotation matrix
-            theta = spec.beta * (i + 1) / (subdivisions + 1)
-            R = np.array([
-                [np.cos(theta), -np.sin(theta), 0],
-                [np.sin(theta), np.cos(theta), 0],
-                [0, 0, 1]
-            ])
+        # Create the rotation matrix
+        z = (i + 1) * face_width_step
+        theta = 0 if spec.beta is None else spec.beta * (i + 1) / (subdivisions + 1)
+        R = np.array([
+            [np.cos(theta), -np.sin(theta), 0, 0],
+            [np.sin(theta), np.cos(theta), 0, 0],
+            [0, 0, 1, z],
+            [0, 0, 0, 1]
+        ])
         
-            # Transform the vertices
-            V_tmp = V_tmp @ R.T
+        # Transform the vertices
+        V_tmp = hommogenous @ R.T
         
-        return V_tmp
+        # Return the transformed vertices
+        return V_tmp[:, :3]
