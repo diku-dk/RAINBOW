@@ -121,15 +121,18 @@ class GearFactory:
         :return: The cylinder vertices.
         """
         
+        # Compute the radius of the cylinder
         r = 1.2 * spec.ra if spec.is_internal else 0.2 * spec.rp
+        
+        # Compute the angles for the cylinder vertices
         theta = np.linspace(0, 2 * np.pi, spec.z + 1)[:-1]
         if spec.is_internal:
             theta += np.pi / spec.z
         
-        xs = r * np.cos(theta)
-        ys = r * np.sin(theta)
+        # Create the cylinder vertices
+        V = np.vstack((r * np.cos(theta), r * np.sin(theta), np.zeros_like(theta))).T
         
-        return np.vstack((xs, ys, np.zeros_like(xs))).T
+        return V
 
     def _tessellation(self, spec: GearSpec, V_profile: np.ndarray, V_cylinder: np.ndarray) -> np.ndarray:
         """Tessellates the gear profile and cylinder to create the gear teeth.
@@ -146,11 +149,15 @@ class GearFactory:
         V = np.vstack((V_profile, V_cylinder))
         T = []
 
+        # Compute the indices for the profile and cylinder vertices
+        # The index shift is used to align the profile vertices with the cylinder vertices
         index_shift = (points_per_tooth - self.top_points) // 2 if spec.is_internal else 0
+        # Compute the indices for the profile and cylinder vertices
         profile_indices = np.array([[i + j * points_per_tooth for i in range(points_per_tooth)] for j in range(spec.z)])
         profile_indices = (profile_indices + index_shift) % total_gear_points
         circle_indices = np.array(range(total_gear_points, total_gear_points + spec.z))
         
+        # Create the triangles for the gear teeth
         for k, (ci, pi) in enumerate(zip(circle_indices, profile_indices)):
             T.append((ci, pi[0], profile_indices[k-1][-1]))
             T.append((ci, profile_indices[k-1][-1], circle_indices[k-1]))
