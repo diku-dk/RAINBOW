@@ -4,6 +4,21 @@ from typing import Callable
 import numpy as np
 
 
+class InvoluteCurve:
+    def __init__(self, r_base: float, offset: float):
+        self.rb = r_base
+        self.a = offset
+    
+    def x(self, t: float) -> float:
+        return self.rb * (np.cos(t + self.a) + t * np.sin(t + self.a))
+    
+    def y(self, t: float) -> float:
+        return self.rb * (np.sin(t + self.a) - t * np.cos(t + self.a))
+    
+    def __call__(self, t: float) -> np.ndarray:
+        return np.vstack((self.x(t), self.y(t))).T
+
+
 def involute(alpha: float) -> float:
     """
     Compute the involute of a circle.
@@ -25,31 +40,3 @@ def roll_angle(r_base: float, r: float) -> float:
     """
     
     return np.sqrt((r / r_base) ** 2 - 1)
-
-
-def create_involute_x_function(r_base: float, offset: float) -> Callable[[float], float]:
-    """
-    Create a function that computes the x-coordinate of the involute curve.
-    
-    :param r_base:  The radius of the base circle.
-    :param offset:  The offset angle.
-    :return:        A function that computes the x-coordinate of the involute curve at a given angle.
-    """
-    
-    def f(alpha: float) -> float:
-        return r_base * (np.cos(alpha + offset) + alpha * np.sin(alpha + offset))
-    return f
-
-
-def create_involute_y_function(r_base: float, offset: float) -> Callable[[float], float]:
-    """
-    Create a function that computes the y-coordinate of the involute curve.
-    
-    :param r_base:  The radius of the base circle.
-    :param offset:  The offset angle.
-    :return:        A function that computes the y-coordinate of the involute curve at a given angle.
-    """
-    
-    def f(alpha: float) -> float:
-        return r_base * (np.sin(alpha + offset) - alpha * np.cos(alpha + offset))
-    return f

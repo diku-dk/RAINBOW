@@ -74,8 +74,7 @@ class GearFactory:
         ts = np.linspace(spec.t_min, spec.t_max, self.side_points)
         rev_ts = -ts[::-1]
         
-        xs = []
-        ys = []
+        V = []
         for idx in range(spec.z):
             theta_i = spec.theta_i[idx]
             theta_i_next = spec.theta_i[(idx + 1) % spec.z]
@@ -85,38 +84,35 @@ class GearFactory:
             right_root_offset = theta_i - spec.gamma_b / 2
             left_root_offset = theta_i + spec.gamma_b / 2
             
-            # Right side
-            right_inv_x = INVOLUTE.create_involute_x_function(spec.rb, right_root_offset)
-            right_inv_y = INVOLUTE.create_involute_y_function(spec.rb, right_root_offset)
-            xs.extend(right_inv_x(ts))
-            ys.extend(right_inv_y(ts))
+            # Right side of the tooth
+            right_inv = INVOLUTE.InvoluteCurve(spec.rb, right_root_offset)
+            V.append(right_inv(ts))
             
             # Top
             right_top_offset = theta_i - spec.gamma_a / 2
             left_top_offset = theta_i + spec.gamma_a / 2
             top_theta = np.linspace(right_top_offset, left_top_offset, self.top_points + 2)[1:-1]
-            xs.extend(spec.ra * np.cos(top_theta))
-            ys.extend(spec.ra * np.sin(top_theta))
+            V.append(np.vstack((spec.ra * np.cos(top_theta), spec.ra * np.sin(top_theta))).T)
             
-            # Left side
-            left_inv_x = INVOLUTE.create_involute_x_function(spec.rb, left_root_offset)
-            left_inv_y = INVOLUTE.create_involute_y_function(spec.rb, left_root_offset)
-            xs.extend(left_inv_x(rev_ts))
-            ys.extend(left_inv_y(rev_ts))
+            # Left side of the tooth
+            left_inv = INVOLUTE.InvoluteCurve(spec.rb, left_root_offset)
+            V.append(left_inv(rev_ts))
             
             # Bottom
             if spec.rb >= spec.rd:
                 bottom_theta = np.linspace(left_root_offset, left_root_offset + 2 * spec.gamma_p - spec.gamma_b, self.bottom_points + 2)
-                xs.extend(spec.rd * np.cos(bottom_theta))
-                ys.extend(spec.rd * np.sin(bottom_theta))
+                V.append(np.vstack((spec.rd * np.cos(bottom_theta), spec.rd * np.sin(bottom_theta))).T)
             else:
                 bottom_start = theta_i + spec.gamma_d / 2
                 bottom_end = theta_i_next - spec.gamma_d / 2
                 bottom_theta = np.linspace(bottom_start, bottom_end, self.bottom_points + 2)[1:-1]
-                xs.extend(spec.rd * np.cos(bottom_theta))
-                ys.extend(spec.rd * np.sin(bottom_theta))
+                V.append(np.vstack((spec.rd * np.cos(bottom_theta), spec.rd * np.sin(bottom_theta))).T)
         
-        return np.vstack((xs, ys, np.zeros_like(xs))).T
+        # Add third dimension to the vertices
+        V = np.vstack(V)
+        V = np.hstack((V, np.zeros((len(V), 1))))
+        
+        return V
 
     def _create_cylinder_points(self, spec: GearSpec) -> np.ndarray:
         """Creates the cylinder vertices for the gear.
@@ -182,7 +178,7 @@ class GearFactory:
         Ts = [np.copy(T)]
         for i in range(subdivisions + 1):
             # Transform the profile. This translates and rotates the profile
-            Vi = self._transform_profile(spec, V, T, face_width, face_width_step, i, subdivisions)
+            Vi = self._transform_profile(spec, V, face_width_step, i, subdivisions)
             # Connect the transformed profile to the previous profile
             Ti = self._connect_profiles(spec, len(V), len(V) * i)
             Vs.append(Vi)
