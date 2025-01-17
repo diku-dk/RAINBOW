@@ -6,7 +6,7 @@ from .types import GearSpec
 
 
 class GearFactory:
-    def __init__(self, side_points: int = 10, top_points: int = 3, bottom_points: int = 3) -> None:
+    def __init__(self, side_points: int = 10, top_points: int = 1, bottom_points: int = 1) -> None:
         """Creates a new gear factory.
         
         :param side_points: The number of side points for the gear.
