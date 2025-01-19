@@ -47,9 +47,9 @@ class GearSpec:
         self.t_max = INV.roll_angle(self.rb, self.ra) # maximum roll angle
 
         self.delta_bp = INV.involute(self.alpha) # involute pitch from base to pitch circle
-        self.delta_ba = INV.involute(np.arctan(self.t_max)) # involute pitch from base to addendum circle
+        self.delta_ba = INV.involute(np.cos(self.rb / self.ra)) # involute pitch from base to addendum circle
         self.delta_pa = self.delta_ba - self.delta_bp # involute pitch from pitch to addendum circle
-        self.delta_bd = None if self.rb >= self.rd else INV.involute(np.arctan(self.t_min)) # involute pitch from base to dedendum circle (Only applies if rb < rd)
+        self.delta_bd = None if self.rb >= self.rd else INV.involute(np.cos(self.rb / self.rd)) # involute pitch from base to dedendum circle (Only applies if rb < rd)
         
         self.gamma_p = np.pi / self.z # angular pitch
         self.gamma_b = self.gamma_p + 2 * self.delta_bp # base pitch
