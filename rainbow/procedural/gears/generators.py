@@ -134,7 +134,7 @@ class GearFactory:
         
         return V
 
-    def _tessellation(self, spec: GearSpec, V_profile: np.ndarray, V_cylinder: np.ndarray) -> np.ndarray:
+    def _tessellation(self, spec: GearSpec, V_profile: np.ndarray, V_cylinder: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Tessellates the gear profile and cylinder to create the gear teeth.
         
         :param spec: The gear specification.
