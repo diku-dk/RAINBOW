@@ -30,7 +30,7 @@ class GearFactory:
         V_profile = self._create_profile_points(spec)
         V_cylinder = self._create_cylinder_points(spec)
         
-        V, T = self._tessellation(spec, V_profile, V_cylinder)
+        V, T = self._generate_mesh(spec, V_profile, V_cylinder)
         V, T = self._extrude(spec, V, T, face_width, subdivisions)
         
         return Gear(spec, V, T)
@@ -134,7 +134,7 @@ class GearFactory:
         
         return V
 
-    def _tessellation(self, spec: GearSpec, V_profile: np.ndarray, V_cylinder: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def _generate_mesh(self, spec: GearSpec, V_profile: np.ndarray, V_cylinder: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Tessellates the gear profile and cylinder to create the gear teeth.
         
         :param spec: The gear specification.
