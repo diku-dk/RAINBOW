@@ -113,66 +113,63 @@ def create_gear_train(engine: Engine,
     :return:                          A list with the names of all the rigid bodies that were created.
     """
     body_names = []
-    gear_specs = []
     gear_names = []
 
     # Create and place all the gears
     q_m2w = Q.Rx(-np.pi / 2)  # Needed to change the z-up direction to a y-up direction.
 
-    m = 1.0  # Gear module
-    numbers = np.array([7, 12, 15, 28, 35, 41, 55, 65, 74, 89, 101], dtype=int)  # Possible gear teeth to use.
-    Z = np.random.choice(numbers, size=(N,))  # An N-long random list of gear teeth values.
-    alpha = 20  # Pressure angle.
     face_width = 10.0  # Width of the gear.
     
     gear_factory = GEAR.GearFactory()
-
-    for i in range(N):
-        spec = GEAR.GearSpec(m, Z[i], alpha, helix_angle=20)
+    
+    gear_specs = [
+        GEAR.GearSpec(1, 21),
+        GEAR.GearSpec(1, 101),
+        GEAR.GearSpec(1, 101),
+    ]
+    
+    for i, spec in enumerate(gear_specs):
+        print(f'Creating gear {i}')
+        gear = gear_factory.create_gear(spec, face_width, subdivisions=3)
 
         shape_name = API.generate_unique_name("shape")
         body_name = API.generate_unique_name("body")
 
         body_names.append(body_name)
         gear_names.append(shape_name)
-        gear_specs.append(spec)
-        
-        gear = gear_factory.create_gear(spec, face_width)
 
         mesh = API.create_mesh(gear.V, gear.T)
         API.create_shape(engine, shape_name, mesh)
 
         API.create_rigid_body(engine, body_name)
         API.connect_shape(engine, body_name, shape_name)
+        
+        r = API.get_position(engine, body_name)
+        print(f'{r=}')
 
         r_m = V3.make(0.0, 0.0, 0.0)  # Model space position of gear (z-up).
         q_m = Q.identity()  # Model space orientation of gear (z-up).
         r_w = Q.rotate(q_m2w, r_m)  # World position of gear (y-up).
         q_w = Q.prod(q_m2w, q_m)  # World orientation of gear (y-up).
+        
+        print(f'{r_m=}')
+        print(f'{r_w=}')
+        
+        if i == 1:
+            offset = gear_specs[0].rp + spec.rp
+            r_w[0] += offset
+        
+        if i == 2:
+            offset = gear_specs[0].rp + spec.rp
+            r_w[0] -= offset
+        
+        print(f'{r_w=}')
 
         API.set_position(engine, body_name, r_w, True)
         API.set_orientation(engine, body_name, q_w, True)
         API.set_body_type(engine, body_name, "free")
         API.set_body_material(engine, body_name, material_name)
         API.set_mass_properties(engine, body_name, density)
-
-    cx = 0
-    cy = 0
-    cz = 0
-    theta = 0
-    for i in range(N - 1):
-        drive_gear = gear_specs[i]
-        driven_gear = gear_specs[i + 1]
-        omega = np.random.uniform(0, 2 * np.pi)
-        cx, cy, theta = GearFactory.make_gears_assembly(drive_gear, driven_gear, cx, cy, theta, omega)
-        cz += face_width / 2
-        r_m = V3.make(cx, cy, cz)  # Model space position of gear (z-up).
-        q_m = Q.Rz(theta)  # Model space orientation of gear (z-up).
-        r_w = Q.rotate(q_m2w, r_m)  # World position of gear (y-up).
-        q_w = Q.prod(q_m2w, q_m)  # World orientation of gear (y-up).
-        driven_gear_body_name = body_names[i + 1]
-        API.set_position(engine, driven_gear_body_name, r_w, True)
-        API.set_orientation(engine, driven_gear_body_name, q_w, True)
 
     # Create a fixed object in the world
     shape_name = API.generate_unique_name("ground_shape")
@@ -198,18 +195,18 @@ def create_gear_train(engine: Engine,
 
     # Create hinge-joints between gears and fixed object
     parent_name = body_name
-    for i in range(N):
+    for i in range(len(gear_specs)):
         child_name = body_names[i]
         hinge_name = parent_name + "_" + child_name
         API.create_hinge(engine, hinge_name)
-        origin = API.get_position(engine, child_name) - V3.make(0.0, face_width/2.0, 0.0)
+        origin = API.get_position(engine, child_name) #- V3.make(0.0, face_width/2.0, 0.0)
         API.set_hinge(
             engine=engine,
             hinge_name=hinge_name,
             parent_name=parent_name,
             child_name=child_name,
             origin= origin,
-            axis= V3.k(),
+            axis= V3.j(),
             mode="world"
         )
 
