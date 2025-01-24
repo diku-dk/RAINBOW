@@ -33,6 +33,9 @@ class GearFactory:
         V, T = self._generate_mesh(spec, V_profile, V_cylinder)
         V, T = self._extrude(spec, V, T, face_width, subdivisions)
         
+        if spec.is_bevel:
+            V, T = self._bevel_transformation(spec, V, T, face_width)
+        
         return Gear(spec, V, T)
 
     def points_per_tooth(self, spec: GearSpec) -> int:
@@ -122,7 +125,7 @@ class GearFactory:
         """
         
         # Compute the radius of the cylinder
-        r = 1.2 * spec.ra if spec.is_internal else 0.2 * spec.rp
+        r = self._get_cylinder_radius(spec)
         
         # Compute the angles for the cylinder vertices
         theta = np.linspace(0, 2 * np.pi, spec.z + 1)[:-1]
@@ -133,6 +136,20 @@ class GearFactory:
         V = np.vstack((r * np.cos(theta), r * np.sin(theta), np.zeros_like(theta))).T
         
         return V
+    
+    def _get_cylinder_radius(self, spec: GearSpec) -> float:
+        """Computes the radius of the cylinder for the gear.
+        
+        :param spec: The gear specification.
+        :return: The radius of the cylinder.
+        """
+        
+        if spec.is_internal:
+            return 1.2 * spec.ra
+        elif spec.is_bevel:
+            return 0.9 * spec.rd
+        else:
+            return 0.2 * spec.rd
 
     def _generate_mesh(self, spec: GearSpec, V_profile: np.ndarray, V_cylinder: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Tessellates the gear profile and cylinder to create the gear teeth.
@@ -264,3 +281,129 @@ class GearFactory:
         
         # Return the transformed vertices
         return V_tmp[:, :3]
+
+    def _bevel_transformation(self, spec: GearSpec, V: np.ndarray, T: np.ndarray, face_width: float) -> tuple[np.ndarray, np.ndarray]:
+        """Transforms the gear profile vertices to create a bevel gear.
+        
+        :param spec: The gear specification.
+        :param V: The gear profile vertices.
+        :param T: The gear profile triangles.
+        :param face_width: The face width of the gear.
+        :return: The transformed gear vertices and triangles.
+        
+        :raises ValueError: If the bevel cone angle is not specified.
+        """
+        
+        if spec.bevel_cone_angle is None:
+            raise ValueError("Bevel cone angle must be specified.")
+        
+        # Compute the radius and height of the pitch cone
+        pitch_cone_radius = spec.rp
+        pitch_cone_height = pitch_cone_radius / np.tan(spec.bevel_cone_angle)
+        
+        # Create the hommogenous coordinates and offset the z coordinate
+        V_hom = np.hstack((V, np.ones((len(V), 1))))
+        V_hom[:, 2] += pitch_cone_height
+        
+        for i in range(len(V_hom)):
+            coords = V_hom[i]
+
+            # Compute the radius of the pitch cone at the current z coordinate
+            r_cone = pitch_cone_radius / pitch_cone_height * coords[2]
+            
+            # Scale x, y coordinates to the radius of the pitch cone
+            coords[:2] *= r_cone / spec.rp
+            
+            V_hom[i] = self._rotate_bevel_coordinates(coords, spec, pitch_cone_height)
+        
+        V_hom[:, 2] -= pitch_cone_height
+        
+        return V_hom[:, :3], T
+    
+    def _rotate_bevel_coordinates(self, coords: np.ndarray, spec: GearSpec, cone_height: float) -> np.ndarray:
+        """Rotates the gear profile vertices to create a bevel gear.
+        
+        :param coords: The gear profile vertices.
+        :param spec: The gear specification.
+        :param cone_height: The height of the pitch cone.
+        :return: The rotated gear profile vertices.
+        """
+        xy_unit = coords[:2] / np.linalg.norm(coords[:2])
+        z = coords[2]
+        
+        # Compute the radius of the cone at the current z coordinate
+        cone_radius = z * spec.rd / cone_height
+        # Compute the point on the cone
+        cone_point = np.append(cone_radius * xy_unit, z)
+        
+        # Create the transformation matrices
+        # Translation matrix for the cone point
+        Mt = GearFactory.__translation_matrix(cone_point)
+        # Orientation matrix for the cone point
+        Mo = GearFactory.__orientation_matrix(cone_point)
+        # Rotation matrix
+        Mr = GearFactory.__rotation_matrix_y(-spec.bevel_cone_angle)
+        
+        # Compute the inverse of the transformation matrices
+        Mt_inv = np.linalg.inv(Mt)
+        Mo_inv = np.linalg.inv(Mo)
+        
+        # Compute the final transformation matrix
+        M = (
+            Mt_inv   # Translate point to origin
+            @ Mo_inv # Rotate point to align with axis
+            @ Mr     # Rotate point to be perpendicular to cone
+            @ Mo     # Restore original orientation
+            @ Mt     # Restore original position
+        )
+        
+        return coords @ M
+
+    def __translation_matrix(v: np.ndarray):
+        """Compute a translation matrix for the given vector.
+        
+        :param v: The vector to translate the matrix.
+        :return: The translation matrix.
+        """
+        return np.array([
+            [1, 0, 0, v[0]],
+            [0, 1, 0, v[1]],
+            [0, 0, 1, v[2]],
+            [0, 0, 0, 1]
+        ]).T
+
+    def __orientation_matrix(v: np.ndarray):
+        """Compute an orientation matrix for the given vector.
+        
+        :param v: The vector to orient the matrix.
+        :return: The orientation matrix.
+        """
+        
+        up = np.array([0, 0, 1])
+        
+        axis_x = v / np.linalg.norm(v)
+        axis_y = np.cross(axis_x, up)
+        axis_y /= np.linalg.norm(axis_y)
+        axis_z = np.cross(axis_x, axis_y)
+        axis_z /= np.linalg.norm(axis_z)
+        
+        return np.array([
+            [axis_x[0], axis_y[0], axis_z[0], 0],
+            [axis_x[1], axis_y[1], axis_z[1], 0],
+            [axis_x[2], axis_y[2], axis_z[2], 0],
+            [0, 0, 0, 1]
+        ]).T
+
+    def __rotation_matrix_y(theta: float):
+        """Compute a rotation matrix around the y-axis.
+        
+        :param theta: The rotation angle in radians.
+        :return: The rotation matrix.
+        """
+        
+        return np.array([
+            [np.cos(theta), 0, np.sin(theta), 0],
+            [0, 1, 0, 0],
+            [-np.sin(theta), 0, np.cos(theta), 0],
+            [0, 0, 0, 1]
+        ]).T

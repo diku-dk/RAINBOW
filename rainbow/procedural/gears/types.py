@@ -8,7 +8,15 @@ class GearSpec:
     
     The gear specification includes the module, number of teeth, pressure angle, helix angle, and internal gear indicator.
     """
-    def __init__(self, m: float, z: int, pressure_angle: float = 20.0, helix_angle: float | None = None, is_internal: bool = False) -> None:
+    def __init__(
+        self, 
+        m: float, 
+        z: int, 
+        pressure_angle: float = 20.0, 
+        helix_angle: float | None = None, 
+        is_internal: bool = False, 
+        bevel_cone_angle: float | None = None
+    ) -> None:
         """
         Create a new involute gear specification.
         
@@ -32,6 +40,9 @@ class GearSpec:
         self.alpha = np.deg2rad(pressure_angle) # pressure angle
         self.beta = np.deg2rad(helix_angle) if helix_angle is not None else None # helix angle
         self.is_internal = is_internal # internal or external gear indicator
+        
+        self.is_bevel = bevel_cone_angle is not None # bevel gear indicator
+        self.bevel_cone_angle = np.deg2rad(bevel_cone_angle) if self.is_bevel else None # bevel cone angle
         
         self.ha = self.m # addendum
         self.hd = 1.25 * self.m # dedendum
