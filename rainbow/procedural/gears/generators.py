@@ -332,7 +332,7 @@ class GearFactory:
         z = coords[2]
         
         # Compute the radius of the cone at the current z coordinate
-        cone_radius = z * spec.rd / cone_height
+        cone_radius = z * spec.rp / cone_height
         # Compute the point on the cone
         cone_point = np.append(cone_radius * xy_unit, z)
         

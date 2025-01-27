@@ -123,14 +123,14 @@ def create_gear_train(engine: Engine,
     gear_factory = GEAR.GearFactory()
     
     gear_specs = [
-        GEAR.GearSpec(1, 21),
-        GEAR.GearSpec(1, 101),
-        GEAR.GearSpec(1, 101),
+        GEAR.GearSpec(0.2, 21),
+        GEAR.GearSpec(0.2, 101),
+        #GEAR.GearSpec(0.2, 101),
     ]
     
     for i, spec in enumerate(gear_specs):
         print(f'Creating gear {i}')
-        gear = gear_factory.create_gear(spec, face_width, subdivisions=3)
+        gear = gear_factory.create_gear(spec, face_width, subdivisions=0)
 
         shape_name = API.generate_unique_name("shape")
         body_name = API.generate_unique_name("body")
@@ -199,7 +199,7 @@ def create_gear_train(engine: Engine,
         child_name = body_names[i]
         hinge_name = parent_name + "_" + child_name
         API.create_hinge(engine, hinge_name)
-        origin = API.get_position(engine, child_name) #- V3.make(0.0, face_width/2.0, 0.0)
+        origin = API.get_position(engine, child_name) - V3.make(0.0, face_width/2.0, 0.0)
         API.set_hinge(
             engine=engine,
             hinge_name=hinge_name,
