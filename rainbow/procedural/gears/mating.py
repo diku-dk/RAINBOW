@@ -19,7 +19,7 @@ def compute_internal_gear_orientation(spec: GearSpec) -> np.ndarray:
 
 def compute_rotation_angle(spec1: GearSpec, spec2: GearSpec, angle: float) -> float:
     rotation_angle = (spec1.rp / spec2.rp + 1) * angle
-    if not (spec1.z % 2 == 1 and spec2.z % 2 == 1):
+    if spec2.z % 2 == 0:
         rotation_angle += spec2.gamma_p
     return rotation_angle % (2 * np.pi)
 
