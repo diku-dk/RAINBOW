@@ -268,7 +268,11 @@ class GearFactory:
         
         # Create the rotation matrix
         z = (i + 1) * face_width_step
-        theta = 0 if spec.beta is None else spec.beta * (i + 1) / (subdivisions + 1)
+        theta = 0
+        if spec.beta is not None:
+            vertical_pitch = 2 * np.pi * spec.rp * np.tan(spec.beta)
+            theta = z / vertical_pitch
+        
         R = np.array([
             [np.cos(theta), -np.sin(theta), 0, 0],
             [np.sin(theta), np.cos(theta), 0, 0],
