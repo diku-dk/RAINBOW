@@ -222,6 +222,11 @@ def simulate() -> None:
             usd_scene.update_rigid_body(body.name, body.r, body.q, app_params['step'])
 
     API.simulate(engine=engine, T=engine.params.time_step, profiling_on=True)
+    
+    contact_points = engine.contact_points
+    contact_points = np.array([cp.p for cp in contact_points]).reshape((-1, 3))
+    ps.register_point_cloud('contact_points', contact_points, radius=0.001, color=V3.make(0.1, 1.0, 0.1))
+    print(f'Number of contact points: {len(contact_points)}')
 
     app_params['step'] += 1
     logger.info(f"Completed simulation step")
