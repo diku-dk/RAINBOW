@@ -24,7 +24,9 @@ def get_scene_names() -> list[str]:
 
     :return: List of scene names.
     """
-    names = [
+    names = []
+    names.extend(SCENES.keys())
+    names.extend([
         "pillar",
         "arch",
         "dome",
@@ -42,8 +44,7 @@ def get_scene_names() -> list[str]:
         "box_stack",
         "cube_hinge_chain",
         "ur5"
-    ]
-    names.extend(SCENES.keys())
+    ])
     return names
 
 

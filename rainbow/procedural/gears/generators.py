@@ -3,6 +3,7 @@ import numpy as np
 import rainbow.math.involute as INVOLUTE
 import rainbow.procedural.gears.mating as MATING
 import rainbow.geometry.surface_mesh as MESH
+import rainbow.simulators.prox_rigid_bodies.api as API
 
 from .types import Gear, GearSpec, PlanetaryGearSpec, PlanetaryGear
 
@@ -38,7 +39,7 @@ class GearFactory:
         if spec.is_bevel:
             V, T = self._bevel_transformation(spec, V, T, face_width)
         
-        return Gear(spec, MESH.Mesh(V, T))
+        return Gear(spec, API.create_mesh(V, T))
     
     def create_planetary_gear(self, planetary_spec: PlanetaryGearSpec, face_width: float, subdivisions: int = 3) -> PlanetaryGear:
         # Create the gears

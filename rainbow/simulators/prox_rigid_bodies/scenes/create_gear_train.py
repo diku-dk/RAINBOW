@@ -11,8 +11,8 @@ import rainbow.simulators.prox_rigid_bodies.api as API
 import rainbow.geometry.surface_mesh as MESH
 from rainbow.simulators.prox_rigid_bodies.types import Engine
 
-#from rainbow.procedural.gears.types import Gear, GearSpec
 import rainbow.procedural.gears.generators as GEAR
+import rainbow.procedural.gears.mating as MATING
 
 
 class GearFactory:
@@ -122,49 +122,37 @@ def create_gear_train(engine: Engine,
     
     gear_factory = GEAR.GearFactory()
     
-    gear_specs = [
-        GEAR.GearSpec(0.2, 21),
-        GEAR.GearSpec(0.2, 101),
-        #GEAR.GearSpec(0.2, 101),
+    gear_spec1 = GEAR.GearSpec(2, 12)
+    gear_spec2 = GEAR.GearSpec(2, 17)
+    
+    gear_specs = [gear_spec1, gear_spec2]
+    
+    gear1, gear2 = [
+        gear_factory.create_gear(spec, face_width, subdivisions=3) for spec in gear_specs
     ]
     
-    for i, spec in enumerate(gear_specs):
-        print(f'Creating gear {i}')
-        gear = gear_factory.create_gear(spec, face_width, subdivisions=0)
-
+    gear2.position = MATING.compute_gear_position(gear_spec1, gear_spec2, 0.0)
+    gear2.orientation = MATING.compute_gear_orientation(gear_spec1, gear_spec2, 0.0)
+    
+    for i, gear in enumerate([gear1, gear2]):
         shape_name = API.generate_unique_name("shape")
         body_name = API.generate_unique_name("body")
 
         body_names.append(body_name)
         gear_names.append(shape_name)
 
-        mesh = API.create_mesh(gear.V, gear.T)
-        API.create_shape(engine, shape_name, mesh)
+        API.create_shape(engine, shape_name, gear.mesh)
 
         API.create_rigid_body(engine, body_name)
         API.connect_shape(engine, body_name, shape_name)
         
         r = API.get_position(engine, body_name)
-        print(f'{r=}')
 
-        r_m = V3.make(0.0, 0.0, 0.0)  # Model space position of gear (z-up).
-        q_m = Q.identity()  # Model space orientation of gear (z-up).
+        r_m = gear.position  # Model space position of gear (z-up).
+        q_m = gear.orientation  # Model space orientation of gear (z-up).
         r_w = Q.rotate(q_m2w, r_m)  # World position of gear (y-up).
         q_w = Q.prod(q_m2w, q_m)  # World orientation of gear (y-up).
         
-        print(f'{r_m=}')
-        print(f'{r_w=}')
-        
-        if i == 1:
-            offset = gear_specs[0].rp + spec.rp
-            r_w[0] += offset
-        
-        if i == 2:
-            offset = gear_specs[0].rp + spec.rp
-            r_w[0] -= offset
-        
-        print(f'{r_w=}')
-
         API.set_position(engine, body_name, r_w, True)
         API.set_orientation(engine, body_name, q_w, True)
         API.set_body_type(engine, body_name, "free")
@@ -199,7 +187,7 @@ def create_gear_train(engine: Engine,
         child_name = body_names[i]
         hinge_name = parent_name + "_" + child_name
         API.create_hinge(engine, hinge_name)
-        origin = API.get_position(engine, child_name) - V3.make(0.0, face_width/2.0, 0.0)
+        origin = API.get_position(engine, child_name) #- V3.make(0.0, face_width/2.0, 0.0)
         API.set_hinge(
             engine=engine,
             hinge_name=hinge_name,
