@@ -1,8 +1,10 @@
 import numpy as np
 
 import rainbow.math.involute as INVOLUTE
+import rainbow.procedural.gears.mating as MATING
+import rainbow.geometry.surface_mesh as MESH
 
-from .types import Gear, GearSpec
+from .types import Gear, GearSpec, PlanetaryGearSpec, PlanetaryGear
 
 
 class GearFactory:
@@ -36,7 +38,23 @@ class GearFactory:
         if spec.is_bevel:
             V, T = self._bevel_transformation(spec, V, T, face_width)
         
-        return Gear(spec, V, T)
+        return Gear(spec, MESH.Mesh(V, T))
+    
+    def create_planetary_gear(self, planetary_spec: PlanetaryGearSpec, face_width: float, subdivisions: int = 3) -> PlanetaryGear:
+        # Create the gears
+        sun_gear = self.create_gear(planetary_spec.sun_spec, face_width, subdivisions)
+        planet_gears = [self.create_gear(planetary_spec.planet_spec, face_width, subdivisions) for _ in range(planetary_spec.N_planet)]
+        ring_gear = self.create_gear(planetary_spec.ring_spec, face_width, subdivisions)
+        
+        # Update the position and orientation of the planet gears so they mesh with the sun gear
+        for planet_gear, angle in zip(planet_gears, planetary_spec.planet_angles):
+            planet_gear.position = MATING.compute_gear_position(sun_gear.spec, planet_gear.spec, angle)
+            planet_gear.orientation = MATING.compute_gear_orientation(sun_gear.spec, planet_gear.spec, angle)
+        
+        # Update the orientation of the ring gear so it meshes with the planet gears
+        ring_gear.orientation = MATING.compute_internal_gear_orientation(ring_gear.spec)
+        
+        return PlanetaryGear(planetary_spec, sun_gear, planet_gears, ring_gear)
 
     def points_per_tooth(self, spec: GearSpec) -> int:
         """Calculates the number of points per tooth for the gear.
