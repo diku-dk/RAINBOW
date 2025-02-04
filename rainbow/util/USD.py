@@ -128,7 +128,6 @@ class USD:
 
         :param duration (float): The total animation time of the scene
         """
-        print(f'End time code: {duration}')
         self.stage.SetStartTimeCode(0)
         self.stage.SetEndTimeCode(duration)
 
