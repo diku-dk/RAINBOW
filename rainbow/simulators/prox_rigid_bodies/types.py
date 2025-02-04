@@ -374,16 +374,16 @@ class Parameters:
             False  # Turning post-stabilization on and off for correcting drift errors
         )
         self.gap_reduction: float = (
-            0.5  # The amount of gap (=penetration) to reduce during stabilization
+            0.8  # The amount of gap (=penetration) to reduce during stabilization
         )
         self.min_gap_value: float = (
-            0.001  # The minimum allowable gap (=penetration) that will not cause
+            0.0001  # The minimum allowable gap (=penetration) that will not cause
         )
         self.max_gap_value: float = (
-            0.01  # The maximum possible gap (=penetration) to correct for during
+            0.1  # The maximum possible gap (=penetration) to correct for during
         )
-        self.absolute_tolerance: float = 0.001  # The absolute tolerance value.
-        self.relative_tolerance: float = 0.0001  # The relative tolerance value.
+        self.absolute_tolerance: float = 0.0001  # The absolute tolerance value.
+        self.relative_tolerance: float = 0.00001  # The relative tolerance value.
         self.ellipsoid_max_iterations: int = (
             100  # The maximum number of iterations in the prox ellipsoid binary search
         )
@@ -411,7 +411,7 @@ class Parameters:
         self.bvh_chunk_size: int = 255  # Number of nodes for a k-DOP bvh subtree, a chunk.
         self.K: int = 3  # The number of directions to use in the k-DOP bounding volumes.
         self.envelope: float = (
-            0.1  # Any geometry within this distance generates a contact point.
+            0.0001  # Any geometry within this distance generates a contact point.
         )
         self.resolution: int = (
             64  # The number of grid cells along each axis in the signed distance fields
