@@ -15,87 +15,6 @@ import rainbow.procedural.gears.generators as GEAR
 import rainbow.procedural.gears.mating as MATING
 
 
-class GearFactory:
-    """
-    This class contains methods to create gear shapes and gear mesh.
-    """
-
-    @staticmethod
-    def make_gears_assembly(drive_gear: GEAR.GearSpec,
-                            driven_gear: GEAR.GearSpec,
-                            cx: float,
-                            cy: float,
-                            theta: float,
-                            omega: float
-                            ) -> tuple[float, float, float]:
-        """
-        This function pairs a drive gear with a driven gear.
-
-        It assumes one knows the position and orientation of the drive gear and then the function computes
-        the position and orientation of the driven gear given a "heading" or "connection" angle between
-        the two gear centers.
-
-        :param drive_gear:   A dictionary with specifications of the driving gear.
-        :param driven_gear:  A dictionary with specifications of the driven gear.
-        :param cx:           The world x coordinate for the center position of the drive gear.
-        :param cy:           The world y coordinate for the center position of the drive gear.
-        :param theta:        Current rotation of the drive gear.
-        :param omega:        The connection angle to the drive gear.
-        :return:             The position and orientation of the driven gear.
-        """
-        PR1 = drive_gear.rp # pitch radius
-        PR2 = driven_gear.rp # pitch radius
-        M1 = drive_gear.m # module
-        M2 = driven_gear.m # module
-        PA1 = drive_gear.alpha # pressure angle
-        PA2 = driven_gear.alpha # pressure angle
-        Z1 = drive_gear.z # number of teeth
-        Z2 = driven_gear.z # number of teeth
-        if M1 != M2:
-            raise ValueError("Gears are not compatible, must have same module")
-        if PA1 != PA2:
-            raise ValueError("Gears are not compatible, must have same pressure angles")
-
-        R = PR1 + PR2
-        tx = np.cos(omega) * R + cx
-        ty = np.sin(omega) * R + cy
-        # If gear 1 rotates an angle beta1, then gear 2 will rotate beta2 = - ratio * beta1
-        # where ration= Z1/Z2
-        #
-        # Pitch circle 1 has radius
-        #
-        #   r1 =  m * Z1 / 2.0
-        #
-        # Pitch circle 2 has radius
-        #
-        #   r2 =  m * Z2 / 2.0
-        #
-        # If contact is not slipping between the two gears, then it must hold that
-        # they "travel" the same distance as they rotate.
-        #
-        # So we must have
-        #
-        #   beta2 r2 = - beta1 r1
-        #
-        # The minus sign is there because the two gears are always rotating
-        # opposite. So if beta1>0 then beta2<0 and vice versa.
-        # Now substitution gives us
-        #
-        #   beta2 Z2 = - beta1 Z1
-        #
-        # And we find
-        #
-        #   beta2 = - (Z1/Z2) beta1
-        #
-        ratio = Z1 / Z2
-        # If both gears are in neutral positions, then rotating gear 2 by pi will align teeth of both gears.
-        # However, gear 1 is not in neutral position, and gear 2 is not connected to gear 1 with an angle of zero.
-        # Hence, we must compute the relative connection angle of gear 2 to the current world location
-        # of gear1's neutral position.
-        phi = np.pi - ratio * (theta - omega) + omega
-        return tx, ty, phi
-
-
 def create_gear_train(engine: Engine,
                       N: int,
                       density: float = 1.0,
@@ -160,25 +79,7 @@ def create_gear_train(engine: Engine,
         API.set_mass_properties(engine, body_name, density)
 
     # Create a fixed object in the world
-    shape_name = API.generate_unique_name("ground_shape")
-
-    V, T = MESH.create_box(200.0, 1.0, 200.0)
-    mesh = API.create_mesh(V, T)
-    API.create_shape(engine, shape_name, mesh)
-
-    body_name = API.generate_unique_name("ground_body")
-    API.create_rigid_body(engine, body_name)
-    API.connect_shape(engine, body_name, shape_name)
-
-    r = V3.make(0.0, -0.5 - face_width, 0.0)
-    q = Q.identity()
-
-    API.set_position(engine, body_name, r, True)
-    API.set_orientation(engine, body_name, q, True)
-
-    API.set_body_type(engine, body_name, "fixed")
-    API.set_body_material(engine, body_name, material_name)
-    API.set_mass_properties(engine, body_name, density)
+    body_name = create_ground(engine, face_width, density, material_name)
     body_names.append(body_name)
 
     # Create hinge-joints between gears and fixed object
@@ -199,3 +100,155 @@ def create_gear_train(engine: Engine,
         )
 
     return body_names
+
+
+def create_planetary_gear(engine: Engine,
+                          density: float = 1.0,
+                          material_name: str = "default"
+                          ) -> list[str]:
+    
+    body_names = []
+    gear_names = []
+    
+    # Create and place all the gears
+    q_m2w = Q.Rx(-np.pi / 2)  # Needed to change the z-up direction to a y-up direction.
+    
+    face_width = 10.0  # Width of the gear.
+    
+    gear_factory = GEAR.GearFactory()
+    
+    m = 2
+    z_sun = 33
+    z_planet = 18
+    z_ring = z_sun + 2 * z_planet
+    
+    planetary_spec = GEAR.PlanetaryGearSpec(m, z_sun, z_planet, z_ring)
+    
+    planetary_gear = gear_factory.create_planetary_gear(planetary_spec, face_width, subdivisions=3)
+    
+    sun_gear = planetary_gear.sun_gear
+    planet_gears = planetary_gear.planet_gears
+    ring_gear = planetary_gear.ring_gear
+    
+    gears = [sun_gear] + planet_gears + [ring_gear]
+    
+    for i, gear in enumerate(gears):
+        shape_name = API.generate_unique_name("shape")
+        body_name = API.generate_unique_name("body")
+        
+        body_names.append(body_name)
+        gear_names.append(shape_name)
+        
+        API.create_shape(engine, shape_name, gear.mesh)
+        
+        API.create_rigid_body(engine, body_name)
+        API.connect_shape(engine, body_name, shape_name)
+        
+        r_m = gear.position # Model space position of gear (z-up).
+        q_m = gear.orientation # Model space orientation of gear (z-up).
+        r_w = Q.rotate(q_m2w, r_m) # World position of gear (y-up).
+        q_w = Q.prod(q_m2w, q_m) # World orientation of gear (y-up).
+        
+        API.set_position(engine, body_name, r_w, True)
+        API.set_orientation(engine, body_name, q_w, True)
+        if i == len(gears) - 1:
+            API.set_body_type(engine, body_name, "fixed")
+        else:
+            API.set_body_type(engine, body_name, "free")
+        API.set_body_material(engine, body_name, material_name)
+        API.set_mass_properties(engine, body_name, density)
+    
+    # Create a fixed object in the world
+    body_name = create_ground(engine, face_width, density, material_name)
+    body_names.append(body_name)
+    
+    # Create hinge-joints between gears and fixed object
+    parent_name = body_name
+    child_name = body_names[0]
+    hinge_name = parent_name + "_" + child_name
+    API.create_hinge(engine, hinge_name)
+    origin = API.get_position(engine, child_name)
+    API.set_hinge(
+        engine=engine,
+        hinge_name=hinge_name,
+        parent_name=parent_name,
+        child_name=child_name,
+        origin=origin,
+        axis=V3.j(),
+        mode="world"
+    )
+    
+    fly_wheel_shape_name = API.generate_unique_name("fly_wheel")
+    fly_wheel_body_name = API.generate_unique_name("fly_wheel")
+    
+    V, T = MESH.create_cylinder(ring_gear.spec.ra, 2.0, 16)
+    mesh = API.create_mesh(V, T)
+    API.create_shape(engine, fly_wheel_shape_name, mesh)
+    
+    API.create_rigid_body(engine, fly_wheel_body_name)
+    API.connect_shape(engine, fly_wheel_body_name, fly_wheel_shape_name)
+    
+    r = V3.make(0.0, -5.0 - face_width, 0.0)
+    q = Q.identity()
+    
+    API.set_position(engine, fly_wheel_body_name, r, True)
+    API.set_orientation(engine, fly_wheel_body_name, q, True)
+    API.set_body_type(engine, fly_wheel_body_name, "free")
+    API.set_body_material(engine, fly_wheel_body_name, material_name)
+    API.set_mass_properties(engine, fly_wheel_body_name, density)
+    
+    body_names.append(fly_wheel_body_name)
+    
+    # Create hinge-joints between gears and fixed object
+    child_name = fly_wheel_body_name
+    hinge_name = parent_name + "_" + child_name
+    API.create_hinge(engine, hinge_name)
+    origin = API.get_position(engine, child_name)
+    API.set_hinge(
+        engine=engine,
+        hinge_name=hinge_name,
+        parent_name=parent_name,
+        child_name=child_name,
+        origin=origin,
+        axis=V3.j(),
+        mode="model"
+    )
+    
+    parent_name = child_name
+    
+    for child_name in body_names[1:]:
+        hinge_name = parent_name + "_" + child_name
+        API.create_hinge(engine, hinge_name)
+        origin = API.get_position(engine, child_name)
+        API.set_hinge(
+            engine=engine,
+            hinge_name=hinge_name,
+            parent_name=parent_name,
+            child_name=child_name,
+            origin=origin,
+            axis=V3.j(),
+            mode="world"
+        )
+    
+
+def create_ground(engine: Engine, face_width: float, density: float, material_name: str) -> None:
+    shape_name = API.generate_unique_name("ground_shape")
+
+    V, T = MESH.create_box(200.0, 1.0, 200.0)
+    mesh = API.create_mesh(V, T)
+    API.create_shape(engine, shape_name, mesh)
+
+    body_name = API.generate_unique_name("ground_body")
+    API.create_rigid_body(engine, body_name)
+    API.connect_shape(engine, body_name, shape_name)
+
+    r = V3.make(0.0, -10.5 - face_width, 0.0)
+    q = Q.identity()
+
+    API.set_position(engine, body_name, r, True)
+    API.set_orientation(engine, body_name, q, True)
+
+    API.set_body_type(engine, body_name, "fixed")
+    API.set_body_material(engine, body_name, material_name)
+    API.set_mass_properties(engine, body_name, density)
+    return body_name

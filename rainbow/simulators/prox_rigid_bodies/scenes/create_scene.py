@@ -10,11 +10,12 @@ import rainbow.simulators.prox_rigid_bodies.scenes as PROC
 import rainbow.math.quaternion as Q
 import rainbow.math.vector3 as V3
 
-from rainbow.simulators.prox_rigid_bodies.scenes.create_simple_gear import create_simple_gear_scene
+from .create_simple_gear import create_simple_gear, create_planetary_gear
 
 
 SCENES: dict[str, Callable[[TYPES.Engine], None]] = {
-    "simple_gear": create_simple_gear_scene
+    "simple_gear": create_simple_gear,
+    "planetary_gear": create_planetary_gear,
 }
 
 

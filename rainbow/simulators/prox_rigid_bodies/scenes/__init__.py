@@ -8,6 +8,7 @@ from .create_colosseum import create_colosseum
 from .create_dome import create_dome
 from .create_funnel import create_funnel
 from .create_gear_train import create_gear_train
+from .create_gear_train import create_planetary_gear
 from .create_glasses import create_glasses
 from .create_lattice import create_lattice
 from .create_jack_lattice import create_jack_lattice
@@ -33,6 +34,7 @@ __all__ = ["create_arch",
            "create_dome",
            "create_funnel",
            "create_gear_train",
+           "create_planetary_gear",
            "create_glasses",
            "create_lattice",
            "create_ground",
