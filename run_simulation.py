@@ -1,6 +1,12 @@
 import argparse
+import datetime
 import time
-import tqdm
+
+# Profiling
+import cProfile, pstats, io
+from pstats import SortKey
+
+import numpy as np
 
 import rainbow.simulators.prox_rigid_bodies.api as API
 import rainbow.simulators.prox_rigid_bodies.scenes as SCENE
@@ -24,6 +30,9 @@ def main():
     
     print(f"Total time: {total_time}")
     
+    pr = cProfile.Profile()
+    pr.enable()
+    
     engine = API.create_engine()
     if time_step is not None:
         print(f"Time step: {time_step}")
@@ -41,11 +50,31 @@ def main():
     usd_manager.initialize(engine)
     
     print("Running simulation")
-    for step in tqdm.tqdm(range(total_steps)):
+    total_duration = 0
+    for step in range(total_steps):
+        print(f"Simulating step {step + 1}/{total_steps}")
+        start = time.time()
+        
         API.simulate(engine, engine.params.time_step)
         usd_manager.save_step(step, engine)
+        
+        end = time.time()
+        duration = end - start
+        total_duration += duration
+        average_duration = total_duration / (step + 1)
+        steps_remaining = total_steps - step - 1
+        estimated_time_remaining = datetime.timedelta(seconds=steps_remaining * average_duration)
+        
+        print(f"Step {step + 1}/{total_steps} took {duration:.2f} seconds (average: {average_duration:.2f} seconds) ETA: {estimated_time_remaining}")
     
     usd_manager.save()
+    
+    pr.disable()
+    s = io.StringIO()
+    sortby = SortKey.CUMULATIVE
+    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    ps.print_stats()
+    print(s.getvalue())
     
     print("Simulation finished")
 
