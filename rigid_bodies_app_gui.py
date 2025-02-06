@@ -199,11 +199,13 @@ def simulate() -> None:
 
     if app_params['step'] >= app_params['steps']:
         if usd_manager is not None:
+            print(f"Saving USD file")
             usd_manager.save()
             usd_manager = None
         return
     
     if app_params['step'] == 0:
+        print(f"Creating USD manager")
         usd_manager = UsdManager('animation.usda')
         usd_manager.initialize(engine)
 
