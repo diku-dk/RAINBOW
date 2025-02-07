@@ -37,7 +37,14 @@ class GearFactory:
         V, T = self._extrude(spec, V, T, face_width, subdivisions)
         
         if spec.is_bevel:
-            V, T = self._bevel_transformation(spec, V, T, face_width)
+            V, T = self._bevel_transformation(spec, V, T)
+            
+            cylinder_idxs = np.arange(len(V_profile), len(V_profile) + len(V_cylinder), dtype=int)
+            cylinder_idxs = np.array([
+                cylinder_idxs + i * (len(V_profile) + len(V_cylinder))
+                for i in range(subdivisions + 2)
+            ])
+            V, T = self._bevel_fill(spec, V, T, cylinder_idxs)
         
         return Gear(spec, API.create_mesh(V, T))
     
@@ -164,11 +171,20 @@ class GearFactory:
         """
         
         if spec.is_internal:
-            return 1.2 * spec.ra
+            return self.get_internal_cylinder_radius(spec)
         elif spec.is_bevel:
-            return 0.9 * spec.rd
+            return self.get_bevel_cylinder_radius(spec)
         else:
-            return 0.2 * spec.rd
+            return self.get_external_cylinder_radius(spec)
+    
+    def get_internal_cylinder_radius(self, spec: GearSpec) -> float:
+        return 1.2 * spec.ra
+    
+    def get_bevel_cylinder_radius(self, spec: GearSpec) -> float:
+        return 0.9 * spec.rd
+    
+    def get_external_cylinder_radius(self, spec: GearSpec) -> float:
+        return 0.2 * spec.rd
 
     def _generate_mesh(self, spec: GearSpec, V_profile: np.ndarray, V_cylinder: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Tessellates the gear profile and cylinder to create the gear teeth.
@@ -221,7 +237,7 @@ class GearFactory:
         Ts = [np.copy(T)]
         for i in range(subdivisions + 1):
             # Transform the profile. This translates and rotates the profile
-            Vi = self._transform_profile(spec, V, face_width_step, i, subdivisions)
+            Vi = self._transform_profile(spec, V, face_width_step, i)
             # Connect the transformed profile to the previous profile
             Ti = self._connect_profiles(spec, len(V), len(V) * i)
             Vs.append(Vi)
@@ -270,7 +286,7 @@ class GearFactory:
         
         return np.vstack((T_profile, T_cylinder))
 
-    def _transform_profile(self, spec: GearSpec, V: np.ndarray, face_width_step: float, i: int, subdivisions: int) -> np.ndarray:
+    def _transform_profile(self, spec: GearSpec, V: np.ndarray, face_width_step: float, i: int) -> np.ndarray:
         """Transforms the gear profile vertices by updating the z coordinate and optionally rotating the profile.
         
         :param spec: The gear specification.
@@ -305,7 +321,7 @@ class GearFactory:
         # Return the transformed vertices
         return V_tmp[:, :3]
 
-    def _bevel_transformation(self, spec: GearSpec, V: np.ndarray, T: np.ndarray, face_width: float) -> tuple[np.ndarray, np.ndarray]:
+    def _bevel_transformation(self, spec: GearSpec, V: np.ndarray, T: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Transforms the gear profile vertices to create a bevel gear.
         
         :param spec: The gear specification.
@@ -430,3 +446,57 @@ class GearFactory:
             [-np.sin(theta), 0, np.cos(theta), 0],
             [0, 0, 0, 1]
         ]).T
+
+    def _bevel_fill(self, spec: GearSpec, V: np.ndarray, T: np.ndarray, cylinder_idxss: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        # Compute the radius of the cylinder
+        r = self.get_external_cylinder_radius(spec)
+        
+        # Set up arrays for the new vertices
+        V_cylinder = np.zeros((np.prod(cylinder_idxss.shape), 3))
+        
+        # Map for new indices
+        idx_Vs = np.zeros_like(cylinder_idxss, dtype=int)
+        
+        # Create the vertices for the bevel fill
+        for row_i, cylinder_idxs in enumerate(cylinder_idxss):
+            for col_j, i in enumerate(cylinder_idxs):
+                # Compute the normalized xy coordinates and z coordinate
+                xy = V[i, :2]
+                xy_normalized = xy / np.linalg.norm(xy)
+                z = V[i, 2]
+                
+                # Compute the index of the new vertex
+                idx = row_i * len(cylinder_idxs) + col_j
+                
+                # Store the new vertex
+                V_cylinder[idx] = np.append(r * xy_normalized, z)
+                
+                # Store the index of the new vertex
+                idx_Vs[row_i, col_j] = len(V) + idx
+        
+        # Update the triangles of the inner cylinder to use the new vertices
+        for i in range(len(T)):
+            a, b, c = T[i]
+            if a in cylinder_idxss and b in cylinder_idxss and c in cylinder_idxss:
+                row_ia, col_ja = np.where(cylinder_idxss == a)
+                row_ib, col_jb = np.where(cylinder_idxss == b)
+                row_ic, col_jc = np.where(cylinder_idxss == c)
+                T[i, 0] = idx_Vs[row_ia, col_ja]
+                T[i, 1] = idx_Vs[row_ib, col_jb]
+                T[i, 2] = idx_Vs[row_ic, col_jc]
+        
+        # Create the triangles for the bevel fill
+        T_fill = []
+        for row_i in [0, -1]:
+            for col_j, i in enumerate(cylinder_idxss[row_i]):
+                j = cylinder_idxss[row_i, (col_j + 1) % len(cylinder_idxss[row_i])]
+                a = idx_Vs[row_i, col_j]
+                b = idx_Vs[row_i, (col_j + 1) % len(cylinder_idxss[row_i])]
+                if row_i == 0:
+                    T_fill.append((i, a, b))
+                    T_fill.append((i, b, j))
+                else:
+                    T_fill.append((i, b, a))
+                    T_fill.append((i, j, b))
+        
+        return np.vstack((V, V_cylinder)), np.vstack((T, T_fill))
