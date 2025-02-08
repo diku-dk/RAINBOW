@@ -1,4 +1,4 @@
-
+import logging
 import numpy as np
 
 import rainbow.math.involute as INV
@@ -16,8 +16,11 @@ def create_engine(
     density: float = 1.0,
     material_name: str = "default",
     ):
+    logger = logging.getLogger("create_engine")
     
     def add_object(name: str, mesh: MESH.Mesh, position: np.ndarray, orientation: np.ndarray, body_type: str) -> str:
+        logger.info(f"Adding object {name}")
+        
         shape_name = API.generate_unique_name(name + "_shape")
         body_name = API.generate_unique_name(name + "_body")
         API.create_shape(engine, shape_name, mesh)
@@ -48,10 +51,10 @@ def create_engine(
         )
         return hinge_name
     
-    m = 1
+    m = 0.1
     z_ring = 79
     z_planet = 48
-    face_width = 10
+    face_width = 10 * m
     
     # Create the gears
     ring_spec = GEAR.GearSpec(m, z_ring, is_internal=True)
@@ -67,7 +70,7 @@ def create_engine(
     planet1 = gear_factory.create_gear(planet_spec, face_width)
     
     # Set the position and orientation of the planet gear
-    planet1.position += (ring_spec.rp - planet_spec.rp) * V3.make(0, -1, 0)
+    planet1.position = ring1.position - (ring_spec.rp - planet_spec.rp) * V3.j()
     planet1.orientation = MATING.compute_gear_orientation(ring_spec, planet_spec, -np.pi/2)
     
     # Add second pair of gears
@@ -119,7 +122,7 @@ def create_engine(
     add_hinge(ground_name, crank_shaft_name, V3.k(), crank_shaft_position)
     
     # Create hinge joint between the crank shaft and the planet gears
-    origin = API.get_position(engine, planet1_name) - V3.make(0, planet_spec.rp - ring_spec.rp, 0)
+    origin = planet1.position + 0.5 * (planet2.position - planet1.position)
     add_hinge(crank_shaft_name, planet1_name, V3.k(), origin)
     add_hinge(crank_shaft_name, planet2_name, V3.k(), origin)
 
