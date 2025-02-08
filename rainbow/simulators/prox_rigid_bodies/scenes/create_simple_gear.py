@@ -20,8 +20,9 @@ def create_simple_gear(engine: TYPES.Engine):
 def create_planetary_gear(engine: TYPES.Engine):
     logger = logging.getLogger("main.setup_scene.create_planetary_gear_scene")
     logger.info('Creating planetary gear scene')
-    PROC.create_planetary_gear(
-        engine,
-        density=1.0,
-        material_name='default'
-    )
+    PROC.create_planetary_gear(engine)
+
+def create_engine(engine: TYPES.Engine):
+    logger = logging.getLogger("main.setup_scene.create_engine_scene")
+    logger.info('Creating engine scene')
+    PROC.create_engine(engine)

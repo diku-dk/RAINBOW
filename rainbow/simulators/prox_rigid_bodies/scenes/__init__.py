@@ -6,6 +6,7 @@ from .create_arch import create_arch
 from .create_chainmail import create_chainmail
 from .create_colosseum import create_colosseum
 from .create_dome import create_dome
+from .create_engine import create_engine
 from .create_funnel import create_funnel
 from .create_gear_train import create_gear_train
 from .create_gear_train import create_planetary_gear
@@ -32,6 +33,7 @@ __all__ = ["create_arch",
            "create_chainmail",
            "create_colosseum",
            "create_dome",
+           "create_engine",
            "create_funnel",
            "create_gear_train",
            "create_planetary_gear",

@@ -60,7 +60,7 @@ class SemiImplicitStepper:
         
         for i, (k, v) in enumerate(engine.bodies.items()):
             if i == 0:
-                v.w[1] = np.pi / 4
+                v.w[2] = np.pi / 8
 
         state = STORAGE.StateStorage()
         state.copy_from_engine(engine)

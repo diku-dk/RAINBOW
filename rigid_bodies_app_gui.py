@@ -202,6 +202,7 @@ def simulate() -> None:
             print(f"Saving USD file")
             usd_manager.save()
             usd_manager = None
+            print(f'USD file saved')
         return
     
     if app_params['step'] == 0:

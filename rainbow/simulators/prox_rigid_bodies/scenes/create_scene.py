@@ -14,6 +14,7 @@ from .create_simple_gear import create_simple_gear, create_planetary_gear
 
 
 SCENES: dict[str, Callable[[TYPES.Engine], None]] = {
+    "engine": PROC.create_engine,
     "simple_gear": create_simple_gear,
     "planetary_gear": create_planetary_gear,
 }
@@ -59,7 +60,7 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
     logger = logging.getLogger("main.setup_scene")
     logger.info(f"Setting up: {scene_name}")
 
-    scene_names = get_scene_names()
+    scene_names = get_scene_names()[len(SCENES):]
     scene_func = SCENES.get(scene_name)
     if scene_func is not None:
         scene_func(engine)
@@ -287,9 +288,9 @@ def create_scene(engine: TYPES.Engine, scene_name: str) -> None:
                 urdf_file_path
             )
 
-    API.create_gravity_force(engine=engine, force_name="earth", g=9.81, up=V3.j())
-    API.create_damping_force(engine=engine, force_name="air", alpha=0.01, beta=0.01)
-    for body in engine.bodies.values():
-        API.connect_force(engine=engine, body_name=body.name, force_name="earth")
-        API.connect_force(engine=engine, body_name=body.name, force_name="air")
+    #API.create_gravity_force(engine=engine, force_name="earth", g=9.81, up=V3.j())
+    #API.create_damping_force(engine=engine, force_name="air", alpha=0.01, beta=0.01)
+    #for body in engine.bodies.values():
+    #    API.connect_force(engine=engine, body_name=body.name, force_name="earth")
+    #    API.connect_force(engine=engine, body_name=body.name, force_name="air")
     logger.info(f"Done with creating {scene_name}")
