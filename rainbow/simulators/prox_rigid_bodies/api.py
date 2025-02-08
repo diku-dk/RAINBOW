@@ -6,6 +6,7 @@ The main idea is to create an engine instance and then fill
 the information needed to run the simulation.
 """
 
+import logging
 import numpy as np
 
 import rainbow.geometry.surface_mesh as MESH
@@ -197,6 +198,8 @@ def create_shape(engine, shape_name: str, mesh: MESH.Mesh, transform_to_body_fra
                                      used to turn of this behavior. In this case the mesh shape is left unchanged.
 
     """
+    logger = logging.getLogger("create_shape")
+    
     if shape_name in engine.shapes:
         raise RuntimeError(
             "create_shape(): shape with that name already exist: " + shape_name
@@ -229,14 +232,40 @@ def create_shape(engine, shape_name: str, mesh: MESH.Mesh, transform_to_body_fra
         MESH.translate(shape.mesh, -shape.r)
         MESH.rotate(shape.mesh, Q.conjugate(shape.q))
 
-    max_length = (shape.mesh.V.max(axis=0) - shape.mesh.V.min(axis=0)).max()
+    # Determine the grid size for the signed distance field
+    min_edge_length = float("inf")
+    for i, j, k in shape.mesh.T:
+        vi = shape.mesh.V[i]
+        vj = shape.mesh.V[j]
+        vk = shape.mesh.V[k]
+        min_edge_length = min(
+            min_edge_length,
+            ((vi - vj) ** 2).sum(),
+            ((vj - vk) ** 2).sum(),
+            ((vk - vi) ** 2).sum(),
+        )
+    min_edge_length = np.sqrt(min_edge_length)
+    
+    # Find the bounding box of the shape
+    min_corner = np.min(shape.mesh.V, axis=0)
+    max_corner = np.max(shape.mesh.V, axis=0)
+    dims = max_corner - min_corner
+
+    # We want to have at least 0.5 * min_edge_length between grid points
+    max_length = np.max(dims)
+    num_cells = np.ceil(dims / (0.5 * min_edge_length)).astype(int)
+    logger.info(f'Grid cells: {num_cells}')
+    
+    num_cells = np.clip(num_cells, engine.params.sdf_min_cells, engine.params.sdf_max_cells).astype(int)
+    logger.info(f'Clipped grid cells: {num_cells}')
+    
     boundary = max(max_length * 0.1, engine.params.envelope * 2)
     shape.grid = GRID.create_signed_distance(
         shape.mesh.V,
         shape.mesh.T,
-        engine.params.resolution,
-        engine.params.resolution,
-        engine.params.resolution,
+        num_cells[0],
+        num_cells[1],
+        num_cells[2],
         boundary,
     )
     engine.shapes[shape_name] = shape

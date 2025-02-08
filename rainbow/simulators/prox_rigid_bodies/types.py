@@ -416,6 +416,12 @@ class Parameters:
         self.resolution: int = (
             64  # The number of grid cells along each axis in the signed distance fields
         )
+        self.sdf_min_cells: int = (
+            4 # The minimum number of grid cells along each axis in the signed distance fields
+        )
+        self.sdf_max_cells: int = (
+            800 # The maximum number of grid cells along each axis in the signed distance fields
+        )
 
 
 class Engine:
