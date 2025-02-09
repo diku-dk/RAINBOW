@@ -68,7 +68,7 @@ class Grid:
         :param k:  The node index along the z-axis.
         :return:   The corresponding linear index of the 3D node index (i,j,k)
         """
-        return i + self.I * (j + self.J * k)
+        return k + self.K * (j + self.J * i)
 
     def get_node_value(self, i, j, k):
         """
