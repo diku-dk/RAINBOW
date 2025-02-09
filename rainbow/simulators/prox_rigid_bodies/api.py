@@ -732,3 +732,74 @@ def get_log(engine: Engine) -> list[dict[str, any]]:
                     Each dictionary holds profiling information about the corresponding time-step.
     """
     return engine.stepper.log
+
+
+def add_object(
+    engine: Engine,
+    name: str,
+    mesh: MESH.Mesh,
+    position: np.ndarray | None = V3.zero(),
+    orientation: np.ndarray | None = Q.identity(),
+    body_type: str = 'free',
+    material_name: str = 'default',
+    density: float = 1.0,
+) -> str:
+    """
+    Add an object to the simulation. This function is a convenience function that creates a shape, a rigid body, and
+    connects them together. The function also sets the position, orientation, body type, material, and mass properties
+    of the object. The function returns the unique name of the object.
+    
+    :param engine:       The engine that should contain the new object.
+    :param name:         The name of the object.
+    :param mesh:         The mesh of the object.
+    :param position:     The position of the object.
+    :param orientation:  The orientation of the object.
+    :param body_type:    The type of the object.
+    :param material:     The material of the object.
+    :param density:      The density of the object.
+    :return:             The generated unique name of the object.
+    """
+    logger = logging.getLogger("add_object")
+    
+    logger.info(f"Adding object {name}")
+
+    shape_name = generate_unique_name(name + "_shape")
+    body_name = generate_unique_name(name)
+    create_shape(engine, shape_name, mesh)
+    create_rigid_body(engine, body_name)
+    connect_shape(engine, body_name, shape_name)
+    
+    set_position(engine, body_name, position, True)
+    set_orientation(engine, body_name, orientation, True)
+    set_body_type(engine, body_name, body_type)
+    set_body_material(engine, body_name, material_name)
+    set_mass_properties(engine, body_name, density)
+    
+    return body_name
+
+
+def add_hinge(
+    engine: Engine,
+    parent_name: str,
+    child_name: str,
+    origin: np.ndarray,
+    axis: np.ndarray,
+    mode: str = "world",
+) -> str:
+    """
+    Add a hinge joint to the simulation. This function creates a hinge joint and connects it to two rigid bodies.
+    The function returns the unique name of the hinge joint.
+    
+    :param engine:      The engine that should contain the new hinge joint.
+    :param hinge_name:  The name of the hinge joint.
+    :param parent_name: The name of the parent body.
+    :param child_name:  The name of the child body.
+    :param origin:      The origin of the hinge joint.
+    :param axis:        The axis of the hinge joint.
+    :param mode:        The mode of the hinge joint.
+    :return:            The generated unique name of the hinge joint.
+    """
+    hinge_name = generate_unique_name(f'hinge_{parent_name}_{child_name}')
+    create_hinge(engine, hinge_name)
+    set_hinge(engine, hinge_name, parent_name, child_name, origin, axis, mode)
+    return hinge_name
