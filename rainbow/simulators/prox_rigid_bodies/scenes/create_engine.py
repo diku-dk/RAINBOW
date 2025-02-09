@@ -102,15 +102,15 @@ def create_engine(
     ground_name = API.add_object(engine, "ground", ground_mesh, ground_position, ground_orientation, "fixed", material_name, density)
 
     # Create hinge joint between the ground and the crank shaft
-    API.add_hinge(ground_name, crank_shaft_name, crank_shaft_position, V3.k())
+    API.add_hinge(engine, ground_name, crank_shaft_name, crank_shaft_position, V3.k())
     
     # Create hinge joint between the crank shaft and the planet gears
     origin = planet1.position + 0.5 * (planet2.position - planet1.position)
-    API.add_hinge(crank_shaft_name, planet1_name, origin, V3.k())
-    API.add_hinge(crank_shaft_name, planet2_name, origin, V3.k())
+    API.add_hinge(engine, crank_shaft_name, planet1_name, origin, V3.k())
+    API.add_hinge(engine, crank_shaft_name, planet2_name, origin, V3.k())
     
     # Create hinge joint between the planet gears and the connecting rod
     origin1 = planet1.position + face_width * V3.k() - eccentricity * V3.j()
     origin2 = planet2.position - face_width * V3.k() - eccentricity * V3.j()
-    API.add_hinge(planet1_name, connecting_rod_name, origin1, V3.k())
-    API.add_hinge(planet2_name, connecting_rod_name, origin2, V3.k())
+    API.add_hinge(engine, planet1_name, connecting_rod_name, origin1, V3.k())
+    API.add_hinge(engine, planet2_name, connecting_rod_name, origin2, V3.k())
