@@ -1,6 +1,6 @@
+import time
 import numpy as np
 import igl
-
 
 class Grid:
     """
@@ -300,21 +300,19 @@ def is_inside(grid, p, boundary=0.5):
     return True
 
 
-def get_nodes_array(grid):
+def get_nodes_array(grid: Grid) -> np.ndarray:
     """
     This function creates a flat array with the 3D spatial coordinates of all the nodes in the mesh.
 
     :param grid: The given grid from which one wants to know all the nodal coordinates.
     :return: A (I*J*K) by 3 array. First column holds x-values, second y-values and last column holds z-values.
     """
-    nodes = np.zeros(((grid.I * grid.J * grid.K), 3), dtype=np.float64)
-    for k in range(grid.K):
-        for j in range(grid.J):
-            for i in range(grid.I):
-                coord = grid.get_node_coord(i, j, k)
-                row_idx = grid.get_linear_index(i, j, k)
-                nodes[row_idx, :] = coord
-    return nodes
+    X, Y, Z = np.mgrid[
+        grid.min_coord[0] : grid.max_coord[0] : grid.I * 1j,
+        grid.min_coord[1] : grid.max_coord[1] : grid.J * 1j,
+        grid.min_coord[2] : grid.max_coord[2] : grid.K * 1j,
+    ]
+    return np.vstack([X.ravel(), Y.ravel(), Z.ravel()]).T
 
 
 def create_signed_distance(V, F, I, J, K, boundary=0.5):
