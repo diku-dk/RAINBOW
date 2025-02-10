@@ -28,16 +28,17 @@ def create_engine(
             density,
         )
     
-    m = 0.1
-    z_ring = 79
-    z_planet = 48
+    piston_movement = 1.2
+    eccentricity = 0.1
+    z_ring = 60
+    z_planet = 40
+    m = piston_movement / (z_ring - z_planet)
     face_width = 10 * m
     
     # Create the gears
     ring_spec = GEAR.GearSpec(m, z_ring, is_internal=True)
     planet_spec = GEAR.GearSpec(m, z_planet, is_internal=False)
     
-    eccentricity = 0.25 * planet_spec.rp
     gap_width = 4 * face_width
     
     gear_factory = GEAR.GearFactory()
@@ -51,7 +52,7 @@ def create_engine(
     # Set the position and orientation of the first pair
     ring1.orientation = Q.Rz(-np.pi / 2)
     planet1.position = ring1.position - (ring_spec.rp - planet_spec.rp) * V3.j()
-    planet1.orientation = ring1.orientation #MATING.compute_gear_orientation(ring_spec, planet_spec, -np.pi/2 - 2 * np.pi)
+    planet1.orientation = ring1.orientation
     
     # Set the position and orientation of the second pair
     ring2.position += gap_width * V3.k()
@@ -91,13 +92,39 @@ def create_engine(
     # Add connecting rod
     connecting_rod_height = 2.5 * ring_spec.rp
     connecting_rod_mesh = API.create_mesh(*MESH.create_box(face_width, connecting_rod_height, face_width))
-    connecting_rod_position = planet1.position + 0.5 * (planet2.position - planet1.position) + 0.4 * connecting_rod_height * V3.j() - eccentricity * V3.j()
+    connecting_rod_position = planet1.position + 0.5 * (planet2.position - planet1.position) + 0.45 * connecting_rod_height * V3.j() - eccentricity * V3.j()
     connecting_rod_orientation = Q.identity()
     connecting_rod_name = API.add_object(engine, "connecting_rod", connecting_rod_mesh, connecting_rod_position, connecting_rod_orientation, material_name=material_name, density=density)
     
+    # Add the piston
+    piston_radius = face_width
+    piston_height = 0.5 * piston_movement
+    piston_mesh = API.create_mesh(*MESH.create_cylinder(piston_radius, piston_height, 36))
+    piston_position = connecting_rod_position + 0.5 * connecting_rod_height * V3.j() + 0.55 * piston_height * V3.j()
+    piston_name = API.add_object(engine, "piston", piston_mesh, piston_position, material_name=material_name, density=density)
+    
+    # Add the cylinder walls
+    cylinder_radius = piston_radius
+    cylinder_height = piston_movement + 2 * eccentricity + piston_height
+    cylinder_thickness = 0.2
+    cylinder_spacing = 0.01
+    cylinder_center = piston_position - 0.5 * piston_height * V3.j() + 0.5 * cylinder_height * V3.j()
+    cylinder_wall_directions = [V3.i(), V3.k(), -V3.i(), -V3.k()]
+    cylinder_wall_positions = [
+        cylinder_center + (cylinder_radius + cylinder_thickness / 2 + cylinder_spacing) * direction
+        for direction in cylinder_wall_directions
+    ]
+    cylinder_wall_orientations = [
+        Q.Ry(i * np.pi / 2)
+        for i in range(4)
+    ]
+    for i, (position, orientation) in enumerate(zip(cylinder_wall_positions, cylinder_wall_orientations)):
+        cylinder_wall_mesh = API.create_mesh(*MESH.create_box(cylinder_thickness, cylinder_height, 2 * (cylinder_radius + cylinder_thickness + cylinder_spacing)))
+        API.add_object(engine, f"cylinder_wall_{i}", cylinder_wall_mesh, position, orientation, "fixed", material_name, density)
+    
     # Add the ground
     ground_mesh = MESH.Mesh(*MESH.create_box(100, 1, 100))
-    ground_position = V3.make(0, -2.2 * ring_spec.rp, 0)
+    ground_position = V3.make(0, -10, 0)
     ground_orientation = Q.identity()
     ground_name = API.add_object(engine, "ground", ground_mesh, ground_position, ground_orientation, "fixed", material_name, density)
 
@@ -114,3 +141,7 @@ def create_engine(
     origin2 = planet2.position - face_width * V3.k() - eccentricity * V3.j()
     API.add_hinge(engine, planet1_name, connecting_rod_name, origin1, V3.k())
     API.add_hinge(engine, planet2_name, connecting_rod_name, origin2, V3.k())
+    
+    # Create hinge joint between the connecting rod and the piston
+    origin = piston_position - 0.5 * piston_height * V3.j()
+    API.add_hinge(engine, connecting_rod_name, piston_name, origin, V3.k())

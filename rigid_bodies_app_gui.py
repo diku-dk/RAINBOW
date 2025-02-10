@@ -169,8 +169,11 @@ def create_gui():
 
         engine = API.create_engine()
 
-        total_time = 1.0
+        total_time = 10
+        engine.params.time_step = 1 / (5 * 1080)
+        
         steps = int(np.round(total_time / engine.params.time_step))
+        print(f"Steps: {steps}")
         app_params['total time'] = total_time
         app_params['steps'] = steps
         app_params['step'] = 0
@@ -207,7 +210,7 @@ def simulate() -> None:
     
     if app_params['step'] == 0:
         print(f"Creating USD manager")
-        usd_manager = UsdManager('animation.usda')
+        usd_manager = UsdManager('engine_1080.usda')
         usd_manager.initialize(engine)
 
     logger.info(f"Running simulation step {app_params['step']}")
@@ -219,6 +222,7 @@ def simulate() -> None:
         
     if usd_manager is not None:
         usd_manager.save_step(app_params['step'], engine)
+        usd_manager.save()
 
     API.simulate(engine=engine, T=engine.params.time_step, profiling_on=True)
     
