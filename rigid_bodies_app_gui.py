@@ -168,9 +168,31 @@ def create_gui():
         logger.info(f"Creating scene = {scene_name}")
 
         engine = API.create_engine()
+        
+        cycles = 100
+        steps_per_degree = 5
+        
+        #revolutions_per_second = 3
+        #revolutions_per_minute = 60 * revolutions_per_second
+        revolutions_per_minute = 1000
+        revolutions_per_second = revolutions_per_minute / 60
+        
+        seconds_per_cycle = 1 / revolutions_per_second * 3
+        total_time = cycles * seconds_per_cycle
+        
+        steps_per_cycle = steps_per_degree * 1080
+        step_size = seconds_per_cycle / steps_per_cycle
+        
+        print(f"Revolutions per second: {revolutions_per_second}")
+        print(f"Revolutions per minute: {revolutions_per_minute}")
+        print(f"Seconds per cycle: {seconds_per_cycle}")
+        print(f"Steps per cycle: {steps_per_cycle}")
+        print(f"Step size: {step_size}")
+        print(f"Total time: {total_time}")
 
-        total_time = 10
-        engine.params.time_step = 1 / (5 * 1080)
+        angular_speed = 2 * np.pi * revolutions_per_second
+        engine.params.time_step = step_size
+        engine.params.driver_angular_velocity = angular_speed * V3.k()
         
         steps = int(np.round(total_time / engine.params.time_step))
         print(f"Steps: {steps}")

@@ -422,6 +422,7 @@ class Parameters:
         self.sdf_max_cells: int = (
             800 # The maximum number of grid cells along each axis in the signed distance fields
         )
+        self.driver_angular_velocity: np.ndarray = V3.zero()  # The angular velocity of the driver body
 
 
 class Engine:

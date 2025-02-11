@@ -60,7 +60,7 @@ class SemiImplicitStepper:
         
         for i, (k, v) in enumerate(engine.bodies.items()):
             if i == 0:
-                v.w[2] = 6 * np.pi
+                v.w = engine.params.driver_angular_velocity
 
         state = STORAGE.StateStorage()
         state.copy_from_engine(engine)

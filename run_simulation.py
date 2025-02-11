@@ -8,6 +8,7 @@ from pstats import SortKey
 
 import numpy as np
 
+import rainbow.math.vector3 as V3
 import rainbow.simulators.prox_rigid_bodies.api as API
 import rainbow.simulators.prox_rigid_bodies.scenes as SCENE
 
@@ -37,6 +38,8 @@ def main():
     if time_step is not None:
         print(f"Time step: {time_step}")
         engine.params.time_step = time_step
+    
+    engine.params.driver_angular_velocity = np.pi / 4 * V3.j()
     
     total_steps = int(total_time / engine.params.time_step)
     print(f"Total steps: {total_steps}")
