@@ -87,6 +87,8 @@ def main():
         
         API.simulate(engine, engine.params.time_step)
         usd_manager.save_step(step, engine)
+        if step % 10 == 0:
+            usd_manager.save()
         
         end = time.time()
         duration = end - start

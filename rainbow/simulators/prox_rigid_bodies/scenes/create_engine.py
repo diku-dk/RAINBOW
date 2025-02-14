@@ -69,7 +69,7 @@ def create_engine(
 
     # Add the gears to the engine
     ring1_name = add_gear(ring1, "ring1")
-    ring2_name = add_gear(ring2, "ring2")
+    #ring2_name = add_gear(ring2, "ring2")
     
     # Add intermediate disks
     disk_radius = 0.5 * planet_spec.rp
@@ -79,15 +79,15 @@ def create_engine(
     disk1_offset = face_width * V3.k() + eccentricity * V3.i()
     disk2_offset = -face_width * V3.k() + eccentricity * V3.i()
     V1 = np.vstack([planet1.mesh.V, Q.rotate_array(Q.Rx(np.pi / 2), disk1_mesh.V) + disk1_offset])
-    V2 = np.vstack([planet2.mesh.V, Q.rotate_array(Q.Rx(np.pi / 2), disk2_mesh.V) + disk2_offset])
+    #V2 = np.vstack([planet2.mesh.V, Q.rotate_array(Q.Rx(np.pi / 2), disk2_mesh.V) + disk2_offset])
     T1 = np.vstack([planet1.mesh.T, disk1_mesh.T + len(planet1.mesh.V)])
-    T2 = np.vstack([planet2.mesh.T, disk2_mesh.T + len(planet2.mesh.V)])
+    #T2 = np.vstack([planet2.mesh.T, disk2_mesh.T + len(planet2.mesh.V)])
     
     planet1.mesh = API.create_mesh(V1, T1)
-    planet2.mesh = API.create_mesh(V2, T2)
+    #planet2.mesh = API.create_mesh(V2, T2)
     
     planet1_name = add_gear(planet1, "planet1")
-    planet2_name = add_gear(planet2, "planet2")
+    #planet2_name = add_gear(planet2, "planet2")
     
     # Add connecting rod
     connecting_rod_height = 2.5 * ring_spec.rp
@@ -134,13 +134,13 @@ def create_engine(
     # Create hinge joint between the crank shaft and the planet gears
     origin = planet1.position + 0.5 * (planet2.position - planet1.position)
     API.add_hinge(engine, crank_shaft_name, planet1_name, origin, V3.k())
-    API.add_hinge(engine, crank_shaft_name, planet2_name, origin, V3.k())
+    #API.add_hinge(engine, crank_shaft_name, planet2_name, origin, V3.k())
     
     # Create hinge joint between the planet gears and the connecting rod
     origin1 = planet1.position + face_width * V3.k() - eccentricity * V3.j()
     origin2 = planet2.position - face_width * V3.k() - eccentricity * V3.j()
     API.add_hinge(engine, planet1_name, connecting_rod_name, origin1, V3.k())
-    API.add_hinge(engine, planet2_name, connecting_rod_name, origin2, V3.k())
+    #API.add_hinge(engine, planet2_name, connecting_rod_name, origin2, V3.k())
     
     # Create hinge joint between the connecting rod and the piston
     origin = piston_position - 0.5 * piston_height * V3.j()

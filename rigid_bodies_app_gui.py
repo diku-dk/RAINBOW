@@ -169,6 +169,9 @@ def create_gui():
 
         engine = API.create_engine()
         
+        engine.params.sdf_min_cells = 32
+        engine.params.sdf_max_cells = 128
+        
         cycles = 100
         steps_per_degree = 5
         
@@ -193,6 +196,8 @@ def create_gui():
         angular_speed = 2 * np.pi * revolutions_per_second
         engine.params.time_step = step_size
         engine.params.driver_angular_velocity = angular_speed * V3.k()
+        
+        #engine.params.time_step = 0.01
         
         steps = int(np.round(total_time / engine.params.time_step))
         print(f"Steps: {steps}")
