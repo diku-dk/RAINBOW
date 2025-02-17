@@ -20,7 +20,7 @@ def translate(mesh, r):
 
 
 def rotate(mesh, q):
-    mesh.V = Q.rotate_array(q, mesh.V)
+    mesh.V = Q.rotate_array(Q.unit(q), mesh.V)
     return mesh
 
 
