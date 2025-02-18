@@ -353,6 +353,57 @@ class Hinge:
         self.axis_c = Q.rotate(socket.q, V3.k())
 
 
+
+class SlidingJoint:
+    """
+    A sliding joint class.
+    
+    A sliding joint is a joint that allows two bodies to slide relative to each other along a specified axis.
+    """
+    
+    def __init__(self, name: str) -> None:
+        """
+        Create an instance of a single sliding joint.
+        
+        :param name: Name of the new joint.
+        """
+        self.name = name
+        self.idx: Optional[int] = None # Unique index of sliding joint, used to access sliding joint information stored in arrays.
+        self.parent: Optional[RigidBody] = None # Reference to the parent link of the sliding joint.
+        self.child: Optional[RigidBody] = None # Reference to the parent link of the hinge
+        self.socket_p: Optional[JointFrame] = None # Joint frame on body A wrt body A's local body frame
+        self.socket_c: Optional[JointFrame] = None # Joint frame on body B wrt body B's local body frame
+        self.axis_p: Optional[np.ndarray] = None # Sliding axis wrt local coordinates frame of the parent.
+        self.axis_c: Optional[np.ndarray] = None # Sliding axis wrt local coordinates frame of the child.
+
+    def connect(self,
+            parent_body: RigidBody,
+            parent_socket: JointFrame,
+            child_body: RigidBody,
+            child_socket: JointFrame,
+) -> None:
+        """
+        Set the parent link information of the joint.
+
+        :param parent_body: A reference to the rigid body that will be the parent link of the joint.
+        :param parent_socket: A reference to the joint frame that will define the joint socket on the parent link.
+        :param child_body: A reference to the rigid body that will be the child link of the joint.
+        :param child_socket: A reference to the joint frame that will define the joint socket on the child link.
+        """
+        # parent
+        self.parent = parent_body
+        self.axis_p = Q.rotate(parent_socket.q, V3.k())
+        
+        # child
+        self.child = child_body
+        self.axis_c = Q.rotate(child_socket.q, V3.k())
+        
+        # initial rotation and offset vector
+        self.q_initial = Q.prod(Q.conjugate(self.child.q), self.parent.q)
+        self.q_initial_conj = Q.conjugate(self.q_initial)
+        self.r_off_init = Q.rotate(Q.conjugate(self.child.q), self.child.r - self.parent.r)
+
+
 class Parameters:
     """
     This class holds all numerical parameters that control the simulation behavior.
@@ -374,13 +425,13 @@ class Parameters:
             False  # Turning post-stabilization on and off for correcting drift errors
         )
         self.gap_reduction: float = (
-            0.8  # The amount of gap (=penetration) to reduce during stabilization
+            0.5  # The amount of gap (=penetration) to reduce during stabilization
         )
         self.min_gap_value: float = (
-            0.0001  # The minimum allowable gap (=penetration) that will not cause
+            0.001  # The minimum allowable gap (=penetration) that will not cause
         )
         self.max_gap_value: float = (
-            0.1  # The maximum possible gap (=penetration) to correct for during
+            0.01  # The maximum possible gap (=penetration) to correct for during
         )
         self.absolute_tolerance: float = 0.0001  # The absolute tolerance value.
         self.relative_tolerance: float = 0.00001  # The relative tolerance value.
@@ -411,16 +462,16 @@ class Parameters:
         self.bvh_chunk_size: int = 255  # Number of nodes for a k-DOP bvh subtree, a chunk.
         self.K: int = 3  # The number of directions to use in the k-DOP bounding volumes.
         self.envelope: float = (
-            0.0001  # Any geometry within this distance generates a contact point.
+            0.001  # Any geometry within this distance generates a contact point.
         )
         self.resolution: int = (
             64  # The number of grid cells along each axis in the signed distance fields
         )
         self.sdf_min_cells: int = (
-            4 # The minimum number of grid cells along each axis in the signed distance fields
+            64 # The minimum number of grid cells along each axis in the signed distance fields
         )
         self.sdf_max_cells: int = (
-            800 # The maximum number of grid cells along each axis in the signed distance fields
+            64 # The maximum number of grid cells along each axis in the signed distance fields
         )
         self.driver_angular_velocity: np.ndarray = V3.zero()  # The angular velocity of the driver body
 
@@ -446,6 +497,7 @@ class Engine:
         self.forces: dict[str,  Union[Gravity, Damping]] = dict()
         self.shapes: dict[str, Shape] = dict()
         self.hinges: dict[str, Hinge] = dict()  # All hinge joints in the current simulation
+        self.sliding_joints: dict[str, SlidingJoint] = dict()
         self.contact_points: list[ContactPoint] = []
         self.surfaces_interactions = SurfacesInteractionLibrary()
         self.params = Parameters()

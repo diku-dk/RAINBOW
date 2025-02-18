@@ -104,7 +104,7 @@ def create_engine(
     piston_name = API.add_object(engine, "piston", piston_mesh, piston_position, material_name=material_name, density=density)
     
     # Add the cylinder walls
-    cylinder_radius = piston_radius
+    """ cylinder_radius = piston_radius
     cylinder_height = piston_movement + 2 * eccentricity + piston_height
     cylinder_thickness = 0.2
     cylinder_spacing = 0.01
@@ -120,7 +120,7 @@ def create_engine(
     ]
     for i, (position, orientation) in enumerate(zip(cylinder_wall_positions, cylinder_wall_orientations)):
         cylinder_wall_mesh = API.create_mesh(*MESH.create_box(cylinder_thickness, cylinder_height, 2 * (cylinder_radius + cylinder_thickness + cylinder_spacing)))
-        API.add_object(engine, f"cylinder_wall_{i}", cylinder_wall_mesh, position, orientation, "fixed", material_name, density)
+        API.add_object(engine, f"cylinder_wall_{i}", cylinder_wall_mesh, position, orientation, "fixed", material_name, density) """
     
     # Add the ground
     ground_mesh = MESH.Mesh(*MESH.create_box(100, 1, 100))
@@ -145,3 +145,7 @@ def create_engine(
     # Create hinge joint between the connecting rod and the piston
     origin = piston_position - 0.5 * piston_height * V3.j()
     API.add_hinge(engine, connecting_rod_name, piston_name, origin, V3.k())
+    
+    # Create sliding joint for the piston
+    origin = ring1.position
+    API.add_sliding_joint(engine, ground_name, piston_name, origin, V3.j())

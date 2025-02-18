@@ -157,6 +157,91 @@ def set_hinge(
     hinge.set_child_socket(child_link, child_socket)
 
 
+def create_sliding_joint(engine: Engine, sliding_joint_name: str):
+    """
+    Create sliding joint in the engine.
+    
+    :param engine: The engine that should contain the new sliding joint.
+    :param sliding_joint_name: The unique name of the sliding joint.
+    """
+    if sliding_joint_name in engine.sliding_joints:
+        raise RuntimeError("create_sliding_joint() sliding joint already exist with that name")
+    sliding_joint = SlidingJoint(sliding_joint_name)
+    sliding_joint.idx = len(engine.sliding_joints)
+    engine.sliding_joints[sliding_joint_name] = sliding_joint
+
+
+def set_sliding_joint(
+        engine: Engine,
+        sliding_joint_name: str,
+        parent_name: str,
+        child_name: str,
+        origin: np.ndarray,
+        axis: np.ndarray,
+        mode: str = "world"
+) -> None:
+    """
+    Set sliding joint parameters.
+    
+    :param engine: The engine that contains the sliding joint.
+    :param sliding_joint_name: The name of the sliding joint.
+    :param parent_name: The name of the parent body (link).
+    :param child_name: The name of the child body (link).
+    :param origin: The position of the origin for the joint frame.
+    :param axis: The joint axis of the sliding joint.
+    :param mode: This controls the coordinate space in which axis and origin are given with respect to.
+                 It can be either "world", "body" frame of parent body, or "model" frame of parent.
+    """
+    if sliding_joint_name in engine.sliding_joints:
+        sliding_joint = engine.sliding_joints[sliding_joint_name]
+    else:
+        raise RuntimeError("set_sliding_joint() no such rigid body exist with that name")
+    if parent_name in engine.bodies:
+        parent_link = engine.bodies[parent_name]
+    else:
+        raise RuntimeError("set_sliding_joint() no such rigid body exist with that name")
+    if child_name in engine.bodies:
+        child_link = engine.bodies[child_name]
+    else:
+        raise RuntimeError("set_sliding_joint() no such rigid body exist with that name")
+
+    o_world = None
+    s_world = None
+
+    if mode == "world":
+        o_world = np.copy(origin)
+        s_world = np.copy(axis)
+    elif mode == "body":
+        # Convert o and s from body frame to world frame
+        o_world = Q.rotate(parent_link.q, origin) + parent_link.r
+        s_world = Q.rotate(parent_link.q, axis)
+    elif mode == "model":
+        # Convert o and s from model frame to body frame
+        r_b2m = np.copy(parent_link.shape.r)
+        q_b2m = np.copy(parent_link.shape.q)
+        o_body = Q.rotate(Q.conjugate(q_b2m), origin - r_b2m)
+        s_body = Q.rotate(Q.conjugate(q_b2m), axis)
+        # Convert o and s from body frame to world frame
+        o_world = Q.rotate(parent_link.q, o_body) + parent_link.r
+        s_world = Q.rotate(parent_link.q, s_body)
+    else:
+        raise ValueError(f"set_sliding_joint() no such mode {mode} is supported")
+
+    # Observe, we use convention that n (the local z-axis) will be the joint axis.
+    t, b, n = V3.make_orthonormal_vectors(s_world)
+    R_world = M3.make_from_cols(t, b, n)
+    q_world = Q.from_matrix(R_world)
+
+    q_parent_socket = Q.prod(Q.conjugate(parent_link.q), q_world)
+    q_child_socket = Q.prod(Q.conjugate(child_link.q), q_world)
+    r_parent_socket = Q.rotate(Q.conjugate(parent_link.q), o_world - parent_link.r)
+    r_child_socket = Q.rotate(Q.conjugate(child_link.q), o_world - child_link.r)
+
+    parent_socket = FRAME.make(r_parent_socket, q_parent_socket)
+    child_socket = FRAME.make(r_child_socket, q_child_socket)
+    sliding_joint.connect(parent_link, parent_socket, child_link, child_socket)
+
+
 def create_mesh(V: np.ndarray, T: np.ndarray) -> MESH.Mesh:
     """
     Create a mesh instance.
@@ -803,3 +888,30 @@ def add_hinge(
     create_hinge(engine, hinge_name)
     set_hinge(engine, hinge_name, parent_name, child_name, origin, axis, mode)
     return hinge_name
+
+
+def add_sliding_joint(
+    engine: Engine,
+    parent_name: str,
+    child_name: str,
+    origin: np.ndarray,
+    axis: np.ndarray,
+    mode: str = "world",
+) -> str:
+    """
+    Add a sliding joint to the simulation. This function creates a sliding joint and connects it to two rigid bodies.
+    The function returns the unique name of the sliding joint.
+    
+    :param engine:      The engine that should contain the new sliding joint.
+    :param sliding_joint_name:  The name of the sliding joint.
+    :param parent_name: The name of the parent body.
+    :param child_name:  The name of the child body.
+    :param origin:      The origin of the sliding joint.
+    :param axis:        The axis of the sliding joint.
+    :param mode:        The mode of the sliding joint.
+    :return:            The generated unique name of the sliding joint.
+    """
+    sliding_joint_name = generate_unique_name(f'sliding_joint_{parent_name}_{child_name}')
+    create_sliding_joint(engine, sliding_joint_name)
+    set_sliding_joint(engine, sliding_joint_name, parent_name, child_name, origin, axis, mode)
+    return sliding_joint_name
