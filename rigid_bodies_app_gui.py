@@ -169,9 +169,6 @@ def create_gui():
 
         engine = API.create_engine()
         
-        engine.params.sdf_min_cells = 32
-        engine.params.sdf_max_cells = 128
-        
         cycles = 100
         steps_per_degree = 5
         
