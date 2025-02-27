@@ -84,7 +84,7 @@ def Ru(radians, axis):
     c = cos(radians / 2.0)
     s = sin(radians / 2.0)
     n = axis / np.linalg.norm(axis)
-    return from_array([c, s * n[0], s * n[1], s * n[2]])
+    return unit(from_array([c, s * n[0], s * n[1], s * n[2]]))
 
 
 def Rx(radians):
