@@ -13,8 +13,8 @@ def compute_gear_orientation(spec1: GearSpec, spec2: GearSpec, angle: float) -> 
     return Q.Rz(compute_rotation_angle(spec1, spec2, angle))
 
 
-def compute_internal_gear_orientation(spec: GearSpec) -> np.ndarray:
-    return Q.Rz(compute_ring_gear_rotation_angle(spec))
+def compute_planetary_gear_ring_orientation(spec: PlanetaryGearSpec) -> np.ndarray:
+    return Q.Rz(compute_planetary_gear_ring_angle(spec, 0))
 
 
 def compute_rotation_angle(spec1: GearSpec, spec2: GearSpec, angle: float) -> float:
@@ -24,11 +24,8 @@ def compute_rotation_angle(spec1: GearSpec, spec2: GearSpec, angle: float) -> fl
     return rotation_angle % (2 * np.pi)
 
 
-def compute_ring_gear_rotation_angle(spec: GearSpec) -> float:
-    if not spec.is_internal:
-        raise ValueError("The gear is not an internal gear.")
-    
-    if spec.z % 2 == 1:
-        return spec.gamma_p
+def compute_planetary_gear_ring_angle(spec: PlanetaryGearSpec, angle: float) -> float:
+    if spec.planet_spec.z % 2 == 0:
+        return spec.ring_spec.gamma_p
     else:
         return 0

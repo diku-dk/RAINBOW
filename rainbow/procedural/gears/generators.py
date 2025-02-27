@@ -60,7 +60,7 @@ class GearFactory:
             planet_gear.orientation = MATING.compute_gear_orientation(sun_gear.spec, planet_gear.spec, angle)
         
         # Update the orientation of the ring gear so it meshes with the planet gears
-        ring_gear.orientation = MATING.compute_internal_gear_orientation(ring_gear.spec)
+        ring_gear.orientation = MATING.compute_planetary_gear_ring_orientation(planetary_spec)
         
         return PlanetaryGear(planetary_spec, sun_gear, planet_gears, ring_gear)
 
