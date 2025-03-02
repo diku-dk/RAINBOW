@@ -53,7 +53,7 @@ class GearApp:
         if self.headless:
             logger.info("Running in headless mode")
             # Manually call the callback in headless mode
-            for _ in range(steps):
+            for i in range(steps + 1):
                 self.callback()
         else:
             self._ps_setup()
@@ -89,7 +89,7 @@ class GearApp:
         ps.set_ground_plane_mode('none')
         look_dir = np.array([1, 1, 10], dtype=np.float64)
         look_dir /= np.linalg.norm(look_dir)
-        ps.look_at(15 * look_dir, (0, 0, 0))
+        ps.look_at(100 * look_dir, (0, 0, 0))
         ps.set_user_callback(self.callback)
 
         for body in self.engine.bodies.values():

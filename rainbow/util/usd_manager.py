@@ -22,4 +22,9 @@ class UsdManager:
 
     def save(self) -> None:
         self.usd_scene.set_animation_time(self.last_step)
-        self.usd_scene.save()
+        while True:
+            try:
+                self.usd_scene.save()
+                break
+            except Exception as e:
+                continue

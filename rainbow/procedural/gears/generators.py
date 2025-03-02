@@ -305,7 +305,7 @@ class GearFactory:
         z = (i + 1) * face_width_step
         theta = 0
         if spec.beta is not None:
-            vertical_pitch = 2 * np.pi * spec.rp * np.tan(spec.beta)
+            vertical_pitch = 2 * np.pi * spec.rp * np.tan((np.pi / 2) - spec.beta)
             theta = z / vertical_pitch
         
         R = np.array([

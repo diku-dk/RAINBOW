@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import sys
+import polyscope as ps
 
 # Add the parent directory to the path to import from rainbow
 FILE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -50,8 +51,8 @@ def main():
     z_sun = 31
     z_planet = 17
     z_ring = z_sun + 2 * z_planet
-    planetary_spec = GEAR.types.PlanetaryGearSpec(m, z_sun, z_planet, z_ring, N_planet=3)
-    planetary_gear = factory.create_planetary_gear(planetary_spec, face_width, subdivisions=3)
+    planetary_spec = GEAR.types.PlanetaryGearSpec(m, z_sun, z_planet, z_ring, N_planet=3, helix_angle=20)
+    planetary_gear = factory.create_planetary_gear(planetary_spec, face_width, subdivisions=10)
 
     sun_gear = planetary_gear.sun_gear
     planet_gears = planetary_gear.planet_gears
@@ -91,7 +92,12 @@ def main():
     sun_velocities = []
     planet_velocities = []
     ring_velocities = []
+    screenshot_taken = False
     def callback(engine: TYPES.Engine):
+        nonlocal screenshot_taken
+        if not screenshot_taken:
+            ps.screenshot(f'{FILE_DIR}/screenshot_{sdf_resolution}.png')
+            screenshot_taken = True
         sun_velocities.append(API.get_spin(engine, sun_name))
         planet_velocities.append([API.get_spin(engine, name) for name in planet_names])
         ring_velocities.append(API.get_spin(engine, ring_name))
