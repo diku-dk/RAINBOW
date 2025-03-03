@@ -60,8 +60,8 @@ def main():
     gear2.position = (gear1.spec.rp + gear2.spec.rp) * V3.i()
     gear2.orientation = GEAR.mating.compute_gear_orientation(gear1.spec, gear2.spec, 0)
     
-    gear1_name = API.add_object(engine, 'gear1', gear1.mesh, gear1.position, gear1.orientation)
-    gear2_name = API.add_object(engine, 'gear2', gear2.mesh, gear2.position, gear2.orientation)
+    gear1_name = API.add_gear(engine, 'gear1', gear1)
+    gear2_name = API.add_gear(engine, 'gear2', gear2)
     
     max_ra = max(gear1.spec.ra, gear2.spec.ra)
     ground_name = PROC.create_ground(
@@ -75,12 +75,8 @@ def main():
     API.add_hinge(engine, gear1_name, ground_name, gear1.position, V3.k())
     API.add_hinge(engine, gear2_name, ground_name, gear2.position, V3.k())
     
-    API.create_damping_force(engine=engine, force_name="air", alpha=0.01, beta=0.01)
-    for body in engine.bodies.values():
-        API.connect_force(engine=engine, body_name=body.name, force_name="air")
-
     all_tangential_velocities = []
-    all_relative_velocities = []
+    all_rolling_velocities = []
     all_normal_velocities = []
 
     screenshot_taken = False
@@ -93,34 +89,41 @@ def main():
         print(f'Number of contact points: {len(engine.contact_points)}')
         
         tangential_velocities = np.zeros((len(engine.contact_points), 1))
-        relative_velocities = np.zeros((len(engine.contact_points), 1))
+        rolling_velocities = np.zeros((len(engine.contact_points), 1))
         normal_velocities = np.zeros((len(engine.contact_points), 1))
         for i, cp in enumerate(engine.contact_points):
             r1 = cp.p - cp.bodyA.r
             r2 = cp.p - cp.bodyB.r
+            
             v1 = np.cross(cp.bodyA.w, r1)
             v2 = np.cross(cp.bodyB.w, r2)
             
-            n = cp.n / np.linalg.norm(cp.n)
+            n = V3.unit(cp.n)
+            forward = V3.unit(np.cross(n, V3.k()))
+            rolling_direction = V3.unit(np.cross(n, forward))
             
             v_rel = v2 - v1
             v_norm_component = np.dot(v_rel, n)
             v_normal = v_norm_component * n
-            v_tangent = v_rel - v_normal
+            
+            v_roll_component = np.dot(v_rel, rolling_direction)
+            v_roll = v_roll_component * rolling_direction
+            
+            v_tangent = v_normal + v_roll
             tangential_velocities[i] = np.linalg.norm(v_tangent)
-            relative_velocities[i] = np.linalg.norm(v_rel)
+            rolling_velocities[i] = v_roll_component #np.linalg.norm(v_roll)
             normal_velocities[i] = np.linalg.norm(v_normal)
         
         all_tangential_velocities.append(tangential_velocities)
-        all_relative_velocities.append(relative_velocities)
+        all_rolling_velocities.append(rolling_velocities)
         all_normal_velocities.append(normal_velocities)
 
     app.run(steps, callback=callback)
 
-    plot_speeds(all_tangential_velocities, all_relative_velocities, all_normal_velocities)
+    plot_speeds(all_tangential_velocities, all_rolling_velocities, all_normal_velocities)
 
 
-def plot_speeds(all_tangential_velocities, all_relative_velocities, all_normal_velocities):
+def plot_speeds(all_tangential_velocities, all_rolling_velocities, all_normal_velocities):
     plt.figure(figsize=(6, 4), dpi=300)
 
     for i in range(len(all_tangential_velocities)):
@@ -128,26 +131,26 @@ def plot_speeds(all_tangential_velocities, all_relative_velocities, all_normal_v
             continue
         xs = np.full(len(all_tangential_velocities[i]), i, dtype=int)
         ys = all_tangential_velocities[i]
-        plt.scatter(xs, ys)
+        plt.scatter(xs, ys, c='C0')
 
     plt.title(f'Tangential Velocities')
     plt.xlabel('Steps')
     plt.ylabel('Tangential Velocity')
-    plt.savefig(f'{FILE_DIR}/sliding/tangential_velocities.png')
+    plt.savefig(f'{FILE_DIR}/sliding/tangential_velocities.png', bbox_inches='tight')
     
     plt.figure(figsize=(6, 4), dpi=300)
     
-    for i in range(len(all_relative_velocities)):
-        if len(all_relative_velocities[i]) == 0:
+    for i in range(len(all_rolling_velocities)):
+        if len(all_rolling_velocities[i]) == 0:
             continue
-        xs = np.full(len(all_relative_velocities[i]), i, dtype=int)
-        ys = np.linalg.norm(all_relative_velocities[i], axis=1)
-        plt.scatter(xs, ys)
+        xs = np.full(len(all_rolling_velocities[i]), i, dtype=int)
+        ys = np.linalg.norm(all_rolling_velocities[i], axis=1)
+        plt.scatter(xs, ys, c='C0')
     
-    plt.title(f'Relative Velocities')
+    plt.title(f'Rolling Velocities')
     plt.xlabel('Steps')
-    plt.ylabel('Relative Velocity')
-    plt.savefig(f'{FILE_DIR}/sliding/relative_velocities.png')
+    plt.ylabel('Rolling Velocity')
+    plt.savefig(f'{FILE_DIR}/sliding/rolling_velocities.png', bbox_inches='tight')
     
     plt.figure(figsize=(6, 4), dpi=300)
     
@@ -156,12 +159,12 @@ def plot_speeds(all_tangential_velocities, all_relative_velocities, all_normal_v
             continue
         xs = np.full(len(all_normal_velocities[i]), i, dtype=int)
         ys = np.linalg.norm(all_normal_velocities[i], axis=1)
-        plt.scatter(xs, ys)
+        plt.scatter(xs, ys, c='C0')
     
     plt.title(f'Normal Velocities')
     plt.xlabel('Steps')
     plt.ylabel('Normal Velocity')
-    plt.savefig(f'{FILE_DIR}/sliding/normal_velocities.png')
+    plt.savefig(f'{FILE_DIR}/sliding/normal_velocities.png', bbox_inches='tight')
 
 
 if __name__ == '__main__':

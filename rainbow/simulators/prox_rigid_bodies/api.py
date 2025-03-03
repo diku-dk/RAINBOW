@@ -9,6 +9,7 @@ the information needed to run the simulation.
 import logging
 import numpy as np
 
+import rainbow.procedural.gears as GEAR
 import rainbow.geometry.surface_mesh as MESH
 import rainbow.simulators.prox_rigid_bodies.mass as MASS
 import rainbow.math.functions as FUNC
@@ -817,6 +818,28 @@ def get_log(engine: Engine) -> list[dict[str, any]]:
                     Each dictionary holds profiling information about the corresponding time-step.
     """
     return engine.stepper.log
+
+
+def add_gear(
+    engine: Engine,
+    name: str,
+    gear: GEAR.Gear,
+    body_type: str = "free",
+    material_name: str = "default",
+    density: float = 1.0,
+) -> str:
+    gear_body_name = add_object(
+        engine,
+        name,
+        gear.mesh,
+        gear.position,
+        gear.orientation,
+        body_type,
+        material_name,
+        density,
+    )
+    engine.gears[gear_body_name] = gear
+    return gear_body_name
 
 
 def add_object(

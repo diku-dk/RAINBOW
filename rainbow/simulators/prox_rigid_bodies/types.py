@@ -9,6 +9,7 @@ from typing import Tuple, Optional, Union
 
 import numpy as np
 
+import rainbow.procedural.gears as GEAR
 import rainbow.math.vector3 as V3
 import rainbow.math.quaternion as Q
 from rainbow.geometry.grid3 import Grid
@@ -502,3 +503,4 @@ class Engine:
         self.surfaces_interactions = SurfacesInteractionLibrary()
         self.params = Parameters()
         self.stepper = None  # The time stepper used to simulate the world forward in time.
+        self.gears: dict[str, GEAR.Gear] = dict()

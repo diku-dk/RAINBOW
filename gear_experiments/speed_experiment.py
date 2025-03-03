@@ -111,7 +111,7 @@ def plot_speeds(gear1_spins, gear2_spins, z1, z2):
     plt.xlabel('Steps')
     plt.ylabel('Angular Speed')
     plt.legend()
-    plt.savefig(f'{FILE_DIR}/speed/planet_speeds_{z1}_{z2}.png')
+    plt.savefig(f'{FILE_DIR}/speed/planet_speeds_{z1}_{z2}.png', bbox_inches='tight')
 
 
 if __name__ == '__main__':

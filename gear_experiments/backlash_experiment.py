@@ -132,7 +132,7 @@ def plot_speeds(planet_names, planet_velocities, sun_velocities, sdf_resolution,
     plt.xlabel('Steps')
     plt.ylabel('Angular Speed')
     plt.legend()
-    plt.savefig(f'{FILE_DIR}/planet_speeds_{sdf_resolution}{"_with_sun" if include_sun else ""}{"_onlyz" if only_z_axis else ""}.png')
+    plt.savefig(f'{FILE_DIR}/planet_speeds_{sdf_resolution}{"_with_sun" if include_sun else ""}{"_onlyz" if only_z_axis else ""}.png', bbox_inches='tight')
 
 
 if __name__ == '__main__':
