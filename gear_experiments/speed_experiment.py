@@ -40,7 +40,7 @@ def main():
 
     engine = API.create_engine()
     engine.params.time_step = 0.001
-    engine.params.driver_angular_velocity = V3.k()
+    engine.params.driver_angular_velocity = 0.1 * V3.k()
     engine.params.sdf_min_cells = sdf_resolution
     engine.params.sdf_max_cells = sdf_resolution
     engine.params.resolution = sdf_resolution
@@ -107,9 +107,9 @@ def plot_speeds(gear1_spins, gear2_spins, z1, z2):
     plt.plot(np.linalg.norm(gear1_spins, axis=1), label='Gear 1')
     plt.plot(np.linalg.norm(gear2_spins, axis=1), label='Gear 2')
 
-    plt.title(f'Gear Speeds (Z1={z1}, Z2={z2})')
+    plt.title(f'Gear Angular Speeds (Z1={z1}, Z2={z2})')
     plt.xlabel('Steps')
-    plt.ylabel('Angular Speed')
+    plt.ylabel('Angular Speed (rad/s)')
     plt.legend()
     plt.savefig(f'{FILE_DIR}/speed/planet_speeds_{z1}_{z2}.png', bbox_inches='tight')
 
