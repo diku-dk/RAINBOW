@@ -36,6 +36,12 @@ class GearSpec:
             raise ValueError("Number of teeth z must be greater than 4.")
         if not (0 <= pressure_angle <= 90):
             raise ValueError("Pressure angle alpha must be between 0 and 90 degrees.")
+        if helix_angle is not None and not (-90 < helix_angle < 90):
+            raise ValueError("Helix angle beta must be between -90 and 90 degrees.")
+        if bevel_cone_angle is not None and not (0 <= bevel_cone_angle <= 90):
+            raise ValueError("Bevel cone angle must be between 0 and 90 degrees.")
+        if (bevel_cone_angle is not None and bevel_cone_angle > 0) and (helix_angle is not None and helix_angle > 0):
+            raise ValueError("A gear cannot be both helical and bevel.")
         
         self.m = m # module
         self.z = z # number of teeth
@@ -129,9 +135,31 @@ class PlanetaryGear:
         self.gears = [self.sun_gear] + self.planet_gears + [self.ring_gear]
 
 
-class MatingSpec:
-    def __init__(self, driving_gear: GearSpec, driven_gear: GearSpec, position: np.ndarray, rotation: np.ndarray) -> None:
-        self.driving_gear = driving_gear
-        self.driven_gear = driven_gear
-        self.position = position
-        self.rotation = rotation
+class BevelSpec:
+    def __init__(self, m: float, z1: int, z2: int, shaft_angle: float = 90, pressure_angle: float = 20) -> None:
+        self.shaft_angle = np.deg2rad(shaft_angle)
+        
+        self.delta1 = np.arctan(np.sin(self.shaft_angle) / (z2 / z1 + np.cos(self.shaft_angle)))
+        self.delta2 = self.shaft_angle - self.delta1 # np.arctan(np.sin(self.shaft_angle) / (z1 / z2 + np.cos(self.shaft_angle)))
+        
+        self.spec1 = GearSpec(m, z1, pressure_angle, bevel_cone_angle=np.rad2deg(self.delta1))
+        self.spec2 = GearSpec(m, z2, pressure_angle, bevel_cone_angle=np.rad2deg(self.delta2))
+        
+        addendum2 = 0.54 * m + 0.46 * m / (z2 * np.cos(self.delta1) / (z1 * np.cos(self.delta2)))
+        addendum1 = 2 * m - addendum2
+        dedendum1 = 2.188 * m - addendum1
+        dedendum2 = 2.188 * m - addendum2
+        
+        self.spec1.ha = addendum1
+        self.spec1.hd = dedendum1
+        self.spec2.ha = addendum2
+        self.spec2.hd = dedendum2
+        
+        self.cone_distance = self.spec2.rp / np.sin(self.delta2)
+
+
+class BevelGearPair:
+    def __init__(self, bevel_spec: BevelSpec, gear1: Gear, gear2: Gear) -> None:
+        self.bevel_spec = bevel_spec
+        self.gear1 = gear1
+        self.gear2 = gear2

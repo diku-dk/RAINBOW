@@ -6,6 +6,8 @@ import os
 import sys
 import polyscope as ps
 
+import pickle
+
 # Add the parent directory to the path to import from rainbow
 FILE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(FILE_DIR))
@@ -19,6 +21,10 @@ import rainbow.procedural.gears as GEAR
 import rainbow.simulators.prox_rigid_bodies.scenes as PROC
 
 from gear_app import GearApp
+
+
+plt.rc('font', size=12)
+plt.rc('font', family='serif')
 
 
 def main():
@@ -36,23 +42,23 @@ def main():
 
     engine = API.create_engine()
     engine.params.time_step = 0.001
-    engine.params.driver_angular_velocity = (np.pi / 2) * V3.k()
-    engine.params.sdf_min_cells = sdf_resolution
+    engine.params.driver_angular_velocity = 2 * V3.k()
+    engine.params.sdf_min_cells = 64
     engine.params.sdf_max_cells = sdf_resolution
     engine.params.resolution = sdf_resolution
     
-    app = GearApp(engine, f'{FILE_DIR}/PlanetaryGear_{sdf_resolution}', headless)
+    app = GearApp(engine, f'{FILE_DIR}/backlash/PlanetaryGear_{sdf_resolution}', headless)
 
     factory = GEAR.generators.GearFactory()
 
-    m = 0.1
+    m = 1
     face_width = 10 * m
     
     z_sun = 31
     z_planet = 17
     z_ring = z_sun + 2 * z_planet
-    planetary_spec = GEAR.types.PlanetaryGearSpec(m, z_sun, z_planet, z_ring, N_planet=3, helix_angle=20)
-    planetary_gear = factory.create_planetary_gear(planetary_spec, face_width, subdivisions=10)
+    planetary_spec = GEAR.types.PlanetaryGearSpec(m, z_sun, z_planet, z_ring, N_planet=3, helix_angle=None)
+    planetary_gear = factory.create_planetary_gear(planetary_spec, face_width, subdivisions=3)
 
     sun_gear = planetary_gear.sun_gear
     planet_gears = planetary_gear.planet_gears
@@ -96,7 +102,7 @@ def main():
     def callback(engine: TYPES.Engine):
         nonlocal screenshot_taken
         if not screenshot_taken:
-            ps.screenshot(f'{FILE_DIR}/screenshot_{sdf_resolution}.png')
+            ps.screenshot(f'{FILE_DIR}/backlash/screenshot_{sdf_resolution}.png')
             screenshot_taken = True
         sun_velocities.append(API.get_spin(engine, sun_name))
         planet_velocities.append([API.get_spin(engine, name) for name in planet_names])
@@ -107,6 +113,8 @@ def main():
     sun_velocities = np.array(sun_velocities)
     planet_velocities = np.array(planet_velocities).reshape(-1, 3, 3)
     ring_velocities = np.array(ring_velocities)
+    
+    pickle.dump((sdf_resolution, sun_velocities, planet_velocities), open(f'{FILE_DIR}/backlash/velocities_{sdf_resolution}.pkl', 'wb'))
     
     plot_speeds(planet_names, planet_velocities, sun_velocities, sdf_resolution, include_sun=True)
     plot_speeds(planet_names, planet_velocities, sun_velocities, sdf_resolution, include_sun=False)
@@ -130,9 +138,9 @@ def plot_speeds(planet_names, planet_velocities, sun_velocities, sdf_resolution,
 
     plt.title(f'Planet Speeds (SDF Grid Size: {sdf_resolution}x{sdf_resolution}x{sdf_resolution})')
     plt.xlabel('Steps')
-    plt.ylabel('Angular Speed')
+    plt.ylabel('Angular Speed (rad/s)')
     plt.legend()
-    plt.savefig(f'{FILE_DIR}/planet_speeds_{sdf_resolution}{"_with_sun" if include_sun else ""}{"_onlyz" if only_z_axis else ""}.png', bbox_inches='tight')
+    plt.savefig(f'{FILE_DIR}/backlash/planet_speeds_{sdf_resolution}{"_with_sun" if include_sun else ""}{"_onlyz" if only_z_axis else ""}.png', bbox_inches='tight')
 
 
 if __name__ == '__main__':

@@ -27,21 +27,25 @@ def create_engine(
             material_name,
             density,
         )
-    
-    stroke_height = 10
-    
-    z_ring = 60
-    z_planet = int(z_ring * 2 / 3)
-    m = stroke_height / (z_ring - z_planet)
-    gear_width = 4 * m
+    logger = logging.getLogger("create_engine")
     
     piston_radius = 4
     piston_height = 4
+    stroke_height = 10
     clearance = 1
-    eccentricity = 1
-    disk_radius = 5
-    disk_width = gear_width
-    con_rod_width = disk_width * 0.8
+    eccentricity = 5
+    disk_radius = 4
+    disk_width = 2
+    con_rod_width = 1.6
+    
+    z_ring = 42
+    z_planet = int(z_ring * 2 / 3)
+    logger.info(f"Ring gear: z = {z_ring}")
+    logger.info(f"Planet gear: z = {z_planet}")
+    gear_width = 2
+    
+    m = stroke_height / (z_ring - z_planet)
+    
     
     # Create the gears
     ring_spec = GEAR.GearSpec(m, z_ring, is_internal=True)
@@ -68,11 +72,11 @@ def create_engine(
     
     # Add the crank shaft. It is important that this is the first object added to the engine
     # as it is the object that is driven in the simulation
-    """ crank_shaft_mesh = API.create_mesh(*MESH.create_cylinder(2 * ring_spec.rp, 2 * gear_width, 16))
+    crank_shaft_mesh = API.create_mesh(*MESH.create_cylinder(2 * ring_spec.rp, 2 * gear_width, 16))
     crank_shaft_position = V3.make(0, 0, -5 * gear_width)
     crank_shaft_orientation = Q.Rx(np.pi / 2)
     crank_shaft_name = API.add_object(engine, "crank_shaft", crank_shaft_mesh, crank_shaft_position, crank_shaft_orientation, material_name=material_name, density=density)
-    """
+   
     # Add the gears to the engine
     ring1_name = add_gear(ring1, "ring1")
     #ring2_name = add_gear(ring2, "ring2")
@@ -127,7 +131,6 @@ def create_engine(
         cylinder_wall_mesh = API.create_mesh(*MESH.create_box(cylinder_thickness, cylinder_height, 2 * (cylinder_radius + cylinder_thickness + cylinder_spacing)))
         API.add_object(engine, f"cylinder_wall_{i}", cylinder_wall_mesh, position, orientation, "fixed", material_name, density) """
     
-    return
     
     # Add the ground
     ground_mesh = MESH.Mesh(*MESH.create_box(100, 1, 100))
@@ -144,7 +147,7 @@ def create_engine(
     #API.add_hinge(engine, crank_shaft_name, planet2_name, origin, V3.k())
     
     # Create hinge joint between the planet gears and the connecting rod
-    origin1 = planet1.position + gear_width * V3.k() - eccentricity * V3.j()
+    origin1 = disk_position #planet1.position + gear_width * V3.k() - eccentricity * V3.j()
     #origin2 = planet2.position - gear_width * V3.k() - eccentricity * V3.j()
     API.add_hinge(engine, planet1_name, con_rod_name, origin1, V3.k())
     #API.add_hinge(engine, planet2_name, connecting_rod_name, origin2, V3.k())
@@ -154,5 +157,5 @@ def create_engine(
     API.add_hinge(engine, con_rod_name, piston_name, origin, V3.k())
     
     # Create sliding joint for the piston
-    origin = ring1.position
+    origin = disk_position
     API.add_sliding_joint(engine, ground_name, piston_name, origin, V3.j())

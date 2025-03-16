@@ -345,7 +345,7 @@ def create_shape(engine, shape_name: str, mesh: MESH.Mesh, transform_to_body_fra
     num_cells = np.clip(num_cells, engine.params.sdf_min_cells, engine.params.sdf_max_cells).astype(int)
     logger.info(f'Clipped grid cells: {num_cells}')
     
-    boundary = max(max_length * 0.1, engine.params.envelope * 2)
+    boundary = max(max_length * 0.01, engine.params.envelope * 2)
     shape.grid = GRID.create_signed_distance(
         shape.mesh.V,
         shape.mesh.T,

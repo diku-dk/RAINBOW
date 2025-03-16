@@ -2,7 +2,7 @@ import numpy as np
 
 import rainbow.math.quaternion as Q
 
-from .types import GearSpec, PlanetaryGearSpec, MatingSpec
+from .types import GearSpec, PlanetaryGearSpec
 
 
 def compute_gear_position(spec1: GearSpec, spec2: GearSpec, angle: float) -> np.ndarray:

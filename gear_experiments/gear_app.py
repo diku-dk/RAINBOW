@@ -87,9 +87,9 @@ class GearApp:
         ps.set_up_dir('y_up')
         ps.init()
         ps.set_ground_plane_mode('none')
-        look_dir = np.array([1, 1, 10], dtype=np.float64)
+        look_dir = np.array([2, 1, 10], dtype=np.float64)
         look_dir /= np.linalg.norm(look_dir)
-        ps.look_at(100 * look_dir, (0, 0, 0))
+        ps.look_at(40 * look_dir, (10, 0, 0))
         ps.set_user_callback(self.callback)
 
         for body in self.engine.bodies.values():

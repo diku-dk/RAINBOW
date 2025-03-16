@@ -21,6 +21,10 @@ import rainbow.simulators.prox_rigid_bodies.scenes as PROC
 from gear_app import GearApp
 
 
+plt.rc('font', size=12)
+plt.rc('font', family='serif')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('sdf_resolution', type=int, help='The resolution of the SDF grid')
@@ -36,12 +40,15 @@ def main():
     z1: int = args.z1
     z2: int = args.z2
     
+    print(f'SDF resolution: {sdf_resolution}')
+    print(f'Steps: {steps}')
+    
     logging.basicConfig(level=logging.INFO)
 
     engine = API.create_engine()
     engine.params.time_step = 0.001
-    engine.params.driver_angular_velocity = 0.1 * V3.k()
-    engine.params.sdf_min_cells = sdf_resolution
+    engine.params.driver_angular_velocity = 1 * V3.k()
+    engine.params.sdf_min_cells = 64
     engine.params.sdf_max_cells = sdf_resolution
     engine.params.resolution = sdf_resolution
     
@@ -93,12 +100,19 @@ def main():
     
     plot_speeds(gear1_spin, gear2_spin, z1, z2)
     
-    gear1_mean_speed = np.mean(np.linalg.norm(gear1_spin[100:], axis=1))
-    gear2_mean_speed = np.mean(np.linalg.norm(gear2_spin[100:], axis=1))
+    gear1_mean_speed = np.mean(np.linalg.norm(gear1_spin[50:], axis=1))
+    gear2_mean_speed = np.mean(np.linalg.norm(gear2_spin[50:], axis=1))
     
-    print(f'Gear 1 mean speed: {gear1_mean_speed}')
-    print(f'Gear 2 mean speed: {gear2_mean_speed}')
-    print(f'Gear 1 speed ratio: {gear1_mean_speed / gear2_mean_speed}')
+    # variance
+    gear1_variance = np.var(np.linalg.norm(gear1_spin[50:], axis=1))
+    gear2_variance = np.var(np.linalg.norm(gear2_spin[50:], axis=1))
+    
+    # print in exponential notation
+    print(f'Gear 1 mean speed: {gear1_mean_speed:.6e}')
+    print(f'Gear 2 mean speed: {gear2_mean_speed:.6e}')
+    print(f'Gear 1 variance: {gear1_variance:.6e}')
+    print(f'Gear 2 variance: {gear2_variance:.6e}')
+    print(f'Mean speed ratio: {gear1_mean_speed / gear2_mean_speed:.6e}')
 
 
 def plot_speeds(gear1_spins, gear2_spins, z1, z2):
@@ -107,7 +121,7 @@ def plot_speeds(gear1_spins, gear2_spins, z1, z2):
     plt.plot(np.linalg.norm(gear1_spins, axis=1), label='Gear 1')
     plt.plot(np.linalg.norm(gear2_spins, axis=1), label='Gear 2')
 
-    plt.title(f'Gear Angular Speeds (Z1={z1}, Z2={z2})')
+    plt.title(f'Gear Angular Speeds ($z_1={z1}, z_2={z2}$)')
     plt.xlabel('Steps')
     plt.ylabel('Angular Speed (rad/s)')
     plt.legend()

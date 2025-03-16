@@ -1,11 +1,13 @@
 import numpy as np
 
+import rainbow.math.vector3 as V3
+import rainbow.math.quaternion as Q
 import rainbow.math.involute as INVOLUTE
 import rainbow.procedural.gears.mating as MATING
 import rainbow.geometry.surface_mesh as MESH
 import rainbow.simulators.prox_rigid_bodies.api as API
 
-from .types import Gear, GearSpec, PlanetaryGearSpec, PlanetaryGear
+from .types import BevelGearPair, BevelSpec, Gear, GearSpec, PlanetaryGearSpec, PlanetaryGear
 
 
 class GearFactory:
@@ -37,7 +39,7 @@ class GearFactory:
         V, T = self._extrude(spec, V, T, face_width, subdivisions)
         
         if spec.is_bevel:
-            V, T = self._bevel_transformation(spec, V, T)
+            V, T = self._bevel_transformation(spec, V, T, face_width)
             
             cylinder_idxs = np.arange(len(V_profile), len(V_profile) + len(V_cylinder), dtype=int)
             cylinder_idxs = np.array([
@@ -63,6 +65,25 @@ class GearFactory:
         ring_gear.orientation = MATING.compute_planetary_gear_ring_orientation(planetary_spec)
         
         return PlanetaryGear(planetary_spec, sun_gear, planet_gears, ring_gear)
+
+    def create_bevel_gear_pair(self, bevel_spec: BevelSpec, face_width_ratio: float, subdivisions: int = 3) -> BevelGearPair:
+        face_width = face_width_ratio * bevel_spec.cone_distance
+        face_width1 = face_width * np.cos(bevel_spec.delta1)
+        face_width2 = face_width * np.cos(bevel_spec.delta2)
+        
+        gear1 = self.create_gear(bevel_spec.spec1, face_width1, subdivisions)
+        gear2 = self.create_gear(bevel_spec.spec2, face_width2, subdivisions)
+
+        cone_height1 = bevel_spec.spec1.rp / np.tan(bevel_spec.spec1.bevel_cone_angle)
+        cone_height2 = bevel_spec.spec2.rp / np.tan(bevel_spec.spec2.bevel_cone_angle)
+
+        gear1.position = V3.make(0, 0, cone_height1)
+        gear1.orientation = Q.identity()
+        gear2.orientation = Q.Ry(bevel_spec.shaft_angle)
+        gear2.position = Q.rotate(gear2.orientation, V3.make(0, 0, cone_height2))
+        
+        return BevelGearPair(bevel_spec, gear1, gear2)
+
 
     def points_per_tooth(self, spec: GearSpec) -> int:
         """Calculates the number of points per tooth for the gear.
@@ -304,10 +325,15 @@ class GearFactory:
         # Create the rotation matrix
         z = (i + 1) * face_width_step
         theta = 0
-        if spec.beta is not None:
-            vertical_pitch = 2 * np.pi * spec.rp * np.tan((np.pi / 2) - spec.beta)
-            theta = z / vertical_pitch
+        if spec.beta is not None and spec.beta != 0:
+            # Find pitch of the helix
+            # tan \beta = r_p / b => b = r_p / tan \beta
+            b = spec.rp / np.tan(spec.beta)
+            # Find the angle at the current z coordinate
+            # z = b * t => t = z / b
+            theta = z / b
         
+        # Rotation matrix around the z-axis
         R = np.array([
             [np.cos(theta), -np.sin(theta), 0, 0],
             [np.sin(theta), np.cos(theta), 0, 0],
@@ -321,7 +347,7 @@ class GearFactory:
         # Return the transformed vertices
         return V_tmp[:, :3]
 
-    def _bevel_transformation(self, spec: GearSpec, V: np.ndarray, T: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def _bevel_transformation(self, spec: GearSpec, V: np.ndarray, T: np.ndarray, face_width: float) -> tuple[np.ndarray, np.ndarray]:
         """Transforms the gear profile vertices to create a bevel gear.
         
         :param spec: The gear specification.
@@ -342,7 +368,7 @@ class GearFactory:
         
         # Create the hommogenous coordinates and offset the z coordinate
         V_hom = np.hstack((V, np.ones((len(V), 1))))
-        V_hom[:, 2] += pitch_cone_height
+        V_hom[:, 2] += pitch_cone_height - face_width / 2
         
         for i in range(len(V_hom)):
             coords = V_hom[i]

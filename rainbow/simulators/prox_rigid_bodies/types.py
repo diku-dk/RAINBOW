@@ -463,7 +463,7 @@ class Parameters:
         self.bvh_chunk_size: int = 255  # Number of nodes for a k-DOP bvh subtree, a chunk.
         self.K: int = 3  # The number of directions to use in the k-DOP bounding volumes.
         self.envelope: float = (
-            0.001  # Any geometry within this distance generates a contact point.
+            0.0001  # Any geometry within this distance generates a contact point.
         )
         self.resolution: int = (
             64  # The number of grid cells along each axis in the signed distance fields
@@ -504,3 +504,4 @@ class Engine:
         self.params = Parameters()
         self.stepper = None  # The time stepper used to simulate the world forward in time.
         self.gears: dict[str, GEAR.Gear] = dict()
+        self.gear_velocities: dict[str, np.ndarray] = dict()

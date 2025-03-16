@@ -21,6 +21,10 @@ import rainbow.simulators.prox_rigid_bodies.scenes as PROC
 from gear_app import GearApp
 
 
+plt.rc('font', size=12)
+plt.rc('font', family='serif')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('sdf_resolution', type=int, help='The resolution of the SDF grid')
@@ -45,7 +49,7 @@ def main():
     engine.params.sdf_max_cells = sdf_resolution
     engine.params.resolution = sdf_resolution
     
-    app = GearApp(engine, f'{FILE_DIR}/sliding_{z1}_{z2}', headless)
+    app = GearApp(engine, f'{FILE_DIR}/sliding/sliding_{z1}_{z2}', headless)
 
     factory = GEAR.generators.GearFactory()
 
@@ -63,6 +67,8 @@ def main():
     gear1_name = API.add_gear(engine, 'gear1', gear1)
     gear2_name = API.add_gear(engine, 'gear2', gear2)
     
+    engine.gear_velocities[gear2_name] = -0.98 * engine.params.driver_angular_velocity
+    
     max_ra = max(gear1.spec.ra, gear2.spec.ra)
     ground_name = PROC.create_ground(
         engine,
@@ -75,6 +81,7 @@ def main():
     API.add_hinge(engine, gear1_name, ground_name, gear1.position, V3.k())
     API.add_hinge(engine, gear2_name, ground_name, gear2.position, V3.k())
     
+    all_relative_velocities = []
     all_tangential_velocities = []
     all_rolling_velocities = []
     all_normal_velocities = []
@@ -89,6 +96,7 @@ def main():
         
         print(f'Number of contact points: {len(engine.contact_points)}')
         
+        relative_velocities = np.zeros((len(engine.contact_points), 1))
         tangential_velocities = np.zeros((len(engine.contact_points), 1))
         rolling_velocities = np.zeros((len(engine.contact_points), 1))
         normal_velocities = np.zeros((len(engine.contact_points), 1))
@@ -97,26 +105,29 @@ def main():
             r1 = cp.p - cp.bodyA.r
             r2 = cp.p - cp.bodyB.r
             
-            v1 = np.cross(cp.bodyA.w, r1)
-            v2 = np.cross(cp.bodyB.w, r2)
+            v1 = cp.bodyA.v + np.cross(cp.bodyA.w, r1)
+            v2 = cp.bodyB.v + np.cross(cp.bodyB.w, r2)
             
             n = V3.unit(cp.n)
             forward = V3.unit(np.cross(n, V3.k()))
-            rolling_direction = V3.unit(np.cross(n, forward))
+            sliding_direction = V3.unit(np.cross(n, forward))
             
             v_rel = v2 - v1
             v_norm_component = np.dot(v_rel, n)
             v_normal = v_norm_component * n
             
-            v_roll_component = np.dot(v_rel, rolling_direction)
-            v_roll = v_roll_component * rolling_direction
+            v_roll_component = np.dot(v_rel, sliding_direction)
+            v_roll = v_roll_component * sliding_direction
             
             v_tangent = v_normal + v_roll
+            
+            relative_velocities[i] = np.linalg.norm(v_rel)
             tangential_velocities[i] = np.linalg.norm(v_tangent)
-            rolling_velocities[i] = v_roll_component #np.linalg.norm(v_roll)
+            rolling_velocities[i] = np.linalg.norm(v_roll)
             normal_velocities[i] = np.linalg.norm(v_normal)
             normal_components[i] = np.dot(V3.unit(v_rel), n)
         
+        all_relative_velocities.append(relative_velocities)
         all_tangential_velocities.append(tangential_velocities)
         all_rolling_velocities.append(rolling_velocities)
         all_normal_velocities.append(normal_velocities)
@@ -124,12 +135,27 @@ def main():
 
     app.run(steps, callback=callback)
 
-    plot_speeds(all_tangential_velocities, all_rolling_velocities, all_normal_velocities, all_normal_components)
+    plot_speeds(all_relative_velocities, all_tangential_velocities, all_rolling_velocities, all_normal_velocities, all_normal_components)
 
 
-def plot_speeds(all_tangential_velocities, all_rolling_velocities, all_normal_velocities, all_normal_components):
+def plot_speeds(all_relative_velocities, all_tangential_velocities, all_sliding_velocities, all_normal_velocities, all_normal_components):
     plt.figure(figsize=(6, 4), dpi=300)
+    for i in range(len(all_relative_velocities)):
+        if len(all_relative_velocities[i]) == 0:
+            continue
+        xs = np.full(len(all_relative_velocities[i]), i, dtype=int)
+        ys = all_relative_velocities[i]
+        plt.scatter(xs, ys, c='C0')
+    
+    plt.title(f'Relative Velocities')
+    plt.xlabel('Steps')
+    plt.ylabel('Relative Velocity (m/s)')
+    plt.xlim(0, len(all_tangential_velocities))
+    plt.yscale('log')
+    plt.savefig(f'{FILE_DIR}/sliding/relative_velocities.png', bbox_inches='tight')
+    
 
+    plt.figure(figsize=(6, 4), dpi=300)
     for i in range(len(all_tangential_velocities)):
         if len(all_tangential_velocities[i]) == 0:
             continue
@@ -140,24 +166,27 @@ def plot_speeds(all_tangential_velocities, all_rolling_velocities, all_normal_ve
     plt.title(f'Tangential Velocities')
     plt.xlabel('Steps')
     plt.ylabel('Tangential Velocity (m/s)')
+    plt.xlim(0, len(all_tangential_velocities))
+    plt.yscale('log')
     plt.savefig(f'{FILE_DIR}/sliding/tangential_velocities.png', bbox_inches='tight')
     
     plt.figure(figsize=(6, 4), dpi=300)
-    
-    for i in range(len(all_rolling_velocities)):
-        if len(all_rolling_velocities[i]) == 0:
+    for i in range(len(all_sliding_velocities)):
+        if len(all_sliding_velocities[i]) == 0:
             continue
-        xs = np.full(len(all_rolling_velocities[i]), i, dtype=int)
-        ys = np.linalg.norm(all_rolling_velocities[i], axis=1)
+        xs = np.full(len(all_sliding_velocities[i]), i, dtype=int)
+        ys = np.linalg.norm(all_sliding_velocities[i], axis=1)
         plt.scatter(xs, ys, c='C0')
     
-    plt.title(f'Rolling Velocities')
+    plt.title(f'Sliding Velocities')
     plt.xlabel('Steps')
-    plt.ylabel('Rolling Velocity (m/s)')
-    plt.savefig(f'{FILE_DIR}/sliding/rolling_velocities.png', bbox_inches='tight')
+    plt.ylabel('Sliding Velocity (m/s)')
+    plt.xlim(0, len(all_tangential_velocities))
+    plt.yscale('log')
+    plt.savefig(f'{FILE_DIR}/sliding/sliding_velocities.png', bbox_inches='tight')
+    #plt.show()
     
     plt.figure(figsize=(6, 4), dpi=300)
-    
     for i in range(len(all_normal_velocities)):
         if len(all_normal_velocities[i]) == 0:
             continue
@@ -168,10 +197,11 @@ def plot_speeds(all_tangential_velocities, all_rolling_velocities, all_normal_ve
     plt.title(f'Normal Velocities')
     plt.xlabel('Steps')
     plt.ylabel('Normal Velocity (m/s)')
+    plt.xlim(0, len(all_tangential_velocities))
+    plt.yscale('log')
     plt.savefig(f'{FILE_DIR}/sliding/normal_velocities.png', bbox_inches='tight')
     
     plt.figure(figsize=(6, 4), dpi=300)
-    
     for i in range(len(all_normal_components)):
         if len(all_normal_components[i]) == 0:
             continue
@@ -182,6 +212,8 @@ def plot_speeds(all_tangential_velocities, all_rolling_velocities, all_normal_ve
     plt.title(f'Normal Components')
     plt.xlabel('Steps')
     plt.ylabel('Normal Component (m/s)')
+    plt.xlim(0, len(all_tangential_velocities))
+    plt.yscale('log')
     plt.savefig(f'{FILE_DIR}/sliding/normal_components.png', bbox_inches='tight')
 
 

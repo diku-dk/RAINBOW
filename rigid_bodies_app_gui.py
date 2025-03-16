@@ -168,36 +168,18 @@ def create_gui():
         logger.info(f"Creating scene = {scene_name}")
 
         engine = API.create_engine()
+        engine.params.sdf_max_cells = 800
         
-        cycles = 100
-        steps_per_degree = 5
+        total_time = 1.0
+        steps = 5000
+        engine.params.time_step = total_time / steps
+        engine.params.driver_angular_velocity = 6 * np.pi * V3.j()
         
-        #revolutions_per_second = 3
-        #revolutions_per_minute = 60 * revolutions_per_second
-        revolutions_per_minute = 1000
-        revolutions_per_second = revolutions_per_minute / 60
-        
-        seconds_per_cycle = 1 / revolutions_per_second * 3
-        total_time = cycles * seconds_per_cycle
-        
-        steps_per_cycle = steps_per_degree * 1080
-        step_size = seconds_per_cycle / steps_per_cycle
-        
-        print(f"Revolutions per second: {revolutions_per_second}")
-        print(f"Revolutions per minute: {revolutions_per_minute}")
-        print(f"Seconds per cycle: {seconds_per_cycle}")
-        print(f"Steps per cycle: {steps_per_cycle}")
-        print(f"Step size: {step_size}")
-        print(f"Total time: {total_time}")
-
-        angular_speed = 2 * np.pi * revolutions_per_second
-        engine.params.time_step = step_size
-        engine.params.driver_angular_velocity = angular_speed * V3.k()
-        
-        #engine.params.time_step = 0.01
-        
-        steps = int(np.round(total_time / engine.params.time_step))
+        print(f'Total time: {total_time}')
         print(f"Steps: {steps}")
+        print(f'Time step: {engine.params.time_step}')
+        print(f'Angular velocity: {engine.params.driver_angular_velocity}')
+        
         app_params['total time'] = total_time
         app_params['steps'] = steps
         app_params['step'] = 0
@@ -234,7 +216,7 @@ def simulate() -> None:
     
     if app_params['step'] == 0:
         print(f"Creating USD manager")
-        usd_manager = UsdManager('engine_1080.usda')
+        usd_manager = UsdManager(f'engine_{app_params["total time"]}_{engine.params.time_step}.usda')
         usd_manager.initialize(engine)
 
     logger.info(f"Running simulation step {app_params['step']}")
