@@ -8,6 +8,12 @@ import numpy as np
 
 from examples import profile_soft_realtime_scale
 from examples import verify_soft
+from darerl.simulators.soft import (
+    create_bending_baseline,
+    create_compress_baseline,
+    create_stretch_baseline,
+    create_twist_baseline,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -24,6 +30,30 @@ def load_autotune_module():
 
 
 class TestSoftExamples(unittest.TestCase):
+    def test_all_canonical_baselines_remain_finite_for_reference_rollout(self):
+        factories = (
+            create_bending_baseline,
+            create_twist_baseline,
+            create_compress_baseline,
+            create_stretch_baseline,
+        )
+        try:
+            import jax  # noqa: F401
+            backends = (False, True)
+        except ImportError:
+            backends = (False,)
+        for factory in factories:
+            baseline = factory(6, 3, 3)
+            for use_jax in backends:
+                for material in ("svk", "stable_neohookean"):
+                    body = baseline.create_body(use_jax=use_jax, material_model=material)
+                    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+                        for _ in range(1000):
+                            body.step(1.0e-4, gravity=baseline.gravity, sync=False)
+                        body.synchronize()
+                    self.assertTrue(np.all(np.isfinite(body.x)), (factory.__name__, material, use_jax))
+                    self.assertTrue(np.all(np.isfinite(body.v)), (factory.__name__, material, use_jax))
+
     def test_verification_portfolio_contains_eight_combinations(self):
         cases = verify_soft.make_cases()
         self.assertEqual(len(cases), 8)

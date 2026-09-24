@@ -37,8 +37,10 @@ BASELINE_DEPTH = 0.02
 # canonical 10 cm scale while remaining compatible with the default fine
 # semi-implicit reference timestep used by the autotuner.
 BENDING_GRAVITY = (0.0, -9.81, 0.0)
-STRETCH_PRESSURE = 5.0e4
-COMPRESSION_PRESSURE = -5.0e4
+# Pressure loads are chosen to remain stable for the default 1e-4 s
+# semi-implicit reference step while still producing measurable axial motion.
+STRETCH_PRESSURE = 1.0e3
+COMPRESSION_PRESSURE = -1.0e3
 TWIST_TORQUE = 5.0e-3
 
 
