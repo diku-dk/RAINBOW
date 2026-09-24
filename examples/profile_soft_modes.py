@@ -1,13 +1,14 @@
-"""Profile and visualize stretch, bend, and twist modes of a soft beam.
+"""Profile and visualize one canonical soft-beam deformation mode.
 
-The reference portfolio contains hanging, extension, compression, and twist
-load cases. Both semi-implicit Euler and implicit BFGS are benchmarked. The
-largest mesh also produces initial/final mesh figures and energy histories.
+The default case is the bending cantilever. Both semi-implicit Euler and
+implicit BFGS are benchmarked, including all three implicit directional
+residual strategies. The largest mesh also produces initial/final mesh
+figures and energy histories.
 
 Run with::
 
-    uv run python -m examples.profile_soft_body_cantilever
-    uv run python -m examples.profile_soft_body_cantilever --scenario twist
+    uv run python -m examples.profile_soft_modes
+    uv run python -m examples.profile_soft_modes --case twist
 """
 
 from __future__ import annotations
@@ -35,8 +36,14 @@ from darerl.simulators.soft import (
 )
 from darerl.simulators.soft.mesh import compute_boundary_faces
 
-SCENARIOS = ("hanging", "extension", "compression", "twist")
+CASES = ("bending", "twist", "compress", "stretch")
 METHODS = ("semi_implicit", "implicit_bfgs")
+SOLVER_COMBINATIONS = (
+    ("semi_implicit", "semi_implicit", None),
+    ("implicit_bfgs/tangent_action", "implicit_bfgs", "tangent_action"),
+    ("implicit_bfgs/closed_form", "implicit_bfgs", "closed_form"),
+    ("implicit_bfgs/finite_difference", "implicit_bfgs", "finite_difference"),
+)
 BACKENDS = (("NumPy", False), ("JAX", True))
 
 # Approximate Ecoflex-like soft silicone properties.  The exact values depend
@@ -52,18 +59,18 @@ class LoadCase:
 
 def make_cantilever(i: int, j: int, k: int, scenario: str) -> SoftBaseline:
     factories = {
-        "hanging": create_bending_baseline,
-        "extension": create_stretch_baseline,
-        "compression": create_compress_baseline,
+        "bending": create_bending_baseline,
+        "stretch": create_stretch_baseline,
+        "compress": create_compress_baseline,
         "twist": create_twist_baseline,
     }
     return factories[scenario](i, j, k)
 
 
 def create_load_case(name: str) -> LoadCase:
-    if name == "hanging":
+    if name == "bending":
         return LoadCase(name, BENDING_GRAVITY)
-    if name in {"extension", "compression", "twist"}:
+    if name in {"stretch", "compress", "twist"}:
         return LoadCase(name, (0.0, 0.0, 0.0))
     raise ValueError(f"unknown load case: {name}")
 
@@ -276,7 +283,7 @@ def plot_trajectory_pages(trajectories: dict, surface: np.ndarray, output: Path)
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scenario", choices=SCENARIOS, default=None)
+    parser.add_argument("--case", choices=CASES, default="bending")
     parser.add_argument("--method", choices=METHODS, default=None)
     parser.add_argument("--min-elements", type=int, default=10_000)
     parser.add_argument("--max-elements", type=int, default=100_000)
@@ -288,7 +295,7 @@ def main() -> None:
     parser.add_argument("--runs", type=int, default=1, help="independent simulation runs")
     parser.add_argument("--force-repeats", type=int, default=1)
     parser.add_argument("--settings", type=Path, default=Path("output/auto-tuned-settings.json"), help="auto-tuned BFGS JSON settings")
-    parser.add_argument("--output", type=Path, default=Path("output/soft_body_scaling.pdf"))
+    parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
     if args.duration <= 0.0 or args.dt <= 0.0:
         parser.error("duration and dt must be positive")
@@ -311,23 +318,32 @@ def main() -> None:
 
     output = args.output if args.output.is_absolute() else PROJECT_ROOT / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
-    selected_scenarios = (args.scenario,) if args.scenario else SCENARIOS
+    selected_scenarios = (args.case,)
+    if args.output is None:
+        args.output = Path(f"output/soft_{args.case}_modes.pdf")
     selected_methods = (args.method,) if args.method else METHODS
     settings_path = args.settings if args.settings.is_absolute() else PROJECT_ROOT / args.settings
     if not settings_path.is_file():
         parser.error(
             f"BFGS settings file not found: {settings_path}. "
-            "Run examples/autotune-soft-on-bending-beam.py first or pass --settings."
+            "Run examples/autotune-soft.py first or pass --settings."
         )
     with settings_path.open() as stream:
         tuned_settings = json.load(stream)
     tuned_combinations = tuned_settings.get("combinations", {})
 
-    def get_settings(backend: str) -> dict:
-        entry = tuned_combinations.get(f"implicit_bfgs/{backend}")
+    def get_settings(backend: str, strategy: str | None) -> dict:
+        if strategy is None:
+            return {}
+        entry = tuned_combinations.get(f"implicit_bfgs/{strategy}/{backend}")
+        if entry is None:
+            entry = tuned_combinations.get(f"implicit_bfgs/{backend}")
         if entry is not None:
-            return dict(entry.get("solver_settings", {}))
-        return {}
+            settings = dict(entry.get("solver_settings", {}))
+        else:
+            settings = {}
+        settings["directional_residual_strategy"] = strategy
+        return settings
 
     print(f"Using BFGS settings from {settings_path}")
     print("Material and geometry: canonical 10 cm skin-like soft-body baselines")
@@ -339,31 +355,34 @@ def main() -> None:
         case = create_load_case(scenario_name)
         all_results[scenario_name] = {}
         print(f"\n=== {scenario_name} ===")
-        for method in selected_methods:
+        selected_combinations = tuple(
+            combination for combination in SOLVER_COMBINATIONS if combination[1] in selected_methods
+        )
+        for combination_label, method, strategy in selected_combinations:
             results = []
             for i in compute_mesh_sizes(args.min_elements, args.max_elements, args.num_sizes, args.j, args.k):
                 baseline = make_cantilever(i, args.j, args.k, scenario_name)
                 mesh, fixed, pressure_faces = baseline.mesh, baseline.fixed, baseline.pressure_faces
                 row = {"elements": mesh.tet_count, "nodes": mesh.node_count, "timings": {}}
-                row["timings"]["NumPy"] = [benchmark_backend(baseline, case, method, steps, args.force_repeats, args.dt, False, get_settings("NumPy")) for _ in range(runs)]
+                row["timings"]["NumPy"] = [benchmark_backend(baseline, case, method, steps, args.force_repeats, args.dt, False, get_settings("NumPy", strategy)) for _ in range(runs)]
                 if has_jax:
-                    row["timings"]["JAX"] = [benchmark_backend(baseline, case, method, steps, args.force_repeats, args.dt, True, get_settings("JAX")) for _ in range(runs)]
+                    row["timings"]["JAX"] = [benchmark_backend(baseline, case, method, steps, args.force_repeats, args.dt, True, get_settings("JAX", strategy)) for _ in range(runs)]
                 results.append(row)
-                print(f"{method:15} {mesh.tet_count:7,} elements ({mesh.node_count:7,} nodes; {runs} runs × {steps} steps)")
+                print(f"{combination_label:35} {mesh.tet_count:7,} elements ({mesh.node_count:7,} nodes; {runs} runs × {steps} steps)")
                 for backend in row["timings"]:
                     mean, q25, q75 = compute_step_summary(row, backend)
                     print(f"  {backend:5} one-step mean={mean:9.3f} ms [{q25:9.3f}, {q75:9.3f}]")
-            all_results[scenario_name][method] = results
+            all_results[scenario_name][combination_label] = results
 
             baseline = make_cantilever(largest_i, args.j, args.k, scenario_name)
             mesh = baseline.mesh
             for backend_name, use_jax in BACKENDS:
                 if use_jax and not has_jax:
                     continue
-                label = f"{method}/{backend_name}"
+                label = f"{combination_label}/{backend_name}"
                 trajectories.setdefault(scenario_name, {})[label] = compute_trajectory(
                     baseline, case, method, steps, args.dt, use_jax,
-                    get_settings(backend_name)
+                    get_settings(backend_name, strategy)
                 )
 
     mesh = make_cantilever(largest_i, args.j, args.k, selected_scenarios[0]).mesh

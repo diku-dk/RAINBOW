@@ -11,12 +11,18 @@ portable reference implementation otherwise.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Protocol
-
 import numpy as np
 
 from .nonlinear import solve_lbfgs
+from .material import Material, StableNeoHookeanMaterial, SVKMaterial
+from .mesh import TetMesh
+from .stepper import ImplicitBFGSStepper, SemiImplicitStepper
+from .forces import (
+    compute_directional_forces,
+    compute_elastic_forces as compute_numpy_elastic_forces,
+    compute_energy_density,
+    compute_pressure_forces,
+)
 
 try:  # Keep importing the package possible without installing JAX.
     import jax
@@ -37,100 +43,7 @@ except ImportError:  # pragma: no cover - exercised in environments without JAX
 Array = np.ndarray
 
 
-class Material(Protocol):
-    """Constitutive model interface used by future material implementations."""
-
-    def compute_lame_parameters(self) -> tuple[float, float]: ...
-
-    @property
-    def model_code(self) -> int: ...
-
-
-@dataclass(frozen=True)
-class SVKMaterial:
-    """Saint Venant--Kirchhoff material parameters."""
-
-    youngs_modulus: float
-    poisson_ratio: float
-    density: float
-
-    @property
-    def model_code(self) -> int:
-        return 0
-
-    def compute_lame_parameters(self) -> tuple[float, float]:
-        e, nu = self.youngs_modulus, self.poisson_ratio
-        if not np.isfinite(e) or e <= 0.0:
-            raise ValueError("youngs_modulus must be finite and positive")
-        if not (-1.0 < nu < 0.5):
-            raise ValueError("poisson_ratio must be in (-1, 0.5)")
-        if not np.isfinite(self.density) or self.density <= 0.0:
-            raise ValueError("density must be finite and positive")
-        return (nu * e / ((1.0 + nu) * (1.0 - 2.0 * nu)), e / (2.0 * (1.0 + nu)))
-
-
-@dataclass(frozen=True)
-class StableNeoHookeanMaterial(SVKMaterial):
-    """Stable Neo-Hookean material from Smith, de Goes, and Kim (2018)."""
-
-    @property
-    def model_code(self) -> int:
-        return 1
-
-
-@dataclass(frozen=True)
-class TetMesh:
-    """Reference data for an oriented first-order tetrahedral mesh."""
-
-    x0: Array
-    elements: Array
-    inv_Dm: Array
-    volume: Array
-    grad_N: Array
-    volume_grad_N: Array
-    lumped_mass: Array
-    inverse_lumped_mass: Array
-
-    @classmethod
-    def from_vertices(cls, vertices: Array, elements: Array, density: float = 1.0) -> "TetMesh":
-        x0 = np.asarray(vertices, dtype=np.float64)
-        t = np.asarray(elements, dtype=np.int32)
-        if x0.ndim != 2 or x0.shape[1] != 3:
-            raise ValueError("vertices must have shape (N, 3)")
-        if t.ndim != 2 or t.shape[1] != 4:
-            raise ValueError("elements must have shape (K, 4)")
-        if not np.all(np.isfinite(x0)):
-            raise ValueError("vertices must be finite")
-        if np.any(t < 0) or np.any(t >= len(x0)):
-            raise ValueError("elements contain an invalid vertex index")
-        if not np.isfinite(density) or density <= 0.0:
-            raise ValueError("density must be finite and positive")
-        p = x0[t]
-        dm = np.stack((p[:, 1] - p[:, 0], p[:, 2] - p[:, 0], p[:, 3] - p[:, 0]), axis=2)
-        det = np.linalg.det(dm)
-        if np.any(det <= 0.0):
-            bad = int(np.flatnonzero(det <= 0.0)[0])
-            raise ValueError(f"tetrahedron {bad} is inverted or degenerate in reference space")
-        inv_dm = np.linalg.inv(dm)
-        volume = det / 6.0
-        # grad_N[e, a] is grad of shape function a in reference coordinates.
-        grad_N = np.empty((len(t), 4, 3), dtype=np.float64)
-        # For F = D Dm^{-1}, grad(N_a) is row a of Dm^{-1}.
-        grad_N[:, 1:, :] = inv_dm
-        grad_N[:, 0, :] = -np.sum(grad_N[:, 1:, :], axis=1)
-        mass = np.zeros(len(x0), dtype=np.float64)
-        np.add.at(mass, t.reshape(-1), np.repeat(density * volume / 4.0, 4))
-        if np.any(mass <= 0.0):
-            raise ValueError("tetrahedral mesh contains a node with zero lumped mass")
-        return cls(x0, t, inv_dm, volume, grad_N, volume[:, None, None] * grad_N, mass, 1.0 / mass)
-
-    @property
-    def node_count(self) -> int:
-        return len(self.x0)
-
-    @property
-    def tet_count(self) -> int:
-        return len(self.elements)
+from dataclasses import dataclass
 
 
 @dataclass
@@ -262,10 +175,10 @@ class SoftBody:
         :meth:`step_implicit` for supported keys.
         """
         if method == "implicit_bfgs":
-            return self.step_implicit(dt, gravity, settings)
+            return ImplicitBFGSStepper().step(self, dt, np.asarray(gravity, dtype=np.float64), settings=settings)
         if method != "semi_implicit":
             raise ValueError("method must be 'semi_implicit' or 'implicit_bfgs'")
-        return self._step_semi_implicit(dt, gravity, sync)
+        return SemiImplicitStepper().step(self, dt, np.asarray(gravity, dtype=np.float64), sync=sync)
 
     def _step_semi_implicit(self, dt: float, gravity: Array, sync: bool) -> tuple[Array, Array]:
         """Advance with semi-implicit Euler."""
@@ -319,13 +232,17 @@ class SoftBody:
         ``g(x) = M/dt² * (x - x_n - dt*v_n) - f(x)``.
 
         Directional derivatives ``J_g(x) @ s`` reuse the force computation.
-        JAX uses ``jax.jvp``; the NumPy fallback uses a configurable forward
-        directional difference. Supported settings are:
+        ``directional_residual_strategy`` selects one of three force actions:
+        ``"tangent_action"`` uses a JAX JVP (or the analytical local tangent
+        in the NumPy backend), ``"closed_form"`` uses the explicit analytical
+        constitutive and pressure derivatives, and ``"finite_difference"``
+        uses a configurable forward difference. Supported settings are:
 
         ``max_iterations`` (25), ``tolerance`` (1e-6), ``history_size`` (10),
         ``line_search`` (True), ``max_line_search_iterations`` (12),
         ``line_search_reduction`` (0.5), ``line_search_c1`` (1e-4),
-        ``curvature_tolerance`` (1e-10), ``directional_epsilon`` (1e-6), and
+        ``curvature_tolerance`` (1e-10), ``directional_epsilon`` (1e-6),
+        ``directional_residual_strategy`` (``"tangent_action"``), and
         ``raise_on_failure`` (False).
         """
         if dt <= 0.0:
@@ -345,6 +262,7 @@ class SoftBody:
             "line_search_c1": 1.0e-4,
             "curvature_tolerance": 1.0e-10,
             "directional_epsilon": 1.0e-6,
+            "directional_residual_strategy": "tangent_action",
             "raise_on_failure": False,
         }
         if settings is not None:
@@ -362,6 +280,12 @@ class SoftBody:
             raise ValueError("line_search_c1 must be in [0, 1)")
         if cfg["tolerance"] <= 0.0 or cfg["directional_epsilon"] <= 0.0 or cfg["curvature_tolerance"] < 0.0:
             raise ValueError("solver tolerances and directional_epsilon must be valid positive values")
+        strategy_codes = {"tangent_action": 0, "closed_form": 1, "finite_difference": 2}
+        strategy = cfg["directional_residual_strategy"]
+        if strategy not in strategy_codes:
+            raise ValueError(
+                "directional_residual_strategy must be 'tangent_action', 'closed_form', or 'finite_difference'"
+            )
 
         x_n = np.asarray(self.x, dtype=np.float64).copy()
         v_n = np.asarray(self.v, dtype=np.float64).copy()
@@ -392,6 +316,8 @@ class SoftBody:
                 cfg["line_search_reduction"],
                 cfg["line_search_c1"],
                 cfg["curvature_tolerance"],
+                cfg["directional_epsilon"],
+                strategy_codes[strategy],
             )
             x_device.block_until_ready()
             self._jax_x, self._jax_v = x_device, v_device
@@ -401,6 +327,7 @@ class SoftBody:
                 "iterations": int(info[1]),
                 "final_residual_norm": float(info[2]),
                 "initial_residual_norm": float(info[3]),
+                "residual_reduction_factor": float(info[6]),
                 "line_search_steps": int(info[4]),
                 "history_length": int(info[5]),
             }
@@ -426,7 +353,13 @@ class SoftBody:
         def directional_residual(position: Array, direction: Array) -> Array:
             position_array = np.asarray(position).reshape(self.x.shape)
             direction_array = np.asarray(direction).reshape(self.x.shape)
-            df = self._directional_force(position_array, direction_array, gravity, cfg["directional_epsilon"])
+            df = self._directional_force(
+                position_array,
+                direction_array,
+                gravity,
+                cfg["directional_epsilon"],
+                strategy,
+            )
             result = np.zeros(position.size, dtype=np.float64)
             result[dofs] = scale * direction_array.reshape(-1)[dofs] - df[free].reshape(-1)
             return result
@@ -473,13 +406,24 @@ class SoftBody:
         return self.mesh.lumped_mass[:, None] * acceleration
 
     def _noninertial_forces(self, x: Array) -> Array:
-        forces = _numpy_forces(x, self.mesh, *self.material.compute_lame_parameters(), self.material.model_code)
-        forces += _numpy_pressure_forces(x, self.pressure_faces, self.pressure, self.mesh.node_count)
+        forces = compute_numpy_elastic_forces(x, self.mesh, *self.material.compute_lame_parameters(), self.material.model_code)
+        forces += compute_pressure_forces(x, self.pressure_faces, self.pressure, self.mesh.node_count)
         forces += self.external_forces
         return forces
 
-    def _directional_force(self, x: Array, direction: Array, gravity: Array, epsilon: float) -> Array:
-        if self._jax_enabled:
+    def _directional_force(
+        self,
+        x: Array,
+        direction: Array,
+        gravity: Array,
+        epsilon: float,
+        strategy: str = "tangent_action",
+    ) -> Array:
+        if strategy == "finite_difference":
+            length = max(float(np.linalg.norm(direction)), 1.0)
+            h = epsilon * max(1.0, float(np.linalg.norm(x))) / length
+            return (self._total_forces(x + h * direction, gravity) - self._total_forces(x, gravity)) / h
+        if strategy == "tangent_action" and self._jax_enabled:
             def force_kernel(position):
                 elastic = _jax_forces(position, *self._static, *self.material.compute_lame_parameters(), self.material.model_code)
                 pressure = _jax_pressure_forces(position, *self._pressure_static)
@@ -487,9 +431,17 @@ class SoftBody:
 
             _, derivative = jax.jvp(force_kernel, (jnp.asarray(x),), (jnp.asarray(direction),))
             return np.asarray(derivative)
-        length = max(float(np.linalg.norm(direction)), 1.0)
-        h = epsilon * max(1.0, float(np.linalg.norm(x))) / length
-        return (self._total_forces(x + h * direction, gravity) - self._total_forces(x, gravity)) / h
+        # NumPy has no built-in forward-mode AD. Its tangent-action strategy
+        # therefore uses the same analytical local tangent as ``closed_form``.
+        return compute_directional_forces(
+            x,
+            direction,
+            self.mesh,
+            *self.material.compute_lame_parameters(),
+            self.material.model_code,
+            self.pressure_faces,
+            self.pressure,
+        )
 
     def compute_deformation_gradient(self, x: Array | None = None) -> Array:
         x = self.x if x is None else np.asarray(x, dtype=np.float64)
@@ -517,7 +469,7 @@ class SoftBody:
         if self._jax_enabled:
             x_device = self._jax_x if x is self.x and self._jax_x is not None else jnp.asarray(x)
             return np.asarray(_jax_forces(x_device, *self._static, lam, mu, self.material.model_code))
-        return _numpy_forces(np.asarray(x), self.mesh, lam, mu, self.material.model_code)
+        return compute_numpy_elastic_forces(np.asarray(x), self.mesh, lam, mu, self.material.model_code)
 
     def compute_neumann_forces(self, x: Array | None = None) -> Array:
         """Return pressure nodal forces from the configured face set."""
@@ -525,13 +477,13 @@ class SoftBody:
         if self._jax_enabled:
             x_device = self._jax_x if x is self.x and self._jax_x is not None else jnp.asarray(x)
             return np.asarray(_jax_pressure_forces(x_device, *self._pressure_static))
-        return _numpy_pressure_forces(np.asarray(x), self.pressure_faces, self.pressure, self.mesh.node_count)
+        return compute_pressure_forces(np.asarray(x), self.pressure_faces, self.pressure, self.mesh.node_count)
 
     def compute_elastic_energy(self, x: Array | None = None) -> float:
         x = self.x if x is None else x
         f = self.compute_deformation_gradient(x)
         lam, mu = self.material.compute_lame_parameters()
-        density = _numpy_energy_density(f, lam, mu, self.material.model_code)
+        density = compute_energy_density(f, lam, mu, self.material.model_code)
         return float(np.sum(self.mesh.volume * density))
 
     def synchronize(self) -> tuple[Array, Array]:
@@ -552,6 +504,85 @@ def _numpy_forces(x: Array, mesh: TetMesh, lam: float, mu: float, model_code: in
     out = np.empty_like(x)
     for axis in range(3):
         out[:, axis] = np.bincount(indices, weights=local[:, :, axis].reshape(-1), minlength=len(x))
+    return out
+
+
+def _numpy_directional_forces(
+    x: Array,
+    direction: Array,
+    mesh: TetMesh,
+    lam: float,
+    mu: float,
+    model_code: int,
+    pressure_faces: Array,
+    pressure: Array,
+) -> Array:
+    """Compute the analytical directional derivative of applied and elastic forces."""
+    p = x[mesh.elements]
+    dp = direction[mesh.elements]
+    d = np.stack((p[:, 1] - p[:, 0], p[:, 2] - p[:, 0], p[:, 3] - p[:, 0]), axis=2)
+    dd = np.stack((dp[:, 1] - dp[:, 0], dp[:, 2] - dp[:, 0], dp[:, 3] - dp[:, 0]), axis=2)
+    f = d @ mesh.inv_Dm
+    df = dd @ mesh.inv_Dm
+
+    if model_code == 0:
+        c = np.einsum("...ji,...jk->...ik", f, f)
+        dc = np.einsum("...ji,...jk->...ik", df, f) + np.einsum("...ji,...jk->...ik", f, df)
+        strain = 0.5 * (c - np.eye(3))
+        dstrain = 0.5 * dc
+        identity = np.eye(3)
+        stress = lam * np.trace(strain, axis1=1, axis2=2)[:, None, None] * identity + 2.0 * mu * strain
+        dstress = lam * np.trace(dstrain, axis1=1, axis2=2)[:, None, None] * identity + 2.0 * mu * dstrain
+        dp1 = np.einsum("eij,ejk->eik", df, stress) + np.einsum("eij,ejk->eik", f, dstress)
+    elif model_code == 1:
+        mu_hat = (4.0 / 3.0) * mu
+        lam_hat = lam + (5.0 / 6.0) * mu
+        alpha = 1.0 + mu_hat / lam_hat - mu_hat / (4.0 * lam_hat)
+        i_c = np.sum(f * f, axis=(1, 2))
+        d_i_c = 2.0 * np.sum(f * df, axis=(1, 2))
+        cof = np.stack(
+            (np.cross(f[:, 1], f[:, 2]), np.cross(f[:, 2], f[:, 0]), np.cross(f[:, 0], f[:, 1])),
+            axis=1,
+        )
+        dcof = np.stack(
+            (
+                np.cross(df[:, 1], f[:, 2]) + np.cross(f[:, 1], df[:, 2]),
+                np.cross(df[:, 2], f[:, 0]) + np.cross(f[:, 2], df[:, 0]),
+                np.cross(df[:, 0], f[:, 1]) + np.cross(f[:, 0], df[:, 1]),
+            ),
+            axis=1,
+        )
+        j = np.linalg.det(f)
+        d_j = np.sum(cof * df, axis=(1, 2))
+        d_a = mu_hat * d_i_c / (i_c + 1.0) ** 2
+        a = mu_hat * (1.0 - 1.0 / (i_c + 1.0))
+        dp1 = d_a[:, None, None] * f + a[:, None, None] * df + lam_hat * (
+            d_j[:, None, None] * cof + (j - alpha)[:, None, None] * dcof
+        )
+    else:
+        raise ValueError(f"unknown material model code: {model_code}")
+
+    local = -np.einsum("eij,eaj->eai", dp1, mesh.volume_grad_N)
+    out = np.zeros_like(x)
+    indices = mesh.elements.reshape(-1)
+    for axis in range(3):
+        out[:, axis] = np.bincount(indices, weights=local[:, :, axis].reshape(-1), minlength=len(x))
+
+    if len(pressure_faces):
+        face_x = x[pressure_faces]
+        face_dx = direction[pressure_faces]
+        edge_1 = face_x[:, 1] - face_x[:, 0]
+        edge_2 = face_x[:, 2] - face_x[:, 0]
+        d_edge_1 = face_dx[:, 1] - face_dx[:, 0]
+        d_edge_2 = face_dx[:, 2] - face_dx[:, 0]
+        d_area_vectors = 0.5 * (
+            np.cross(d_edge_1, edge_2) + np.cross(edge_1, d_edge_2)
+        )
+        local_pressure = np.broadcast_to(pressure, (len(pressure_faces),))[:, None] * d_area_vectors / 3.0
+        indices = pressure_faces.reshape(-1)
+        nodal = np.repeat(local_pressure, 3, axis=0)
+        for axis in range(3):
+            out[:, axis] += np.bincount(indices, weights=nodal[:, axis], minlength=len(x))
     return out
 
 
@@ -652,6 +683,68 @@ if _HAS_JAX:
         local = values[:, None] * area_vectors / 3.0
         return jax.ops.segment_sum(jnp.repeat(local, 3, axis=0), faces.reshape(-1), x.shape[0])
 
+    @jax.jit(static_argnums=(9,))
+    def _jax_directional_forces(x, direction, elements, inv_dm, volume_grad_n, pressure_faces, pressure, lam, mu, model_code):
+        p = x[elements]
+        dp = direction[elements]
+        d = jnp.stack((p[:, 1] - p[:, 0], p[:, 2] - p[:, 0], p[:, 3] - p[:, 0]), axis=2)
+        dd = jnp.stack((dp[:, 1] - dp[:, 0], dp[:, 2] - dp[:, 0], dp[:, 3] - dp[:, 0]), axis=2)
+        f = d @ inv_dm
+        df = dd @ inv_dm
+
+        if model_code == 0:
+            c = jnp.einsum("...ji,...jk->...ik", f, f)
+            dc = jnp.einsum("...ji,...jk->...ik", df, f) + jnp.einsum("...ji,...jk->...ik", f, df)
+            dstrain = 0.5 * dc
+            strain = 0.5 * (c - jnp.eye(3))
+            identity = jnp.eye(3)
+            stress = lam * jnp.trace(strain, axis1=1, axis2=2)[:, None, None] * identity + 2.0 * mu * strain
+            dstress = lam * jnp.trace(dstrain, axis1=1, axis2=2)[:, None, None] * identity + 2.0 * mu * dstrain
+            dp1 = jnp.einsum("eij,ejk->eik", df, stress) + jnp.einsum("eij,ejk->eik", f, dstress)
+        elif model_code == 1:
+            mu_hat = (4.0 / 3.0) * mu
+            lam_hat = lam + (5.0 / 6.0) * mu
+            alpha = 1.0 + mu_hat / lam_hat - mu_hat / (4.0 * lam_hat)
+            i_c = jnp.sum(f * f, axis=(1, 2))
+            d_i_c = 2.0 * jnp.sum(f * df, axis=(1, 2))
+            cof = jnp.stack(
+                (jnp.cross(f[:, 1], f[:, 2]), jnp.cross(f[:, 2], f[:, 0]), jnp.cross(f[:, 0], f[:, 1])),
+                axis=1,
+            )
+            dcof = jnp.stack(
+                (
+                    jnp.cross(df[:, 1], f[:, 2]) + jnp.cross(f[:, 1], df[:, 2]),
+                    jnp.cross(df[:, 2], f[:, 0]) + jnp.cross(f[:, 2], df[:, 0]),
+                    jnp.cross(df[:, 0], f[:, 1]) + jnp.cross(f[:, 0], df[:, 1]),
+                ),
+                axis=1,
+            )
+            j = jnp.linalg.det(f)
+            d_j = jnp.sum(cof * df, axis=(1, 2))
+            d_a = mu_hat * d_i_c / (i_c + 1.0) ** 2
+            a = mu_hat * (1.0 - 1.0 / (i_c + 1.0))
+            dp1 = d_a[:, None, None] * f + a[:, None, None] * df + lam_hat * (
+                d_j[:, None, None] * cof + (j - alpha)[:, None, None] * dcof
+            )
+        else:
+            raise ValueError("unknown material model code")
+
+        local = -jnp.einsum("eij,eaj->eai", dp1, volume_grad_n)
+        elastic = jax.ops.segment_sum(local.reshape((-1, 3)), elements.reshape(-1), x.shape[0])
+        face_x = x[pressure_faces]
+        face_dx = direction[pressure_faces]
+        edge_1 = face_x[:, 1] - face_x[:, 0]
+        edge_2 = face_x[:, 2] - face_x[:, 0]
+        d_edge_1 = face_dx[:, 1] - face_dx[:, 0]
+        d_edge_2 = face_dx[:, 2] - face_dx[:, 0]
+        d_area_vectors = 0.5 * (jnp.cross(d_edge_1, edge_2) + jnp.cross(edge_1, d_edge_2))
+        values = jnp.broadcast_to(pressure, (pressure_faces.shape[0],))
+        local_pressure = values[:, None] * d_area_vectors / 3.0
+        pressure_derivative = jax.ops.segment_sum(
+            jnp.repeat(local_pressure, 3, axis=0), pressure_faces.reshape(-1), x.shape[0]
+        )
+        return elastic + pressure_derivative
+
     @jax.jit(static_argnums=(14,))
     def _jax_step(x, v, elements, inv_dm, volume_grad_n, inverse_mass, fixed, x0, pressure_faces, pressure, external_forces, gravity, lam, mu, model_code, dt):
         local, elements = _jax_element_forces(x, elements, inv_dm, volume_grad_n, lam, mu, model_code)
@@ -663,7 +756,7 @@ if _HAS_JAX:
         x_new = jnp.where(active[:, None], x + dt * v_new, x0)
         return x_new, v_new
 
-    @jax.jit(static_argnums=(15, 21, 22, 23, 24))
+    @jax.jit(static_argnums=(15, 21, 22, 23, 24, 29))
     def _jax_implicit_step(
         x_n,
         v_n,
@@ -693,6 +786,8 @@ if _HAS_JAX:
         line_search_reduction,
         line_search_c1,
         curvature_tolerance,
+        directional_epsilon,
+        directional_strategy,
     ):
         """Fully device-resident JAX L-BFGS backward-Euler step.
 
@@ -712,6 +807,27 @@ if _HAS_JAX:
             total = force(position)
             displacement = position.reshape(-1)[dofs] - x_n.reshape(-1)[dofs] - dt * v_n.reshape(-1)[dofs]
             return scale * displacement - total.reshape(-1)[dofs]
+
+        def directional_force_action(position, direction):
+            if directional_strategy == 0:
+                _, derivative = jax.jvp(force, (position,), (direction,))
+                return derivative
+            if directional_strategy == 1:
+                return _jax_directional_forces(
+                    position,
+                    direction,
+                    elements,
+                    inv_dm,
+                    volume_grad_n,
+                    pressure_faces,
+                    pressure,
+                    lam,
+                    mu,
+                    model_code,
+                )
+            length = jnp.maximum(jnp.linalg.norm(direction), 1.0)
+            h = directional_epsilon * jnp.maximum(1.0, jnp.linalg.norm(position)) / length
+            return (force(position + h * direction) - force(position)) / h
 
         x_initial = x_n + dt * v_n
         x_initial = jnp.where(fixed[:, None], x0, x_initial)
@@ -831,7 +947,7 @@ if _HAS_JAX:
                     )
                     s = step_length * direction
                     full_direction = jnp.zeros_like(x).reshape(-1).at[dofs].set(s).reshape(x.shape)
-                    _, df = jax.jvp(force, (trial_x,), (full_direction,))
+                    df = directional_force_action(trial_x, full_direction)
                     y = scale * s - df.reshape(-1)[dofs]
                     curvature = jnp.where(accepted, jnp.dot(s, y), 0.0)
                     hist_s_new, hist_y_new, hist_rho_new, count_new = append_history(
@@ -860,4 +976,6 @@ if _HAS_JAX:
         )
         velocity = (x - x_n) / dt
         velocity = jnp.where(fixed[:, None], 0.0, velocity)
-        return x, velocity, (converged, iterations, jnp.linalg.norm(g), initial_norm, line_steps, history_length)
+        final_norm = jnp.linalg.norm(g)
+        reduction_factor = final_norm / initial_norm
+        return x, velocity, (converged, iterations, final_norm, initial_norm, line_steps, history_length, reduction_factor)

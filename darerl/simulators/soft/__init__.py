@@ -1,7 +1,11 @@
 """Fast, contact-free tetrahedral soft-body prototype."""
 
-from .solver import Material, SoftBody, StableNeoHookeanMaterial, TetMesh, SVKMaterial
-from .mesh import compute_boundary_faces, create_beam_mesh
+from .solver import SoftBody
+from .material import Material, StableNeoHookeanMaterial, SVKMaterial
+from .mesh import TetMesh, compute_boundary_faces, create_beam_mesh
+from .stepper import ImplicitBFGSStepper, SemiImplicitStepper, Stepper
+from .types import Array
+from .forces import compute_directional_forces, compute_elastic_forces, compute_energy_density, compute_pressure_forces
 from .baseline import (
     BASELINE_DEPTH,
     BASELINE_HEIGHT,
@@ -21,8 +25,10 @@ from .baseline import (
 )
 
 __all__ = [
-    "Material", "SoftBody", "StableNeoHookeanMaterial", "SVKMaterial", "TetMesh",
-    "compute_boundary_faces", "create_beam_mesh", "SoftBaseline", "create_bending_baseline",
+    "Array", "Material", "SoftBody", "StableNeoHookeanMaterial", "SVKMaterial", "TetMesh",
+    "Stepper", "SemiImplicitStepper", "ImplicitBFGSStepper",
+    "compute_boundary_faces", "create_beam_mesh", "compute_elastic_forces", "compute_pressure_forces",
+    "compute_directional_forces", "compute_energy_density", "SoftBaseline", "create_bending_baseline",
     "create_stretch_baseline", "create_compress_baseline", "create_twist_baseline",
     "BASELINE_LENGTH", "BASELINE_HEIGHT", "BASELINE_DEPTH", "SKIN_YOUNGS_MODULUS",
     "SKIN_POISSON_RATIO", "SKIN_DENSITY", "BENDING_GRAVITY", "STRETCH_PRESSURE",

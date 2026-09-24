@@ -1,4 +1,4 @@
-"""Profile soft-body solvers as a 30 FPS real-time frame producer.
+"""Profile one canonical soft-body case as a 30 FPS real-time frame producer.
 
 Each rendered frame advances exactly ``1 / fps`` seconds.  A solver may use
 multiple internal substeps within that frame.  For every mesh size and
@@ -9,10 +9,11 @@ produce frames and reports the number of timestep invocations per frame.
 
 The implicit BFGS control settings are loaded from the auto-tuner JSON file::
 
-    uv run python -m examples.profile_soft_body_realtime
+    uv run python -m examples.profile_soft_realtime_scale
 
 Outputs are written to ``output/soft_body_realtime.pdf``, CSV, and JSON files.
-The default material is a soft, nearly incompressible Ecoflex-like silicone.
+The default case is the bending cantilever. The material is a soft, nearly
+incompressible Ecoflex-like silicone.
 """
 
 from __future__ import annotations
@@ -29,19 +30,36 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from darerl.simulators.soft import SoftBody, SoftBaseline, create_bending_baseline
+from darerl.simulators.soft import (
+    SoftBody,
+    SoftBaseline,
+    create_bending_baseline,
+    create_compress_baseline,
+    create_stretch_baseline,
+    create_twist_baseline,
+)
 
 GRAVITY = create_bending_baseline().gravity
+CASE_FACTORIES = {
+    "bending": create_bending_baseline,
+    "twist": create_twist_baseline,
+    "compress": create_compress_baseline,
+    "stretch": create_stretch_baseline,
+}
 METHODS = (
-    ("semi_implicit", "NumPy", False),
-    ("semi_implicit", "JAX", True),
-    ("implicit_bfgs", "NumPy", False),
-    ("implicit_bfgs", "JAX", True),
+    ("semi_implicit", None, "NumPy", False),
+    ("semi_implicit", None, "JAX", True),
+    ("implicit_bfgs", "tangent_action", "NumPy", False),
+    ("implicit_bfgs", "tangent_action", "JAX", True),
+    ("implicit_bfgs", "closed_form", "NumPy", False),
+    ("implicit_bfgs", "closed_form", "JAX", True),
+    ("implicit_bfgs", "finite_difference", "NumPy", False),
+    ("implicit_bfgs", "finite_difference", "JAX", True),
 )
 
 
-def make_beam(i: int, j: int, k: int) -> SoftBaseline:
-    return create_bending_baseline(i, j, k)
+def make_beam(i: int, j: int, k: int, case: str) -> SoftBaseline:
+    return CASE_FACTORIES[case](i, j, k)
 
 
 def make_body(baseline: SoftBaseline, use_jax: bool) -> SoftBody:
@@ -139,6 +157,7 @@ def tune_combination(
         return {
             "method": method,
             "backend": get_backend_label(use_jax),
+            "directional_residual_strategy": settings.get("directional_residual_strategy"),
             "valid": False,
             "substeps": None,
             "dt": None,
@@ -152,6 +171,7 @@ def tune_combination(
     return {
         "method": method,
         "backend": get_backend_label(use_jax),
+        "directional_residual_strategy": settings.get("directional_residual_strategy"),
         "valid": True,
         "substeps": int(best["substeps"]),
         "dt": float(best["dt"]),
@@ -246,6 +266,7 @@ def plot_results(path: Path, rows: list[dict], fps: float) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--case", choices=tuple(CASE_FACTORIES), default="bending")
     parser.add_argument("--min-elements", type=int, default=10_000)
     parser.add_argument("--max-elements", type=int, default=100_000)
     parser.add_argument("--num-sizes", type=int, default=10)
@@ -259,8 +280,8 @@ def main() -> None:
     parser.add_argument("--max-error", type=float, default=1.0e-3)
     parser.add_argument("--settings", type=Path, default=Path("output/auto-tuned-settings.json"))
     parser.add_argument("--backend", choices=("both", "numpy", "jax"), default="both")
-    parser.add_argument("--output", type=Path, default=Path("output/soft_body_realtime.pdf"))
-    parser.add_argument("--csv", type=Path, default=Path("output/soft_body_realtime.csv"))
+    parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--csv", type=Path, default=None)
     parser.add_argument("--settings-output", type=Path, default=Path("output/soft_body_realtime_settings.json"))
     args = parser.parse_args()
     if args.fps <= 0.0 or args.duration <= 0.0:
@@ -275,37 +296,46 @@ def main() -> None:
     if not settings_path.is_file():
         parser.error(
             f"BFGS settings file not found: {settings_path}. "
-            "Run examples/autotune-soft-on-bending-beam.py first or pass --settings."
+            "Run examples/autotune-soft.py first or pass --settings."
         )
     with settings_path.open() as stream:
         tuned = json.load(stream)
     tuned_combinations = tuned.get("combinations", {})
 
-    def get_settings(method: str, backend: str) -> dict:
-        entry = tuned_combinations.get(f"{method}/{backend}")
+    def get_settings(method: str, backend: str, strategy: str | None) -> dict:
+        if strategy is None:
+            return {}
+        entry = tuned_combinations.get(f"{method}/{strategy}/{backend}")
+        if entry is None:
+            entry = tuned_combinations.get(f"{method}/{backend}")
         if entry is not None:
-            return dict(entry.get("solver_settings", {}))
-        return {}
+            settings = dict(entry.get("solver_settings", {}))
+        else:
+            settings = {}
+        settings["directional_residual_strategy"] = strategy
+        return settings
     try:
         import jax  # noqa: F401
     except ImportError:
         has_jax = False
     else:
         has_jax = True
-    backends = [backend for backend in METHODS if backend[2] is False or (has_jax and args.backend != "numpy")]
+    backends = [combo for combo in METHODS if combo[3] is False or (has_jax and args.backend != "numpy")]
     if args.backend == "jax":
-        backends = [backend for backend in backends if backend[2]]
+        backends = [combo for combo in backends if combo[3]]
     elif args.backend == "numpy":
-        backends = [backend for backend in backends if not backend[2]]
+        backends = [combo for combo in backends if not combo[3]]
 
+    global GRAVITY
+    GRAVITY = make_beam(args.j + 1, args.j, args.k, args.case).gravity
     rows = []
     selections = {}
     for i in compute_mesh_sizes(args.min_elements, args.max_elements, args.num_sizes, args.j, args.k):
-        baseline = make_beam(i, args.j, args.k)
+        baseline = make_beam(i, args.j, args.k, args.case)
         mesh = baseline.mesh
         print(f"\n{mesh.tet_count:,} elements / {mesh.node_count:,} nodes")
-        for method, backend, use_jax in backends:
-            settings = get_settings(method, backend)
+        for method, strategy, backend, use_jax in backends:
+            settings = get_settings(method, backend, strategy)
             selection = tune_combination(
                 baseline,
                 method,
@@ -338,15 +368,17 @@ def main() -> None:
             selections[f"{mesh.tet_count}/{method}/{backend}"] = selection
             if selection["valid"]:
                 print(
-                    f"  {method:15s}/{backend:5s} dt={selection['dt']:.3e} "
+                f"  {method:15s}/{strategy or '-':17s}/{backend:5s} dt={selection['dt']:.3e} "
                     f"invocations/frame={selection['substeps']:3d} "
                     f"mean={measured['mean_frame_ms']:.2f} ms "
                     f"p95={measured['p95_frame_ms']:.2f} ms "
                     f"error={selection['trajectory_error']:.2e}"
                 )
             else:
-                print(f"  {method:15s}/{backend:5s} unavailable: {selection['failure']}")
+                print(f"  {method:15s}/{strategy or '-':17s}/{backend:5s} unavailable: {selection['failure']}")
 
+    args.output = args.output or Path(f"output/soft_{args.case}_realtime_scaling.pdf")
+    args.csv = args.csv or Path(f"output/soft_{args.case}_realtime_scaling.csv")
     output = args.output if args.output.is_absolute() else PROJECT_ROOT / args.output
     csv_path = args.csv if args.csv.is_absolute() else PROJECT_ROOT / args.csv
     settings_output = args.settings_output if args.settings_output.is_absolute() else PROJECT_ROOT / args.settings_output

@@ -196,6 +196,79 @@ class _SoftBodyTests:
         actual = body._directional_force(position, direction, gravity, epsilon)
         np.testing.assert_allclose(actual, expected, rtol=2.0e-5, atol=2.0e-7)
 
+    def test_directional_force_strategies_agree_with_finite_difference(self):
+        mesh, rest = one_tet()
+        position = rest @ np.array([[1.1, 0.1, 0.0], [0.0, 0.9, 0.05], [0.0, 0.0, 1.05]]).T
+        direction = np.array([[0.0, 0.0, 0.0], [0.2, -0.1, 0.3], [-0.1, 0.2, 0.05], [0.1, 0.1, -0.2]])
+        gravity = np.array([0.3, -1.2, 0.4])
+        epsilon = 1.0e-6
+        for material in (SVKMaterial(1000.0, 0.3, 1.0), StableNeoHookeanMaterial(1000.0, 0.3, 1.0)):
+            for use_jax in (False, True) if JAX_AVAILABLE else (False,):
+                body = SoftBody(mesh, material, use_jax=use_jax)
+                body.set_pressure_boundary([[1, 2, 3]], 2.0)
+                force_plus = body._total_forces(position + epsilon * direction, gravity)
+                force_minus = body._total_forces(position - epsilon * direction, gravity)
+                expected = (force_plus - force_minus) / (2.0 * epsilon)
+                for strategy in ("tangent_action", "closed_form", "finite_difference"):
+                    with self.subTest(material=type(material).__name__, use_jax=use_jax, strategy=strategy):
+                        actual = body._directional_force(position, direction, gravity, epsilon, strategy)
+                        np.testing.assert_allclose(actual, expected, rtol=3.0e-5, atol=3.0e-7)
+
+    def test_implicit_directional_residual_reduces_to_free_dofs(self):
+        """The reduced residual/Jacobian ignores fixed equations but includes their coupling."""
+        mesh, rest = one_tet()
+        deformation = np.array([[1.1, 0.1, 0.0], [0.0, 0.9, 0.05], [0.0, 0.0, 1.05]])
+        position = rest @ deformation.T
+        fixed = np.array([True, False, False, False])
+        position[fixed] = rest[fixed]
+        direction = np.array([[0.0, 0.0, 0.0], [0.2, -0.1, 0.3], [-0.1, 0.2, 0.05], [0.1, 0.1, -0.2]])
+        gravity = np.array([0.3, -1.2, 0.4])
+        dt = 1.0e-3
+        free = np.flatnonzero(~fixed)
+        mass_scale = np.repeat(mesh.lumped_mass[free], 3) / (dt * dt)
+
+        for use_jax in (False, True) if JAX_AVAILABLE else (False,):
+            with self.subTest(use_jax=use_jax):
+                body = SoftBody(mesh, StableNeoHookeanMaterial(1000.0, 0.3, 1.0), fixed=fixed, use_jax=use_jax)
+                body.set_pressure_boundary([[1, 2, 3]], 2.0)
+                body.set_external_forces(np.array([[0.1, -0.2, 0.3], [0.2, 0.0, -0.1], [0.0, 0.4, 0.2], [-0.3, 0.1, 0.0]]))
+                epsilon = 1.0e-6
+                force_plus = body._total_forces(position + epsilon * direction, gravity)[free].reshape(-1)
+                force_minus = body._total_forces(position - epsilon * direction, gravity)[free].reshape(-1)
+                force_derivative = (force_plus - force_minus) / (2.0 * epsilon)
+                actual = mass_scale * direction[free].reshape(-1) - body._directional_force(
+                    position, direction, gravity, epsilon
+                )[free].reshape(-1)
+                expected = mass_scale * direction[free].reshape(-1) - force_derivative
+                np.testing.assert_allclose(actual, expected, rtol=2.0e-5, atol=2.0e-7)
+
+    def test_dirichlet_positions_and_velocities_are_enforced_by_both_steppers(self):
+        mesh, rest = one_tet()
+        fixed = np.array([True, False, False, False])
+        initial = rest.copy()
+        initial[0] += np.array([0.2, -0.1, 0.15])
+        initial_velocity = np.full_like(rest, 0.4)
+        settings = {"max_iterations": 30, "history_size": 5, "raise_on_failure": True}
+        backends = (False, True) if JAX_AVAILABLE else (False,)
+
+        for method in ("semi_implicit", "implicit_bfgs"):
+            for use_jax in backends:
+                with self.subTest(method=method, use_jax=use_jax):
+                    body = SoftBody(
+                        mesh,
+                        StableNeoHookeanMaterial(100.0, 0.3, 1.0),
+                        x=initial,
+                        v=initial_velocity,
+                        fixed=fixed,
+                        use_jax=use_jax,
+                    )
+                    if method == "implicit_bfgs":
+                        body.step_implicit(1.0e-5, gravity=np.zeros(3), settings=settings)
+                    else:
+                        body.step(1.0e-5, gravity=np.zeros(3))
+                    np.testing.assert_allclose(body.x[fixed], rest[fixed], atol=1.0e-14)
+                    np.testing.assert_allclose(body.v[fixed], 0.0, atol=1.0e-14)
+
     def test_external_force_input_shape_is_validated(self):
         mesh, rest = one_tet()
         body = SoftBody(mesh, SVKMaterial(1000.0, 0.3, 1.0), use_jax=False)
@@ -241,6 +314,39 @@ class _SoftBodyTests:
             body.step_implicit(1.0e-3, settings={"history_size": -1})
         with self.assertRaises(ValueError):
             body.step_implicit(1.0e-3, settings={"max_line_search_iterations": 0})
+        with self.assertRaises(ValueError):
+            body.step_implicit(1.0e-3, settings={"directional_residual_strategy": "unknown"})
+
+    def test_all_directional_residual_strategies_converge(self):
+        mesh, _ = one_tet()
+        fixed = np.array([True, False, False, False])
+        strategies = ("tangent_action", "closed_form", "finite_difference")
+        backends = (False, True) if JAX_AVAILABLE else (False,)
+        results = {}
+        for use_jax in backends:
+            for strategy in strategies:
+                with self.subTest(use_jax=use_jax, strategy=strategy):
+                    body = SoftBody(
+                        mesh,
+                        StableNeoHookeanMaterial(100.0, 0.3, 1.0),
+                        fixed=fixed,
+                        use_jax=use_jax,
+                    )
+                    body.set_pressure_boundary([[1, 2, 3]], 0.2)
+                    body.step_implicit(
+                        1.0e-3,
+                        gravity=(0.0, 0.0, -1.0),
+                        settings={
+                            "max_iterations": 20,
+                            "raise_on_failure": True,
+                            "directional_residual_strategy": strategy,
+                        },
+                    )
+                    self.assertTrue(body.last_implicit_info["converged"])
+                    results[use_jax, strategy] = body.x.copy()
+        for use_jax in backends:
+            np.testing.assert_allclose(results[use_jax, "tangent_action"], results[use_jax, "closed_form"], atol=2.0e-8)
+            np.testing.assert_allclose(results[use_jax, "tangent_action"], results[use_jax, "finite_difference"], atol=2.0e-6)
 
     def test_pressure_boundary_input_is_validated(self):
         mesh, _ = one_tet()
@@ -485,6 +591,39 @@ class _SoftBodyTests:
             energy = _numpy_energy_density(states, lam, mu, model_code)
             self.assertTrue(np.all(np.isfinite(stress)))
             self.assertTrue(np.all(np.isfinite(energy)))
+
+    def test_stable_neo_hookean_supports_collapsed_and_inverted_elements(self):
+        """Stable Neo-Hookean remains finite at J=0 and J<0 states."""
+        material = StableNeoHookeanMaterial(1200.0, 0.3, 1.0)
+        lam, mu = material.compute_lame_parameters()
+        collapsed_f = np.zeros((3, 3))
+        inverted_f = np.diag([-1.0, 1.0, 1.0])
+
+        for deformation_gradient in (collapsed_f, inverted_f):
+            self.assertLessEqual(np.linalg.det(deformation_gradient), 0.0)
+            stress = _numpy_pk1_stress(deformation_gradient[None], lam, mu, material.model_code)
+            energy = _numpy_energy_density(deformation_gradient[None], lam, mu, material.model_code)
+            self.assertTrue(np.all(np.isfinite(stress)))
+            self.assertTrue(np.all(np.isfinite(energy)))
+
+        mesh, rest = one_tet()
+        collapsed = np.repeat(rest[[0]], len(rest), axis=0)
+        inverted = rest.copy()
+        inverted[[1, 2]] = inverted[[2, 1]]
+        numpy_body = SoftBody(mesh, material, use_jax=False)
+        for positions in (collapsed, inverted):
+            self.assertTrue(np.all(np.isfinite(numpy_body.compute_elastic_forces(positions))))
+            self.assertTrue(np.isfinite(numpy_body.compute_elastic_energy(positions)))
+
+        if JAX_AVAILABLE:
+            jax_body = SoftBody(mesh, material, use_jax=True)
+            for positions in (collapsed, inverted):
+                np.testing.assert_allclose(
+                    jax_body.compute_elastic_forces(positions),
+                    numpy_body.compute_elastic_forces(positions),
+                    rtol=3.0e-11,
+                    atol=3.0e-11,
+                )
 
     def test_single_tet_force_assembly_matches_shape_function_formula(self):
         mesh, rest = one_tet()

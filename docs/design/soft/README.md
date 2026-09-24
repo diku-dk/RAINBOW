@@ -26,16 +26,28 @@ general multi-body scene management are intentionally outside the prototype.
 ## Documents
 
 - [Architecture](architecture.md) — modules, data ownership, and execution paths.
+- [Theory derivation](theory.md) — continuum mechanics, linear tetrahedra,
+  time-steppers, L-BFGS, and directional residuals.
 - [Numerical formulation](numerics.md) — FEM forces, materials, boundary conditions, and time integration.
 - [Testing and verification](testing.md) — test layers, commands, and known limitations.
 - [Canonical baselines](baselines.md) — shared 10 cm stretch, compression, bend, and twist examples.
 - [Naming convention](naming.md) — operation-oriented names for public APIs,
   examples, and tests.
+- `examples/study_soft_convergence.py` studies implicit L-BFGS residual
+  convergence using the auto-tuned settings.
 
-The verification examples can be run from the project root with either
-`python -m examples.verify_semi_implicit_svk` or
-`python examples/verify_semi_implicit_svk.py`. The profiling examples require
-the auto-tuner settings file described in [testing](testing.md).
+The parameterized verification portfolio can be run from the project root:
+
+```bash
+python examples/verify_soft.py
+```
+
+It covers both NumPy and JAX backends, both materials, both time-steppers, and
+all three implicit directional-residual strategies. By default it runs 16
+backend/material/stepper combinations and writes a convergence and energy
+report to `output/verify_soft.pdf`. Pass `--numpy` or `--jax` to run only
+one backend. The profiling examples require the auto-tuner settings file
+described in [testing](testing.md).
 
 ## Quick start
 

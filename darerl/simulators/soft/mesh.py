@@ -4,6 +4,61 @@ from __future__ import annotations
 
 import numpy as np
 
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class TetMesh:
+    """Reference data for an oriented first-order tetrahedral mesh."""
+
+    x0: np.ndarray
+    elements: np.ndarray
+    inv_Dm: np.ndarray
+    volume: np.ndarray
+    grad_N: np.ndarray
+    volume_grad_N: np.ndarray
+    lumped_mass: np.ndarray
+    inverse_lumped_mass: np.ndarray
+
+    @classmethod
+    def from_vertices(cls, vertices: np.ndarray, elements: np.ndarray, density: float = 1.0) -> "TetMesh":
+        x0 = np.asarray(vertices, dtype=np.float64)
+        t = np.asarray(elements, dtype=np.int32)
+        if x0.ndim != 2 or x0.shape[1] != 3:
+            raise ValueError("vertices must have shape (N, 3)")
+        if t.ndim != 2 or t.shape[1] != 4:
+            raise ValueError("elements must have shape (K, 4)")
+        if not np.all(np.isfinite(x0)):
+            raise ValueError("vertices must be finite")
+        if np.any(t < 0) or np.any(t >= len(x0)):
+            raise ValueError("elements contain an invalid vertex index")
+        if not np.isfinite(density) or density <= 0.0:
+            raise ValueError("density must be finite and positive")
+        p = x0[t]
+        dm = np.stack((p[:, 1] - p[:, 0], p[:, 2] - p[:, 0], p[:, 3] - p[:, 0]), axis=2)
+        det = np.linalg.det(dm)
+        if np.any(det <= 0.0):
+            bad = int(np.flatnonzero(det <= 0.0)[0])
+            raise ValueError(f"tetrahedron {bad} is inverted or degenerate in reference space")
+        inv_dm = np.linalg.inv(dm)
+        volume = det / 6.0
+        grad_N = np.empty((len(t), 4, 3), dtype=np.float64)
+        grad_N[:, 1:, :] = inv_dm
+        grad_N[:, 0, :] = -np.sum(grad_N[:, 1:, :], axis=1)
+        mass = np.zeros(len(x0), dtype=np.float64)
+        np.add.at(mass, t.reshape(-1), np.repeat(density * volume / 4.0, 4))
+        if np.any(mass <= 0.0):
+            raise ValueError("tetrahedral mesh contains a node with zero lumped mass")
+        return cls(x0, t, inv_dm, volume, grad_N, volume[:, None, None] * grad_N, mass, 1.0 / mass)
+
+    @property
+    def node_count(self) -> int:
+        return len(self.x0)
+
+    @property
+    def tet_count(self) -> int:
+        return len(self.elements)
+
 
 def compute_boundary_faces(elements: np.ndarray) -> np.ndarray:
     """Extract the unique triangular boundary faces from tetrahedra."""

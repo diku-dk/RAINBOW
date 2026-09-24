@@ -25,20 +25,32 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from darerl.simulators.soft import SoftBody, create_bending_baseline
+from darerl.simulators.soft import (
+    SoftBody,
+    create_bending_baseline,
+    create_compress_baseline,
+    create_stretch_baseline,
+    create_twist_baseline,
+)
 from darerl.simulators.soft.mesh import compute_boundary_faces
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-BENDING_GRAVITY = create_bending_baseline().gravity
+CASE_FACTORIES = {
+    "bending": create_bending_baseline,
+    "twist": create_twist_baseline,
+    "compress": create_compress_baseline,
+    "stretch": create_stretch_baseline,
+}
 
 
-def make_bending_body(i: int, j: int, k: int, use_jax: bool) -> tuple[SoftBody, np.ndarray]:
-    baseline = create_bending_baseline(i, j, k)
+def make_case_body(case: str, i: int, j: int, k: int, use_jax: bool) -> tuple[SoftBody, np.ndarray]:
+    baseline = CASE_FACTORIES[case](i, j, k)
     return baseline.create_body(use_jax=use_jax), baseline.fixed
 
 
-def simulate_reference(i: int, j: int, k: int, dt: float, duration: float) -> tuple[SoftBody, np.ndarray, float]:
-    body, fixed = make_bending_body(i, j, k, use_jax=False)
+def simulate_reference(case: str, i: int, j: int, k: int, dt: float, duration: float) -> tuple[SoftBody, np.ndarray, float]:
+    body, fixed = make_case_body(case, i, j, k, use_jax=False)
+    gravity = CASE_FACTORIES[case](i, j, k).gravity
     steps = int(round(duration / dt))
     if not np.isclose(steps * dt, duration, rtol=1.0e-10, atol=1.0e-14):
         raise ValueError("duration must be an integer multiple of reference_dt")
@@ -46,13 +58,14 @@ def simulate_reference(i: int, j: int, k: int, dt: float, duration: float) -> tu
     states[0] = body.x
     start = time.perf_counter()
     for step in range(1, steps + 1):
-        body.step(dt, gravity=BENDING_GRAVITY)
+        body.step(dt, gravity=gravity)
         states[step] = body.x
     elapsed = time.perf_counter() - start
     return body, states, elapsed
 
 
 def simulate_candidate(
+    case: str,
     i: int,
     j: int,
     k: int,
@@ -66,27 +79,28 @@ def simulate_candidate(
     if not np.isclose(steps * dt, duration, rtol=1.0e-10, atol=1.0e-14):
         raise ValueError("duration must be an integer multiple of every candidate dt")
     jit_seconds = 0.0
+    gravity = CASE_FACTORIES[case](i, j, k).gravity
     try:
         if use_jax:
-            warmup, _ = make_bending_body(i, j, k, use_jax)
+            warmup, _ = make_case_body(case, i, j, k, use_jax)
             jit_start = time.perf_counter()
             if method == "implicit_bfgs":
-                warmup.step_implicit(dt, gravity=BENDING_GRAVITY, settings=settings)
+                warmup.step_implicit(dt, gravity=gravity, settings=settings)
             else:
-                warmup.step(dt, gravity=BENDING_GRAVITY)
+                warmup.step(dt, gravity=gravity)
             warmup.synchronize()
             jit_seconds = time.perf_counter() - jit_start
 
-        body, _ = make_bending_body(i, j, k, use_jax)
+        body, _ = make_case_body(case, i, j, k, use_jax)
         states = np.empty((steps + 1,) + body.x.shape, dtype=np.float64)
         states[0] = body.x
         iterations = []
         start = time.perf_counter()
         for step in range(1, steps + 1):
             if method == "implicit_bfgs":
-                body.step_implicit(dt, gravity=BENDING_GRAVITY, settings=settings)
+                body.step_implicit(dt, gravity=gravity, settings=settings)
             else:
-                body.step(dt, gravity=BENDING_GRAVITY)
+                body.step(dt, gravity=gravity)
             states[step] = body.x
             if not np.all(np.isfinite(body.x)) or not np.all(np.isfinite(body.v)):
                 return {
@@ -128,7 +142,7 @@ def parse_list(value: str, converter):
 
 
 def write_csv(path: Path, results: list[dict]) -> None:
-    fields = ["method", "backend", "dt", "max_iterations", "history_size", "tolerance", "line_search", "valid", "error", "elapsed", "jit_seconds", "mean_iterations", "trajectory_error", "trajectory_error_percent"]
+    fields = ["method", "backend", "directional_residual_strategy", "dt", "max_iterations", "history_size", "tolerance", "line_search", "valid", "error", "elapsed", "jit_seconds", "mean_iterations", "trajectory_error", "trajectory_error_percent"]
     with path.open("w", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
@@ -143,7 +157,10 @@ def write_settings(path: Path, best_by_combination: dict, baseline_dt: float, ma
         "metadata": {
             "baseline_dt": float(baseline_dt),
             "max_error_percent": float(max_error_percent),
-            "preferred_combination": "implicit_bfgs/JAX" if "implicit_bfgs/JAX" in best_by_combination else "implicit_bfgs/NumPy",
+        "preferred_combination": next(
+            (key for key in best_by_combination if key.startswith("implicit_bfgs/") and key.endswith("/JAX")),
+            next((key for key in best_by_combination if key.startswith("implicit_bfgs/") and key.endswith("/NumPy")), ""),
+        ),
         },
     }
     with path.open("w") as stream:
@@ -264,6 +281,7 @@ def plot_results(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--case", choices=tuple(CASE_FACTORIES), default="bending")
     parser.add_argument("--i", type=int, default=12, help="beam nodes along its length")
     parser.add_argument("--j", type=int, default=4, help="beam nodes across y")
     parser.add_argument("--k", type=int, default=4, help="beam nodes across z")
@@ -276,7 +294,7 @@ def main() -> None:
     parser.add_argument("--line-search", default="true,false")
     parser.add_argument("--max-error-percent", type=float, default=5.0, help="maximum trajectory error relative to baseline, in percent")
     parser.add_argument("--backend", choices=("both", "numpy", "jax"), default="both")
-    parser.add_argument("--output", type=Path, default=Path("output/implicit_bending_autotune.csv"))
+    parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--settings-output", type=Path, default=Path("output/auto-tuned-settings.json"))
     args = parser.parse_args()
 
@@ -317,7 +335,7 @@ def main() -> None:
             parser.error(f"baseline duration {duration} is not an integer multiple of candidate dt {dt}")
 
     print("Computing fine semi-implicit reference...")
-    reference_body, reference_states, reference_runtime = simulate_reference(args.i, args.j, args.k, args.baseline_dt, duration)
+    reference_body, reference_states, reference_runtime = simulate_reference(args.case, args.i, args.j, args.k, args.baseline_dt, duration)
     print(f"reference: {len(reference_states) - 1} steps, {reference_runtime:.3f} s")
     max_displacement = float(np.max(np.linalg.norm(reference_states - reference_states[0], axis=2)))
     beam_length = float(np.ptp(reference_states[0, :, 0]))
@@ -329,26 +347,35 @@ def main() -> None:
 
     results = []
     best_by_combination = {}
+    solver_combinations = (
+        ("semi_implicit", None),
+        ("implicit_bfgs", "tangent_action"),
+        ("implicit_bfgs", "closed_form"),
+        ("implicit_bfgs", "finite_difference"),
+    )
     for backend, use_jax in backends:
-        for method in ("semi_implicit", "implicit_bfgs"):
-            print(f"\n=== {method}/{backend} ===")
+        for method, strategy in solver_combinations:
+            label = f"{method}/{backend}" if strategy is None else f"{method}/{strategy}/{backend}"
+            print(f"\n=== {label} ===")
             if method == "semi_implicit":
                 combinations = ((dt, 0, 0, 0.0, False) for dt in candidate_dts)
             else:
                 combinations = itertools.product(candidate_dts, max_iterations, history_sizes, tolerances, line_search_values)
             combination_results = []
             for dt, iterations, history, tolerance, line_search in combinations:
-                settings = {} if method == "semi_implicit" else {
+                settings = {} if strategy is None else {
                     "max_iterations": iterations,
                     "history_size": history,
                     "tolerance": tolerance,
                     "line_search": line_search,
                     "raise_on_failure": True,
+                    "directional_residual_strategy": strategy,
                 }
-                candidate = simulate_candidate(args.i, args.j, args.k, dt, duration, method, use_jax, settings)
+                candidate = simulate_candidate(args.case, args.i, args.j, args.k, dt, duration, method, use_jax, settings)
                 result = {
                     "method": method,
                     "backend": backend,
+                    "directional_residual_strategy": strategy,
                     "dt": dt,
                     "max_iterations": iterations,
                     "history_size": history,
@@ -370,7 +397,7 @@ def main() -> None:
                     result["error"] = candidate["error"]
                 results.append(result)
                 combination_results.append(result)
-                if method == "implicit_bfgs":
+                if strategy is not None:
                     print(
                         f"dt={dt:.3e} max_it={iterations:2d} history={history:2d} "
                         f"tol={tolerance:.1e} line_search={line_search!s:5s} "
@@ -385,16 +412,18 @@ def main() -> None:
                     )
             acceptable = [result for result in combination_results if result["valid"] and result["trajectory_error"] <= max_error]
             if not acceptable:
-                failed_settings = {} if method == "semi_implicit" else {
+                failed_settings = {} if strategy is None else {
                     "max_iterations": float("nan"),
                     "history_size": float("nan"),
                     "tolerance": float("nan"),
                     "line_search": float("nan"),
                     "raise_on_failure": False,
+                    "directional_residual_strategy": strategy,
                 }
-                best_by_combination[f"{method}/{backend}"] = {
+                best_by_combination[label] = {
                     "method": method,
                     "backend": backend,
+                    "directional_residual_strategy": strategy,
                     "valid": False,
                     "dt": float("nan"),
                     "solver_settings": failed_settings,
@@ -405,20 +434,22 @@ def main() -> None:
                     "mean_iterations": float("nan"),
                     "failure": f"no candidate met max error of {args.max_error_percent:g}%",
                 }
-                print(f"No valid candidate met --max-error for {method}/{backend}; writing NaN settings")
+                print(f"No valid candidate met --max-error for {label}; writing NaN settings")
                 continue
             best = min(acceptable, key=lambda result: result["elapsed"])
-            best_by_combination[f"{method}/{backend}"] = {
+            best_by_combination[label] = {
                 "method": method,
                 "backend": backend,
+                "directional_residual_strategy": strategy,
                 "valid": True,
                 "dt": float(best["dt"]),
-                "solver_settings": {} if method == "semi_implicit" else {
+                "solver_settings": {} if strategy is None else {
                     "max_iterations": int(best["max_iterations"]),
                     "history_size": int(best["history_size"]),
                     "tolerance": float(best["tolerance"]),
                     "line_search": bool(best["line_search"]),
                     "raise_on_failure": True,
+                    "directional_residual_strategy": strategy,
                 },
                 "trajectory_error": float(best["trajectory_error"]),
                 "trajectory_error_percent": float(100.0 * best["trajectory_error"]),
@@ -426,9 +457,10 @@ def main() -> None:
                 "jit_seconds": float(best["jit_seconds"]),
                 "mean_iterations": float(best["mean_iterations"]),
             }
-            print(f"Best {method}/{backend}: {best_by_combination[f'{method}/{backend}']}")
+            print(f"Best {label}: {best_by_combination[label]}")
     if not best_by_combination:
         raise RuntimeError("no timestepper/backend combination met --max-error")
+    args.output = args.output or Path(f"output/soft_{args.case}_autotune.csv")
     output = args.output if args.output.is_absolute() else PROJECT_ROOT / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
     write_csv(output, results)

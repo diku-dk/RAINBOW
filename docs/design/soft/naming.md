@@ -14,7 +14,7 @@ The first word should describe the operation:
 
 Names use `baseline`, never `base_line` or `base-line`. Example filenames use
 the same `snake_case` convention, except for the explicitly named
-`autotune-soft-on-bending-beam.py` command-line example.
+`autotune-soft.py` command-line example.
 
 Standard Python protocol names, properties, constructors such as
 `from_vertices`, lifecycle hooks such as `__post_init__`, and private numerical

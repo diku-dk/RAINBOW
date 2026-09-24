@@ -99,9 +99,11 @@ P = μ̂ (1 - 1/(I_C+1)) F
   + λ̂ (J-α) ∂J/∂F
 ```
 
-The regularized `log(I_C+1)` term remains finite for inverted elements. This
-does not make arbitrary simulations physically valid after inversion; it only
-removes the singularity targeted by the model.
+The regularized `log(I_C+1)` term remains finite for collapsed (`J=0`) and
+inverted (`J<0`) elements. This does not make arbitrary simulations
+physically valid after inversion; it only removes the singularity targeted by
+the model. The exact collapsed and inverted states are covered by the
+constitutive and assembled-force tests.
 
 ## Boundary conditions
 
@@ -152,12 +154,24 @@ g(x) = M/Δt² (x-xⁿ-Δt vⁿ) - f(x) = 0
 ```
 
 It uses limited-memory BFGS history vectors. For a direction `s`, the
-directional derivative is
+directional residual is
 
 ```text
 Jg(x)s = M/Δt² s - Jf(x)s
 ```
 
-JAX computes `Jf(x)s` with `jax.jvp`; NumPy uses a configurable directional
-finite difference. A backtracking residual-norm line search controls updates.
+The force action `Jf(x)s` has three selectable implementations through
+`directional_residual_strategy`:
+
+- `tangent_action`: JAX uses forward-mode `jax.jvp` on the complete force
+  operator. NumPy uses the analytical element tangent, since NumPy has no
+  forward-mode autodiff.
+- `closed_form`: evaluates the analytical SVK or stable-Neo-Hookean tangent
+  and the pressure follower-load derivative directly.
+- `finite_difference`: evaluates a configurable forward difference of the
+  complete force operator, including pressure loads.
+
+For JAX, all three paths are inside the JIT-compiled implicit kernel; the
+finite-difference option does not call back into Python. A backtracking
+residual-norm line search controls updates.
 Solver diagnostics are available in `body.last_implicit_info`.

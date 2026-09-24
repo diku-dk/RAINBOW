@@ -22,6 +22,8 @@ They cover:
   `P F^T`;
 - finite constitutive responses for near-singular and inverted deformation
   gradients;
+- explicit Stable Neo-Hookean collapsed (`J=0`) and inverted (`J<0`)
+  deformation-gradient and assembled-force cases;
 - restoring force directions for ±10% dilation/compression of a centered
   regular tetrahedron;
 - restoring force directions for ±10% scaling of an eight-tet octahedron,
@@ -54,6 +56,10 @@ They cover:
 - isolated nonlinear-solver checks in `test_soft_nonlinear.py`: L-BFGS
   directions and history, curvature rejection, Armijo acceptance and failure,
   quadratic convergence, and iteration-limit reporting.
+- directional-residual strategy checks: analytical tangent-action and
+  closed-form derivatives agree with independent central differences for both
+  constitutive models, and all three strategies converge to the same implicit
+  state in NumPy and JAX when available.
 - API and integration edge cases: mesh/index/density validation, boundary-face
   cancellation, fixed-vertex updates, timestep/settings validation, implicit
   solves with pressure and external loads, zero-free-DOF systems, directional
@@ -72,14 +78,18 @@ uv run python -m unittest discover -s unit_tests -p 'test_soft_*.py' -v
 
 ## Verification examples
 
-The four material/integrator examples are:
+The parameterized end-to-end verification portfolio is:
 
 ```bash
-uv run python -m examples.verify_semi_implicit_svk
-uv run python -m examples.verify_semi_implicit_snh
-uv run python -m examples.verify_implicit_svk
-uv run python -m examples.verify_implicit_snh
+uv run python examples/verify_soft.py
 ```
+
+It runs both backends by default: two semi-implicit material cases and six
+implicit-BFGS material/derivative-strategy cases per backend, for 16 runs in
+total. It checks finite trajectories and fixed vertices, reports energy
+behavior, estimates timestep convergence by successive refinement, and writes
+`output/verify_soft.pdf`. Use `--numpy` or `--jax` to select one backend,
+and `--dt`, `--final-time`, and `--refinement-levels` to control the study.
 
 They run a fixed-root cantilever under gravity and verify finite state and
 fixed-node invariants. The implicit examples also print BFGS convergence
@@ -87,25 +97,41 @@ diagnostics.
 
 ## Profiling reference
 
-`examples/profile_soft_body_cantilever.py` performs one simulation run per
+`examples/profile_soft_modes.py` performs one simulation run per
 method/backend, with a default duration of three seconds and `dt=0.001`. It
 compares NumPy/JAX and both semi-implicit/implicit methods over approximately
 10K--100K tetrahedra. The BFGS settings are loaded from
-`output/auto-tuned-settings.json` by default.
+`output/auto-tuned-settings.json` by default. Implicit BFGS is profiled
+separately with `tangent_action`, `closed_form`, and `finite_difference`,
+using the corresponding strategy-specific auto-tuned settings.
 
 The profiler also generates mesh-state and energy plots for hanging,
 extension, compression, and twisting load cases.
 
-`examples/profile_soft_body_realtime.py` performs the real-time scalability
+`examples/profile_soft_realtime_scale.py` performs the real-time scalability
 study. It tunes internal substeps for a 30 FPS frame budget at each mesh size,
 then reports frame time and timestep invocations per frame for NumPy/JAX
-semi-implicit and implicit BFGS combinations. Invalid candidates are recorded
+semi-implicit and all three implicit BFGS directional-residual combinations.
+Invalid candidates are recorded
 in the CSV/JSON report rather than aborting the entire mesh sweep.
 
-`examples/autotune-soft-on-bending-beam.py` tunes all available combinations
+`examples/autotune-soft.py` tunes all available combinations
 by default (`--backend both`) and stores them under the `combinations` key in
 `output/auto-tuned-settings.json`. Each combination entry contains its tuned
 timestep and, for BFGS, its solver settings.
+
+`examples/study_soft_convergence.py` loads those strategy/backend-specific
+settings and records one residual-reduction rate for every implicit solver
+invocation over a user-specified duration. It writes per-invocation and
+mean-with-quartiles plots, for example:
+
+```bash
+uv run python examples/study_soft_convergence.py --case bending --duration 3.0
+```
+
+Use `--case twist`, `--case compress`, or `--case stretch` for the other
+canonical baselines, and `--numpy`/`--jax`-equivalent backend selection through
+`--backend numpy` or `--backend jax`.
 
 The profiling and comparison examples require this JSON file. If it is
 missing, they stop with a command explaining how to generate it. They can be

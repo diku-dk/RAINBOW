@@ -162,6 +162,7 @@ def solve_lbfgs(
         "iterations": iterations,
         "final_residual_norm": float(np.linalg.norm(g)),
         "initial_residual_norm": initial_norm,
+        "residual_reduction_factor": float(np.linalg.norm(g) / initial_norm),
         "line_search_steps": line_search_steps,
         "history_length": len(history_s),
     }
