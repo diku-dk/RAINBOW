@@ -6,9 +6,11 @@ from typing import Callable
 
 import numpy as np
 
+from .types import Array
 
-Array = np.ndarray
+
 Residual = Callable[[Array], Array]
+Feasibility = Callable[[Array], bool]
 
 
 def compute_lbfgs_direction(
@@ -66,13 +68,17 @@ def compute_backtracking_line_search(
     max_iterations: int,
     reduction: float,
     c1: float,
+    feasible: Feasibility | None = None,
 ) -> dict:
-    """Perform Armijo backtracking on ``0.5 * ||residual(position)||²``."""
+    """Perform residual backtracking with an optional trial feasibility test."""
     phi = 0.5 * float(np.dot(gradient, gradient))
     slope = float(np.dot(gradient, direction))
     step_length = 1.0
     for iteration in range(max_iterations):
         trial = position + step_length * direction
+        if feasible is not None and not feasible(trial):
+            step_length *= reduction
+            continue
         trial_gradient = residual(trial)
         trial_phi = 0.5 * float(np.dot(trial_gradient, trial_gradient))
         if not enabled or trial_phi <= phi + c1 * step_length * slope:
@@ -99,6 +105,7 @@ def solve_lbfgs(
     directional_residual: Residual,
     diagonal: Array,
     settings: dict,
+    feasible: Feasibility | None = None,
 ) -> tuple[Array, Array, dict]:
     """Solve a residual equation with matrix-free limited-memory BFGS.
 
@@ -137,6 +144,7 @@ def solve_lbfgs(
             int(settings["max_line_search_iterations"]),
             float(settings["line_search_reduction"]),
             float(settings["line_search_c1"]),
+            feasible=feasible,
         )
         line_search_steps += line_search["iterations"]
         if not line_search["accepted"]:

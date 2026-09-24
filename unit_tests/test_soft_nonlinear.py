@@ -102,6 +102,29 @@ class TestSoftNonlinear(unittest.TestCase):
         self.assertFalse(failed["accepted"])
         self.assertEqual(failed["iterations"], 3)
 
+    def test_line_search_rejects_infeasible_trial_before_accepting_feasible_trial(self):
+        residual = lambda x: x - 1.0
+        result = compute_backtracking_line_search(
+            np.array([0.0]), np.array([-1.0]), np.array([1.0]), residual,
+            enabled=True, max_iterations=5, reduction=0.5, c1=1.0e-4,
+            feasible=lambda x: bool(x[0] < 0.75),
+        )
+        self.assertTrue(result["accepted"])
+        self.assertEqual(result["iterations"], 2)
+        self.assertAlmostEqual(result["step_length"], 0.5)
+        np.testing.assert_allclose(result["position"], [0.5])
+
+    def test_line_search_feasibility_guard_applies_without_armijo_backtracking(self):
+        residual = lambda x: x - 1.0
+        result = compute_backtracking_line_search(
+            np.array([0.0]), np.array([-1.0]), np.array([1.0]), residual,
+            enabled=False, max_iterations=5, reduction=0.5, c1=1.0e-4,
+            feasible=lambda x: bool(x[0] < 0.75),
+        )
+        self.assertTrue(result["accepted"])
+        self.assertEqual(result["iterations"], 2)
+        np.testing.assert_allclose(result["position"], [0.5])
+
     def test_lbfgs_solver_converges_on_quadratic_residual(self):
         matrix = np.diag([2.0, 5.0, 9.0])
         target = np.array([1.0, -2.0, 0.5])

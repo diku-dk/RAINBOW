@@ -7,10 +7,17 @@ import numpy as np
 from .mesh import TetMesh
 
 
+def compute_element_jacobians(x, mesh: TetMesh):
+    """Return current signed Jacobians for all linear tetrahedra."""
+    p = x[mesh.elements]
+    d = np.stack((p[:, 1] - p[:, 0], p[:, 2] - p[:, 0], p[:, 3] - p[:, 0]), axis=2)
+    return np.linalg.det(d @ mesh.inv_Dm)
+
+
 def compute_elastic_forces(x, mesh: TetMesh, lam: float, mu: float, model_code: int = 0):
     p = x[mesh.elements]
     d = np.stack((p[:, 1] - p[:, 0], p[:, 2] - p[:, 0], p[:, 3] - p[:, 0]), axis=2)
-    p1 = _pk1_stress(d @ mesh.inv_Dm, lam, mu, model_code)
+    p1 = compute_pk1_stress(d @ mesh.inv_Dm, lam, mu, model_code)
     local = -np.einsum("eij,eaj->eai", p1, mesh.volume_grad_N)
     indices = mesh.elements.reshape(-1)
     out = np.empty_like(x)
@@ -99,7 +106,7 @@ def compute_energy_density(f, lam: float, mu: float, model_code: int):
     raise ValueError(f"unknown material model code: {model_code}")
 
 
-def _pk1_stress(f, lam: float, mu: float, model_code: int):
+def compute_pk1_stress(f, lam: float, mu: float, model_code: int):
     if model_code == 0:
         c = np.einsum("...ji,...jk->...ik", f, f)
         strain = 0.5 * (c - np.eye(3))

@@ -150,6 +150,12 @@ state changes use `set_*`, `add_*`, or `remove_*`.
 
 ## Current validation limits
 
+This suite is a strong numerical prototype verification suite, but it is not
+by itself a production-release gate. The repository currently has no configured
+coverage threshold, static type-checking gate, lint gate, continuous
+integration matrix, or long-running performance-regression baseline. Those
+should be added before treating solver changes as production releases.
+
 - The soft solver enables JAX 64-bit arithmetic so implicit residual
   tolerances are comparable with the NumPy reference path.
 - The full repository test suite includes legacy modules requiring optional

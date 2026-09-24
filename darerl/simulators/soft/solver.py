@@ -13,15 +13,16 @@ from __future__ import annotations
 
 import numpy as np
 
-from .nonlinear import solve_lbfgs
 from .material import Material, StableNeoHookeanMaterial, SVKMaterial
 from .mesh import TetMesh
-from .stepper import ImplicitBFGSStepper, SemiImplicitStepper
+from .time_stepper import step_implicit, step_semi_implicit
+from .types import Array
 from .forces import (
     compute_directional_forces,
     compute_elastic_forces as compute_numpy_elastic_forces,
     compute_energy_density,
     compute_pressure_forces,
+    compute_pk1_stress,
 )
 
 try:  # Keep importing the package possible without installing JAX.
@@ -38,9 +39,6 @@ except ImportError:  # pragma: no cover - exercised in environments without JAX
     jax = None
     jnp = None
     _HAS_JAX = False
-
-
-Array = np.ndarray
 
 
 from dataclasses import dataclass
@@ -175,48 +173,10 @@ class SoftBody:
         :meth:`step_implicit` for supported keys.
         """
         if method == "implicit_bfgs":
-            return ImplicitBFGSStepper().step(self, dt, np.asarray(gravity, dtype=np.float64), settings=settings)
+            return step_implicit(self, dt, np.asarray(gravity, dtype=np.float64), settings=settings)
         if method != "semi_implicit":
             raise ValueError("method must be 'semi_implicit' or 'implicit_bfgs'")
-        return SemiImplicitStepper().step(self, dt, np.asarray(gravity, dtype=np.float64), sync=sync)
-
-    def _step_semi_implicit(self, dt: float, gravity: Array, sync: bool) -> tuple[Array, Array]:
-        """Advance with semi-implicit Euler."""
-        if dt <= 0.0:
-            raise ValueError("dt must be positive")
-        gravity = np.asarray(gravity, dtype=np.float64)
-        if gravity.shape != (3,):
-            raise ValueError("gravity must have shape (3,)")
-        if not np.all(np.isfinite(gravity)):
-            raise ValueError("gravity must be finite")
-        if self._jax_enabled:
-            if self._jax_x is None:
-                self._jax_x = jnp.asarray(self.x)
-                self._jax_v = jnp.asarray(self.v)
-            self._jax_x, self._jax_v = _jax_step(
-                self._jax_x,
-                self._jax_v,
-                *self._static,
-                self._jax_x0,
-                *self._pressure_static,
-                self._external_forces_device,
-                jnp.asarray(gravity),
-                *self.material.compute_lame_parameters(),
-                self.material.model_code,
-                dt,
-            )
-            if sync:
-                self.synchronize()
-            else:
-                self.x, self.v = self._jax_x, self._jax_v
-        else:
-            f = self._noninertial_forces(np.asarray(self.x))
-            active = ~self.fixed
-            self.v[active] += dt * (f[active] * self.mesh.inverse_lumped_mass[active, None] + gravity)
-            self.x[active] += dt * self.v[active]
-            self.v[self.fixed] = 0.0
-            self.x[self.fixed] = self.mesh.x0[self.fixed]
-        return self.x, self.v
+        return step_semi_implicit(self, dt, np.asarray(gravity, dtype=np.float64), sync=sync)
 
     def step_implicit(
         self,
@@ -224,166 +184,8 @@ class SoftBody:
         gravity: Array = (0.0, -9.81, 0.0),
         settings: dict | None = None,
     ) -> tuple[Array, Array]:
-        """Advance with fully implicit backward Euler and matrix-free L-BFGS.
-
-        The nonlinear solve is performed on free vertex positions. The
-        implicit residual is the gradient of the backward-Euler objective,
-
-        ``g(x) = M/dt² * (x - x_n - dt*v_n) - f(x)``.
-
-        Directional derivatives ``J_g(x) @ s`` reuse the force computation.
-        ``directional_residual_strategy`` selects one of three force actions:
-        ``"tangent_action"`` uses a JAX JVP (or the analytical local tangent
-        in the NumPy backend), ``"closed_form"`` uses the explicit analytical
-        constitutive and pressure derivatives, and ``"finite_difference"``
-        uses a configurable forward difference. Supported settings are:
-
-        ``max_iterations`` (25), ``tolerance`` (1e-6), ``history_size`` (10),
-        ``line_search`` (True), ``max_line_search_iterations`` (12),
-        ``line_search_reduction`` (0.5), ``line_search_c1`` (1e-4),
-        ``curvature_tolerance`` (1e-10), ``directional_epsilon`` (1e-6),
-        ``directional_residual_strategy`` (``"tangent_action"``), and
-        ``raise_on_failure`` (False).
-        """
-        if dt <= 0.0:
-            raise ValueError("dt must be positive")
-        gravity = np.asarray(gravity, dtype=np.float64)
-        if gravity.shape != (3,):
-            raise ValueError("gravity must have shape (3,)")
-        if not np.all(np.isfinite(gravity)):
-            raise ValueError("gravity must be finite")
-        cfg = {
-            "max_iterations": 25,
-            "tolerance": 1.0e-6,
-            "history_size": 10,
-            "line_search": True,
-            "max_line_search_iterations": 12,
-            "line_search_reduction": 0.5,
-            "line_search_c1": 1.0e-4,
-            "curvature_tolerance": 1.0e-10,
-            "directional_epsilon": 1.0e-6,
-            "directional_residual_strategy": "tangent_action",
-            "raise_on_failure": False,
-        }
-        if settings is not None:
-            unknown = set(settings) - set(cfg)
-            if unknown:
-                raise ValueError(f"unknown implicit solver settings: {sorted(unknown)}")
-            cfg.update(settings)
-        if cfg["max_iterations"] < 1 or cfg["history_size"] < 0:
-            raise ValueError("max_iterations must be positive and history_size cannot be negative")
-        if cfg["max_line_search_iterations"] < 1:
-            raise ValueError("max_line_search_iterations must be positive")
-        if not (0.0 < cfg["line_search_reduction"] < 1.0):
-            raise ValueError("line_search_reduction must be in (0, 1)")
-        if not (0.0 <= cfg["line_search_c1"] < 1.0):
-            raise ValueError("line_search_c1 must be in [0, 1)")
-        if cfg["tolerance"] <= 0.0 or cfg["directional_epsilon"] <= 0.0 or cfg["curvature_tolerance"] < 0.0:
-            raise ValueError("solver tolerances and directional_epsilon must be valid positive values")
-        strategy_codes = {"tangent_action": 0, "closed_form": 1, "finite_difference": 2}
-        strategy = cfg["directional_residual_strategy"]
-        if strategy not in strategy_codes:
-            raise ValueError(
-                "directional_residual_strategy must be 'tangent_action', 'closed_form', or 'finite_difference'"
-            )
-
-        x_n = np.asarray(self.x, dtype=np.float64).copy()
-        v_n = np.asarray(self.v, dtype=np.float64).copy()
-        free = np.flatnonzero(~self.fixed)
-        dofs = np.arange(self.mesh.node_count * 3).reshape((-1, 3))[free].reshape(-1)
-
-        if self._jax_enabled:
-            x_device, v_device, info = _jax_implicit_step(
-                jnp.asarray(x_n),
-                jnp.asarray(v_n),
-                jnp.asarray(self.mesh.x0),
-                *self._static,
-                jnp.asarray(self.mesh.lumped_mass),
-                *self._pressure_static,
-                self._external_forces_device,
-                jnp.asarray(gravity),
-                *self.material.compute_lame_parameters(),
-                self.material.model_code,
-                dt,
-                jnp.asarray(dofs, dtype=jnp.int32),
-                jnp.asarray(np.repeat(self.mesh.lumped_mass[free], 3) / (dt * dt)),
-                jnp.asarray(np.repeat(self.mesh.inverse_lumped_mass[free], 3)),
-                cfg["tolerance"],
-                int(cfg["max_iterations"]),
-                int(cfg["history_size"]),
-                bool(cfg["line_search"]),
-                int(cfg["max_line_search_iterations"]),
-                cfg["line_search_reduction"],
-                cfg["line_search_c1"],
-                cfg["curvature_tolerance"],
-                cfg["directional_epsilon"],
-                strategy_codes[strategy],
-            )
-            x_device.block_until_ready()
-            self._jax_x, self._jax_v = x_device, v_device
-            self.x, self.v = np.asarray(x_device), np.asarray(v_device)
-            self.last_implicit_info = {
-                "converged": bool(info[0]),
-                "iterations": int(info[1]),
-                "final_residual_norm": float(info[2]),
-                "initial_residual_norm": float(info[3]),
-                "residual_reduction_factor": float(info[6]),
-                "line_search_steps": int(info[4]),
-                "history_length": int(info[5]),
-            }
-            if not self.last_implicit_info["converged"] and cfg["raise_on_failure"]:
-                raise RuntimeError(f"implicit BFGS solve did not converge: {self.last_implicit_info}")
-            return self.x, self.v
-
-        x = x_n + dt * v_n
-        x[self.fixed] = self.mesh.x0[self.fixed]
-        mass_dof = np.repeat(self.mesh.lumped_mass[free], 3)
-        inv_mass_dof = np.repeat(self.mesh.inverse_lumped_mass[free], 3)
-        scale = mass_dof / (dt * dt)
-
-        def residual(position: Array) -> Array:
-            position_array = np.asarray(position).reshape(self.x.shape)
-            force = self._total_forces(position_array, gravity)
-            result = np.zeros(position.size, dtype=np.float64)
-            result[dofs] = scale * (
-                position_array.reshape(-1)[dofs] - x_n.reshape(-1)[dofs] - dt * v_n.reshape(-1)[dofs]
-            ) - force[free].reshape(-1)
-            return result
-
-        def directional_residual(position: Array, direction: Array) -> Array:
-            position_array = np.asarray(position).reshape(self.x.shape)
-            direction_array = np.asarray(direction).reshape(self.x.shape)
-            df = self._directional_force(
-                position_array,
-                direction_array,
-                gravity,
-                cfg["directional_epsilon"],
-                strategy,
-            )
-            result = np.zeros(position.size, dtype=np.float64)
-            result[dofs] = scale * direction_array.reshape(-1)[dofs] - df[free].reshape(-1)
-            return result
-
-        x = x.reshape(-1)
-        diagonal = np.zeros(x.size, dtype=np.float64)
-        diagonal[dofs] = dt * dt * inv_mass_dof
-        x, _, self.last_implicit_info = solve_lbfgs(
-            x,
-            residual,
-            directional_residual,
-            diagonal,
-            cfg,
-        )
-        if not self.last_implicit_info["converged"] and cfg["raise_on_failure"]:
-            raise RuntimeError(f"implicit BFGS solve did not converge: {self.last_implicit_info}")
-        self.x = x.reshape(x_n.shape)
-        self.v = (self.x - x_n) / dt
-        self.x[self.fixed] = self.mesh.x0[self.fixed]
-        self.v[self.fixed] = 0.0
-        if self._jax_enabled:
-            self._jax_x = jnp.asarray(self.x)
-            self._jax_v = jnp.asarray(self.v)
-        return self.x, self.v
+        """Advance with the implicit time-stepper and matrix-free L-BFGS."""
+        return step_implicit(self, dt, gravity, settings)
 
     def _total_forces(self, x: Array, gravity: Array) -> Array:
         forces = self._noninertial_forces(x)
@@ -494,152 +296,6 @@ class SoftBody:
         return self.x, self.v
 
 
-def _numpy_forces(x: Array, mesh: TetMesh, lam: float, mu: float, model_code: int = 0) -> Array:
-    p = x[mesh.elements]
-    d = np.stack((p[:, 1] - p[:, 0], p[:, 2] - p[:, 0], p[:, 3] - p[:, 0]), axis=2)
-    f = d @ mesh.inv_Dm
-    p1 = _numpy_pk1_stress(f, lam, mu, model_code)
-    local = -np.einsum("eij,eaj->eai", p1, mesh.volume_grad_N)
-    indices = mesh.elements.reshape(-1)
-    out = np.empty_like(x)
-    for axis in range(3):
-        out[:, axis] = np.bincount(indices, weights=local[:, :, axis].reshape(-1), minlength=len(x))
-    return out
-
-
-def _numpy_directional_forces(
-    x: Array,
-    direction: Array,
-    mesh: TetMesh,
-    lam: float,
-    mu: float,
-    model_code: int,
-    pressure_faces: Array,
-    pressure: Array,
-) -> Array:
-    """Compute the analytical directional derivative of applied and elastic forces."""
-    p = x[mesh.elements]
-    dp = direction[mesh.elements]
-    d = np.stack((p[:, 1] - p[:, 0], p[:, 2] - p[:, 0], p[:, 3] - p[:, 0]), axis=2)
-    dd = np.stack((dp[:, 1] - dp[:, 0], dp[:, 2] - dp[:, 0], dp[:, 3] - dp[:, 0]), axis=2)
-    f = d @ mesh.inv_Dm
-    df = dd @ mesh.inv_Dm
-
-    if model_code == 0:
-        c = np.einsum("...ji,...jk->...ik", f, f)
-        dc = np.einsum("...ji,...jk->...ik", df, f) + np.einsum("...ji,...jk->...ik", f, df)
-        strain = 0.5 * (c - np.eye(3))
-        dstrain = 0.5 * dc
-        identity = np.eye(3)
-        stress = lam * np.trace(strain, axis1=1, axis2=2)[:, None, None] * identity + 2.0 * mu * strain
-        dstress = lam * np.trace(dstrain, axis1=1, axis2=2)[:, None, None] * identity + 2.0 * mu * dstrain
-        dp1 = np.einsum("eij,ejk->eik", df, stress) + np.einsum("eij,ejk->eik", f, dstress)
-    elif model_code == 1:
-        mu_hat = (4.0 / 3.0) * mu
-        lam_hat = lam + (5.0 / 6.0) * mu
-        alpha = 1.0 + mu_hat / lam_hat - mu_hat / (4.0 * lam_hat)
-        i_c = np.sum(f * f, axis=(1, 2))
-        d_i_c = 2.0 * np.sum(f * df, axis=(1, 2))
-        cof = np.stack(
-            (np.cross(f[:, 1], f[:, 2]), np.cross(f[:, 2], f[:, 0]), np.cross(f[:, 0], f[:, 1])),
-            axis=1,
-        )
-        dcof = np.stack(
-            (
-                np.cross(df[:, 1], f[:, 2]) + np.cross(f[:, 1], df[:, 2]),
-                np.cross(df[:, 2], f[:, 0]) + np.cross(f[:, 2], df[:, 0]),
-                np.cross(df[:, 0], f[:, 1]) + np.cross(f[:, 0], df[:, 1]),
-            ),
-            axis=1,
-        )
-        j = np.linalg.det(f)
-        d_j = np.sum(cof * df, axis=(1, 2))
-        d_a = mu_hat * d_i_c / (i_c + 1.0) ** 2
-        a = mu_hat * (1.0 - 1.0 / (i_c + 1.0))
-        dp1 = d_a[:, None, None] * f + a[:, None, None] * df + lam_hat * (
-            d_j[:, None, None] * cof + (j - alpha)[:, None, None] * dcof
-        )
-    else:
-        raise ValueError(f"unknown material model code: {model_code}")
-
-    local = -np.einsum("eij,eaj->eai", dp1, mesh.volume_grad_N)
-    out = np.zeros_like(x)
-    indices = mesh.elements.reshape(-1)
-    for axis in range(3):
-        out[:, axis] = np.bincount(indices, weights=local[:, :, axis].reshape(-1), minlength=len(x))
-
-    if len(pressure_faces):
-        face_x = x[pressure_faces]
-        face_dx = direction[pressure_faces]
-        edge_1 = face_x[:, 1] - face_x[:, 0]
-        edge_2 = face_x[:, 2] - face_x[:, 0]
-        d_edge_1 = face_dx[:, 1] - face_dx[:, 0]
-        d_edge_2 = face_dx[:, 2] - face_dx[:, 0]
-        d_area_vectors = 0.5 * (
-            np.cross(d_edge_1, edge_2) + np.cross(edge_1, d_edge_2)
-        )
-        local_pressure = np.broadcast_to(pressure, (len(pressure_faces),))[:, None] * d_area_vectors / 3.0
-        indices = pressure_faces.reshape(-1)
-        nodal = np.repeat(local_pressure, 3, axis=0)
-        for axis in range(3):
-            out[:, axis] += np.bincount(indices, weights=nodal[:, axis], minlength=len(x))
-    return out
-
-
-def _numpy_pk1_stress(f: Array, lam: float, mu: float, model_code: int) -> Array:
-    if model_code == 0:
-        c = np.einsum("...ji,...jk->...ik", f, f)
-        strain = 0.5 * (c - np.eye(3))
-        s = lam * np.trace(strain, axis1=1, axis2=2)[:, None, None] * np.eye(3) + 2.0 * mu * strain
-        return f @ s
-    if model_code == 1:
-        mu_hat = (4.0 / 3.0) * mu
-        lam_hat = lam + (5.0 / 6.0) * mu
-        alpha = 1.0 + mu_hat / lam_hat - mu_hat / (4.0 * lam_hat)
-        i_c = np.sum(f * f, axis=(1, 2))
-        d_j = np.stack(
-            (
-                np.cross(f[:, 1], f[:, 2]),
-                np.cross(f[:, 2], f[:, 0]),
-                np.cross(f[:, 0], f[:, 1]),
-            ),
-            axis=1,
-        )
-        j = np.linalg.det(f)
-        return mu_hat * (1.0 - 1.0 / (i_c + 1.0))[:, None, None] * f + lam_hat * (j - alpha)[:, None, None] * d_j
-    raise ValueError(f"unknown material model code: {model_code}")
-
-
-def _numpy_energy_density(f: Array, lam: float, mu: float, model_code: int) -> Array:
-    c = np.einsum("...ji,...jk->...ik", f, f)
-    i_c = np.trace(c, axis1=1, axis2=2)
-    if model_code == 0:
-        strain = 0.5 * (c - np.eye(3))
-        return 0.5 * lam * np.trace(strain, axis1=1, axis2=2) ** 2 + mu * np.sum(strain * strain, axis=(1, 2))
-    if model_code == 1:
-        mu_hat = (4.0 / 3.0) * mu
-        lam_hat = lam + (5.0 / 6.0) * mu
-        alpha = 1.0 + mu_hat / lam_hat - mu_hat / (4.0 * lam_hat)
-        j = np.linalg.det(f)
-        return 0.5 * mu_hat * (i_c - 3.0) + 0.5 * lam_hat * (j - alpha) ** 2 - 0.5 * mu_hat * np.log(i_c + 1.0)
-    raise ValueError(f"unknown material model code: {model_code}")
-
-
-def _numpy_pressure_forces(x: Array, faces: Array, pressure: Array, node_count: int) -> Array:
-    out = np.zeros((node_count, 3), dtype=x.dtype)
-    if len(faces) == 0:
-        return out
-    face_x = x[faces]
-    area_vectors = 0.5 * np.cross(face_x[:, 1] - face_x[:, 0], face_x[:, 2] - face_x[:, 0])
-    values = np.broadcast_to(pressure, (len(faces),))
-    local = values[:, None] * area_vectors / 3.0
-    indices = faces.reshape(-1)
-    nodal = np.repeat(local, 3, axis=0)
-    for axis in range(3):
-        out[:, axis] = np.bincount(indices, weights=nodal[:, axis], minlength=node_count)
-    return out
-
-
 if _HAS_JAX:
     @jax.jit(static_argnums=(6,))
     def _jax_element_forces(x, elements, inv_dm, volume_grad_n, lam, mu, model_code):
@@ -674,6 +330,12 @@ if _HAS_JAX:
     def _jax_forces(x, elements, inv_dm, volume_grad_n, inverse_mass, fixed, lam, mu, model_code):
         local, elements = _jax_element_forces(x, elements, inv_dm, volume_grad_n, lam, mu, model_code)
         return jax.ops.segment_sum(local.reshape((-1, 3)), elements.reshape(-1), x.shape[0])
+
+    @jax.jit
+    def _jax_element_jacobians(x, elements, inv_dm):
+        p = x[elements]
+        d = jnp.stack((p[:, 1] - p[:, 0], p[:, 2] - p[:, 0], p[:, 3] - p[:, 0]), axis=2)
+        return jnp.linalg.det(d @ inv_dm)
 
     @jax.jit
     def _jax_pressure_forces(x, faces, pressure):
@@ -756,7 +418,7 @@ if _HAS_JAX:
         x_new = jnp.where(active[:, None], x + dt * v_new, x0)
         return x_new, v_new
 
-    @jax.jit(static_argnums=(15, 21, 22, 23, 24, 29))
+    @jax.jit(static_argnums=(15, 21, 22, 23, 24, 29, 31))
     def _jax_implicit_step(
         x_n,
         v_n,
@@ -788,6 +450,8 @@ if _HAS_JAX:
         curvature_tolerance,
         directional_epsilon,
         directional_strategy,
+        minimum_jacobian,
+        prevent_inversion,
     ):
         """Fully device-resident JAX L-BFGS backward-Euler step.
 
@@ -928,9 +592,23 @@ if _HAS_JAX:
                         trial_flat = x.reshape(-1).at[dofs].add(step_length * direction)
                         candidate_x = trial_flat.reshape(x.shape)
                         candidate_x = jnp.where(fixed[:, None], x0, candidate_x)
-                        candidate_g = residual(candidate_x)
-                        sufficient_decrease = 0.5 * jnp.dot(candidate_g, candidate_g) <= phi + line_search_c1 * step_length * slope
-                        accept_now = (~accepted) & ((not line_search) | sufficient_decrease)
+
+                        if prevent_inversion:
+                            candidate_jacobians = _jax_element_jacobians(candidate_x, elements, inv_dm)
+                            feasible = jnp.all(candidate_jacobians > minimum_jacobian)
+                        else:
+                            feasible = jnp.asarray(True)
+
+                        # Avoid evaluating elastic forces for an infeasible trial.
+                        candidate_g = jax.lax.cond(
+                            feasible,
+                            lambda _: residual(candidate_x),
+                            lambda _: g,
+                            operand=None,
+                        )
+                        armijo = 0.5 * jnp.dot(candidate_g, candidate_g) <= phi + line_search_c1 * step_length * slope
+                        sufficient_decrease = feasible & armijo
+                        accept_now = (~accepted) & feasible & ((not line_search) | armijo)
                         trial_x = jnp.where(accept_now, candidate_x, trial_x)
                         trial_g = jnp.where(accept_now, candidate_g, trial_g)
                         step_length = jnp.where((~accepted) & (~sufficient_decrease) & line_search, step_length * line_search_reduction, step_length)

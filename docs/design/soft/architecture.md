@@ -4,12 +4,12 @@
 
 ```text
 darerl/simulators/soft/
-├── types.py      shared array, mesh, and material type exports
+├── types.py      shared array and state type aliases
 ├── material.py   constitutive material definitions
 ├── mesh.py       TetMesh and structured beam/surface-mesh utilities
 ├── forces.py     stateless NumPy force and energy kernels
 ├── nonlinear.py  reusable NumPy L-BFGS and Armijo solver routines
-├── stepper.py    semi-implicit and implicit-BFGS strategies
+├── time_stepper.py semi-implicit and implicit-BFGS functions
 ├── solver.py     SoftBody orchestration and JAX hot kernels
 └── __init__.py  public exports
 ```
@@ -55,17 +55,21 @@ from mesh and integrator state.
 The implementation is organized by responsibility:
 
 - `material.py` contains constitutive material data and validation.
-- `types.py` contains shared array, mesh, and material type exports.
+- `types.py` contains shared array, vertex, element, and force aliases. Concrete
+  material and mesh classes remain in their owning modules.
 - `mesh.py` contains `TetMesh` preprocessing and mesh construction helpers.
 - `forces.py` contains stateless NumPy force, pressure, tangent, and energy
   kernels used as the reference implementation.
 - `nonlinear.py` contains the backend-independent L-BFGS and line-search
   routines.
-- `stepper.py` contains the semi-implicit and implicit-BFGS integration
-  strategies.
-- `solver.py` contains `SoftBody` state, public operations, and the JAX hot
-  kernels used by the time steppers. It is the high-level orchestration
-  object, not the nonlinear solver itself.
+- `time_stepper.py` contains the concrete `step_semi_implicit` and
+  `step_implicit` integration functions. There are no wrapper stepper objects;
+  the selected algorithm is explicit at the call site.
+- `solver.py` contains `SoftBody` state, public operations, and the JAX backend
+  kernels used by the time steppers. The JAX kernels are kept here because
+  their arguments are the device-state packing owned by `SoftBody`; they do
+  not define a second constitutive or force implementation. It is the
+  high-level state/backend boundary, not the nonlinear solver itself.
 - `baseline.py` contains reusable deformation-mode examples.
 - `theory.md` derives the implemented continuum-to-discrete equations and
   directional-residual strategies.
@@ -113,3 +117,14 @@ history management, Armijo backtracking, and residual iteration to
 `nonlinear.py`. The JAX implicit path remains device-resident in `solver.py`;
 its fixed iteration bounds and history arrays are expressed directly with JAX
 primitives for compilation.
+## Time integration
+
+`time_stepper.py` owns the time-integration algorithms. Its
+`step_semi_implicit` and `step_implicit` functions perform state updates,
+construct backward-Euler residuals, configure the L-BFGS solve, and apply the
+trial-state Jacobian guard.
+
+`solver.py` owns `SoftBody` state, mesh/material/load configuration, force
+evaluation, and the JAX backend kernels used by the time steppers. Its public
+`step(...)` and `step_implicit(...)` methods are dispatch conveniences; they
+do not contain integration logic.

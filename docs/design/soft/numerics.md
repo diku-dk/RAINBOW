@@ -175,3 +175,27 @@ For JAX, all three paths are inside the JIT-compiled implicit kernel; the
 finite-difference option does not call back into Python. A backtracking
 residual-norm line search controls updates.
 Solver diagnostics are available in `body.last_implicit_info`.
+
+### Trial-state Jacobian guard
+
+The line search accepts an optional feasibility callback. For implicit soft-body
+steps, the callback evaluates the signed Jacobian of every current linear
+tetrahedron in the trial configuration and requires
+
+```text
+det(Fₑ) > minimum_jacobian
+```
+
+This is an inexpensive endpoint test, not a continuous collision test or root
+solve: intermediate states between the current and trial positions are not
+searched. If a trial fails, the line search reduces its step length and tries
+again. NumPy skips the residual/force evaluation for rejected trials, and JAX
+keeps the same test inside the JIT-compiled kernel.
+
+The default is material-aware. StVK enables the guard because its constitutive
+model is not intended to be used through element inversion. Stable
+Neo-Hookean disables it because that model is explicitly finite for collapsed
+and inverted elements. Set `prevent_inversion` to `True` or `False` to override
+this policy, and use `minimum_jacobian` to impose a positive clearance above
+zero. A non-feasible current state is rejected immediately when the guard is
+enabled.

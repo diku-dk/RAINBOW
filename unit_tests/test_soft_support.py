@@ -17,7 +17,10 @@ from darerl.simulators.soft import (
     create_stretch_baseline,
     create_twist_baseline,
 )
-from darerl.simulators.soft.solver import _numpy_energy_density, _numpy_pk1_stress
+from darerl.simulators.soft import compute_energy_density, compute_pk1_stress
+
+_numpy_energy_density = compute_energy_density
+_numpy_pk1_stress = compute_pk1_stress
 
 try:
     import jax  # noqa: F401
@@ -316,6 +319,36 @@ class _SoftBodyTests:
             body.step_implicit(1.0e-3, settings={"max_line_search_iterations": 0})
         with self.assertRaises(ValueError):
             body.step_implicit(1.0e-3, settings={"directional_residual_strategy": "unknown"})
+        with self.assertRaises(ValueError):
+            body.step_implicit(1.0e-3, settings={"minimum_jacobian": -1.0})
+
+    def test_stvk_implicit_line_search_rejects_inverted_current_state_by_default(self):
+        mesh, rest = one_tet()
+        body = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), use_jax=False)
+        body.x = rest.copy()
+        body.x[[1, 2]] = body.x[[2, 1]]
+        with self.assertRaises(ValueError):
+            body.step_implicit(1.0e-3, settings={"max_iterations": 2})
+
+    def test_stvk_inversion_guard_can_be_disabled(self):
+        mesh, rest = one_tet()
+        body = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), use_jax=False)
+        body.x = rest.copy()
+        body.x[[1, 2]] = body.x[[2, 1]]
+        body.step_implicit(
+            1.0e-5,
+            settings={"prevent_inversion": False, "max_iterations": 1},
+        )
+
+    def test_stable_neo_hookean_implicit_step_allows_inverted_current_state(self):
+        mesh, rest = one_tet()
+        body = SoftBody(mesh, StableNeoHookeanMaterial(100.0, 0.3, 1.0), use_jax=False)
+        body.x = rest.copy()
+        body.x[[1, 2]] = body.x[[2, 1]]
+        body.step_implicit(
+            1.0e-5,
+            settings={"max_iterations": 1, "raise_on_failure": False},
+        )
 
     def test_all_directional_residual_strategies_converge(self):
         mesh, _ = one_tet()

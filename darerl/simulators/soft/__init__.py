@@ -3,9 +3,16 @@
 from .solver import SoftBody
 from .material import Material, StableNeoHookeanMaterial, SVKMaterial
 from .mesh import TetMesh, compute_boundary_faces, create_beam_mesh
-from .stepper import ImplicitBFGSStepper, SemiImplicitStepper, Stepper
-from .types import Array
-from .forces import compute_directional_forces, compute_elastic_forces, compute_energy_density, compute_pressure_forces
+from .time_stepper import step_implicit, step_semi_implicit
+from .types import Array, Elements, Forces, Vertices
+from .forces import (
+    compute_directional_forces,
+    compute_elastic_forces,
+    compute_energy_density,
+    compute_element_jacobians,
+    compute_pk1_stress,
+    compute_pressure_forces,
+)
 from .baseline import (
     BASELINE_DEPTH,
     BASELINE_HEIGHT,
@@ -25,10 +32,10 @@ from .baseline import (
 )
 
 __all__ = [
-    "Array", "Material", "SoftBody", "StableNeoHookeanMaterial", "SVKMaterial", "TetMesh",
-    "Stepper", "SemiImplicitStepper", "ImplicitBFGSStepper",
+    "Array", "Elements", "Forces", "Vertices", "Material", "SoftBody", "StableNeoHookeanMaterial", "SVKMaterial", "TetMesh",
+    "step_implicit", "step_semi_implicit",
     "compute_boundary_faces", "create_beam_mesh", "compute_elastic_forces", "compute_pressure_forces",
-    "compute_directional_forces", "compute_energy_density", "SoftBaseline", "create_bending_baseline",
+    "compute_directional_forces", "compute_energy_density", "compute_element_jacobians", "compute_pk1_stress", "SoftBaseline", "create_bending_baseline",
     "create_stretch_baseline", "create_compress_baseline", "create_twist_baseline",
     "BASELINE_LENGTH", "BASELINE_HEIGHT", "BASELINE_DEPTH", "SKIN_YOUNGS_MODULUS",
     "SKIN_POISSON_RATIO", "SKIN_DENSITY", "BENDING_GRAVITY", "STRETCH_PRESSURE",

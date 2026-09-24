@@ -72,10 +72,10 @@ body.step(
         "tolerance": 1.0e-6,
     },
 )
+```
 
 The public API is intentionally small: construct a `TetMesh`, choose an
 `SVKMaterial` or `StableNeoHookeanMaterial`, construct a `SoftBody`, configure
 fixed vertices/pressure/external loads, query kinematics/forces/energy, and
 advance with `step` or `step_implicit`. These paths are exercised by
 `unit_tests/test_soft_api.py`.
-```

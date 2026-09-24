@@ -13,13 +13,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .mesh import create_beam_mesh
-from .solver import (
-    SVKMaterial,
-    SoftBody,
-    StableNeoHookeanMaterial,
-    TetMesh,
-)
+from .material import SVKMaterial, StableNeoHookeanMaterial
+from .mesh import TetMesh, create_beam_mesh
+from .solver import SoftBody
 
 
 # Approximate properties for soft human skin.  Actual skin varies widely with
