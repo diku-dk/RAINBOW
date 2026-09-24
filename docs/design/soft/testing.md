@@ -115,10 +115,16 @@ semi-implicit and all three implicit BFGS directional-residual combinations.
 Invalid candidates are recorded
 in the CSV/JSON report rather than aborting the entire mesh sweep.
 
-`examples/autotune-soft.py` tunes all available combinations
-by default (`--backend both`) and stores them under the `combinations` key in
-`output/auto-tuned-settings.json`. Each combination entry contains its tuned
-timestep and, for BFGS, its solver settings.
+`examples/autotune-soft.py` tunes all available solver/backend combinations by
+default (`--backend both`) and stores them under the `combinations` key in
+`output/auto-tuned-settings.json`. It deliberately avoids a Cartesian sweep.
+For each implicit strategy it first tests a robust profile at every candidate
+timestep, then explores at most the two largest viable timesteps while varying
+one solver parameter at a time, and finally re-tests the selected profile at
+all timesteps. The default parameter values are three iteration caps
+(`10,20,30`), three history sizes (`4,8,12`), two residual tolerances
+(`1e-4,1e-6`), and two line-search modes. Each combination entry contains its
+tuned timestep and solver settings.
 
 `examples/study_soft_convergence.py` loads those strategy/backend-specific
 settings and records one residual-reduction rate for every implicit solver

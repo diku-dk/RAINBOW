@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import itertools
 import json
 import sys
 import time
@@ -295,9 +294,18 @@ def main() -> None:
     parser.add_argument("--baseline-dt", type=float, default=1.0e-4, help="semi-implicit baseline timestep")
     parser.add_argument("--baseline-steps", type=int, default=1000, help="number of semi-implicit baseline steps")
     parser.add_argument("--max-dt", type=float, default=0.1, help="largest candidate timestep")
-    parser.add_argument("--max-iterations", default="5,10,15,20,25,30")
-    parser.add_argument("--history-sizes", default=",".join(str(value) for value in range(1, 16)))
-    parser.add_argument("--tolerances", default="1e-4,1e-6")
+    parser.add_argument(
+        "--max-iterations", default="10,20,30",
+        help="candidate L-BFGS iteration caps; swept one parameter at a time",
+    )
+    parser.add_argument(
+        "--history-sizes", default="4,8,12",
+        help="candidate L-BFGS history sizes; swept one parameter at a time",
+    )
+    parser.add_argument(
+        "--tolerances", default="1e-4,1e-6",
+        help="candidate relative residual tolerances; swept one parameter at a time",
+    )
     parser.add_argument("--line-search", default="true,false")
     parser.add_argument("--max-error-percent", type=float, default=5.0, help="maximum trajectory error relative to baseline, in percent")
     parser.add_argument("--backend", choices=("both", "numpy", "jax"), default="both")
@@ -329,6 +337,8 @@ def main() -> None:
     history_sizes = parse_list(args.history_sizes, int)
     tolerances = parse_list(args.tolerances, float)
     line_search_values = [value.lower() in {"true", "1", "yes", "on"} for value in parse_list(args.line_search, str)]
+    if not max_iterations or not history_sizes or not tolerances or not line_search_values:
+        parser.error("all solver sweep lists must contain at least one value")
     if args.max_dt < args.baseline_dt:
         parser.error("max-dt must be at least baseline-dt")
     candidate_dts = []
@@ -364,12 +374,14 @@ def main() -> None:
         for method, strategy in solver_combinations:
             label = f"{method}/{backend}" if strategy is None else f"{method}/{strategy}/{backend}"
             print(f"\n=== {label} ===")
-            if method == "semi_implicit":
-                combinations = ((dt, 0, 0, 0.0, False) for dt in candidate_dts)
-            else:
-                combinations = itertools.product(candidate_dts, max_iterations, history_sizes, tolerances, line_search_values)
             combination_results = []
-            for dt, iterations, history, tolerance, line_search in combinations:
+            seen = set()
+
+            def evaluate(dt, iterations=0, history=0, tolerance=0.0, line_search=False):
+                key = (float(dt), int(iterations), int(history), float(tolerance), bool(line_search))
+                if key in seen:
+                    return
+                seen.add(key)
                 settings = {} if strategy is None else {
                     "max_iterations": iterations,
                     "history_size": history,
@@ -417,6 +429,72 @@ def main() -> None:
                         f"dt={dt:.3e} compute={result['elapsed']:.3f}s jit={result['jit_seconds']:.3f}s "
                         f"error={result['trajectory_error_percent']:.4f}%"
                     )
+
+            if method == "semi_implicit":
+                for dt in candidate_dts:
+                    evaluate(dt)
+            else:
+                # First establish a robust reference solver profile at every
+                # timestep. The remaining parameters are then varied one at a
+                # time, avoiding the combinatorial Cartesian product.
+                robust = {
+                    "iterations": max(max_iterations),
+                    "history": max(history_sizes),
+                    "tolerance": min(tolerances),
+                    "line_search": True if True in line_search_values else line_search_values[0],
+                }
+                for dt in candidate_dts:
+                    evaluate(dt, **robust)
+
+                acceptable_reference = [
+                    result for result in combination_results
+                    if result["valid"] and result["trajectory_error"] <= max_error
+                ]
+                valid_reference = [result for result in combination_results if result["valid"]]
+                reference_pool = acceptable_reference or valid_reference
+                reference_pool.sort(key=lambda result: result["dt"], reverse=True)
+                exploration_dts = [result["dt"] for result in reference_pool[:2]]
+                if not exploration_dts:
+                    exploration_dts = candidate_dts[:2]
+
+                # These values cover the meaningful regimes: low/medium/high
+                # iteration and history budgets, two useful convergence
+                # tolerances, and the line-search on/off choice. Each sweep is
+                # local to the robust profile, so interactions do not multiply
+                # into a full Cartesian product.
+                parameter_values = {
+                    "iterations": max_iterations,
+                    "history": history_sizes,
+                    "tolerance": tolerances,
+                    "line_search": line_search_values,
+                }
+                for dt in exploration_dts:
+                    for parameter, values in parameter_values.items():
+                        for value in values:
+                            trial = dict(robust)
+                            trial[parameter] = value
+                            evaluate(dt, **trial)
+
+                setting_candidates = [
+                    result for result in combination_results
+                    if result["valid"] and result["trajectory_error"] <= max_error
+                ]
+                setting_candidates = setting_candidates or [
+                    result for result in combination_results if result["valid"]
+                ]
+                seed = min(setting_candidates, key=lambda result: result["elapsed"]) if setting_candidates else None
+                if seed is not None:
+                    seed_settings = {
+                        "iterations": int(seed["max_iterations"]),
+                        "history": int(seed["history_size"]),
+                        "tolerance": float(seed["tolerance"]),
+                        "line_search": bool(seed["line_search"]),
+                    }
+                    # Re-test the selected solver profile over every timestep;
+                    # this makes the final dt comparison fair and complete.
+                    for dt in candidate_dts:
+                        evaluate(dt, **seed_settings)
+
             acceptable = [result for result in combination_results if result["valid"] and result["trajectory_error"] <= max_error]
             if not acceptable:
                 failed_settings = {} if strategy is None else {
