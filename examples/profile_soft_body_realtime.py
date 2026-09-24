@@ -20,14 +20,17 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import sys
 import time
 from pathlib import Path
 
 import numpy as np
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
 from darerl.simulators.soft import SoftBody, SoftBaseline, create_bending_baseline
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 GRAVITY = create_bending_baseline().gravity
 METHODS = (
     ("semi_implicit", "NumPy", False),
@@ -55,7 +58,7 @@ def advance_frame(body: SoftBody, method: str, frame_dt: float, substeps: int, s
     body.synchronize()
 
 
-def trajectory(
+def compute_trajectory(
     baseline: SoftBaseline,
     method: str,
     use_jax: bool,
@@ -75,13 +78,13 @@ def trajectory(
     return states, time.perf_counter() - start
 
 
-def error_against_reference(candidate: np.ndarray, reference: np.ndarray) -> float:
+def compute_error_against_reference(candidate: np.ndarray, reference: np.ndarray) -> float:
     scale = max(float(np.ptp(reference[:, :, 0])), 1.0)
     error = float(np.max(np.linalg.norm(candidate - reference, axis=2)) / scale)
     return error if np.isfinite(error) else float("inf")
 
 
-def backend_label(use_jax: bool) -> str:
+def get_backend_label(use_jax: bool) -> str:
     return "JAX" if use_jax else "NumPy"
 
 
@@ -97,7 +100,7 @@ def tune_combination(
     max_error: float,
 ) -> dict:
     with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
-        reference, _ = trajectory(
+        reference, _ = compute_trajectory(
             baseline, "semi_implicit", False, tuning_duration, fps, reference_substeps, {}
         )
     candidates = []
@@ -106,8 +109,8 @@ def tune_combination(
             # Compile JAX before the measured candidate run.
             with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
                 if use_jax:
-                    trajectory(baseline, method, use_jax, 1.0 / fps, fps, substeps, settings)
-                states, elapsed = trajectory(
+                    compute_trajectory(baseline, method, use_jax, 1.0 / fps, fps, substeps, settings)
+                states, elapsed = compute_trajectory(
                     baseline, method, use_jax, tuning_duration, fps, substeps, settings
                 )
         except (FloatingPointError, RuntimeError, ValueError) as error:
@@ -121,7 +124,7 @@ def tune_combination(
                 }
             )
             continue
-        error = error_against_reference(states, reference)
+        error = compute_error_against_reference(states, reference)
         candidates.append(
             {
                 "substeps": substeps,
@@ -135,7 +138,7 @@ def tune_combination(
     if not acceptable:
         return {
             "method": method,
-            "backend": backend_label(use_jax),
+            "backend": get_backend_label(use_jax),
             "valid": False,
             "substeps": None,
             "dt": None,
@@ -148,7 +151,7 @@ def tune_combination(
     best = min(acceptable, key=lambda candidate: candidate["tuning_seconds"])
     return {
         "method": method,
-        "backend": backend_label(use_jax),
+        "backend": get_backend_label(use_jax),
         "valid": True,
         "substeps": int(best["substeps"]),
         "dt": float(best["dt"]),
@@ -159,7 +162,7 @@ def tune_combination(
     }
 
 
-def measure_frames(
+def compute_frame_measurements(
     baseline: SoftBaseline,
     selection: dict,
     duration: float,
@@ -183,7 +186,7 @@ def measure_frames(
     }
 
 
-def mesh_sizes(min_elements: int, max_elements: int, count: int, j: int, k: int) -> list[int]:
+def compute_mesh_sizes(min_elements: int, max_elements: int, count: int, j: int, k: int) -> list[int]:
     cells_per_x = 5 * (j - 1) * (k - 1)
     return [max(2, int(round(target / cells_per_x)) + 1) for target in np.geomspace(min_elements, max_elements, count)]
 
@@ -269,11 +272,16 @@ def main() -> None:
     if not candidate_substeps or any(value < 1 for value in candidate_substeps):
         parser.error("candidate-substeps must contain positive integers")
     settings_path = args.settings if args.settings.is_absolute() else PROJECT_ROOT / args.settings
+    if not settings_path.is_file():
+        parser.error(
+            f"BFGS settings file not found: {settings_path}. "
+            "Run examples/autotune-soft-on-bending-beam.py first or pass --settings."
+        )
     with settings_path.open() as stream:
         tuned = json.load(stream)
     tuned_combinations = tuned.get("combinations", {})
 
-    def settings_for(method: str, backend: str) -> dict:
+    def get_settings(method: str, backend: str) -> dict:
         entry = tuned_combinations.get(f"{method}/{backend}")
         if entry is not None:
             return dict(entry.get("solver_settings", {}))
@@ -292,12 +300,12 @@ def main() -> None:
 
     rows = []
     selections = {}
-    for i in mesh_sizes(args.min_elements, args.max_elements, args.num_sizes, args.j, args.k):
+    for i in compute_mesh_sizes(args.min_elements, args.max_elements, args.num_sizes, args.j, args.k):
         baseline = make_beam(i, args.j, args.k)
         mesh = baseline.mesh
         print(f"\n{mesh.tet_count:,} elements / {mesh.node_count:,} nodes")
         for method, backend, use_jax in backends:
-            settings = settings_for(method, backend)
+            settings = get_settings(method, backend)
             selection = tune_combination(
                 baseline,
                 method,
@@ -310,7 +318,7 @@ def main() -> None:
                 args.max_error,
             )
             measured = (
-                measure_frames(baseline, selection, args.duration, args.fps)
+                compute_frame_measurements(baseline, selection, args.duration, args.fps)
                 if selection["valid"]
                 else {
                     "mean_frame_ms": float("nan"),

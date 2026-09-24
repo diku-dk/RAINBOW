@@ -14,11 +14,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from darerl.simulators.soft import (
     BENDING_GRAVITY,
@@ -29,9 +33,8 @@ from darerl.simulators.soft import (
     create_stretch_baseline,
     create_twist_baseline,
 )
-from darerl.simulators.soft.mesh import boundary_faces
+from darerl.simulators.soft.mesh import compute_boundary_faces
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCENARIOS = ("hanging", "extension", "compression", "twist")
 METHODS = ("semi_implicit", "implicit_bfgs")
 BACKENDS = (("NumPy", False), ("JAX", True))
@@ -57,7 +60,7 @@ def make_cantilever(i: int, j: int, k: int, scenario: str) -> SoftBaseline:
     return factories[scenario](i, j, k)
 
 
-def load_case(name: str) -> LoadCase:
+def create_load_case(name: str) -> LoadCase:
     if name == "hanging":
         return LoadCase(name, BENDING_GRAVITY)
     if name in {"extension", "compression", "twist"}:
@@ -73,14 +76,14 @@ def make_body(
     return baseline.create_body(use_jax=use_jax)
 
 
-def time_force(body: SoftBody, repeats: int) -> float:
+def compute_force_time(body: SoftBody, repeats: int) -> float:
     start = time.perf_counter()
     for _ in range(repeats):
-        body.elastic_forces()
+        body.compute_elastic_forces()
     return 1000.0 * (time.perf_counter() - start) / repeats
 
 
-def time_steps(
+def compute_step_times(
     body: SoftBody,
     case: LoadCase,
     method: str,
@@ -115,12 +118,12 @@ def benchmark_backend(
     if method == "implicit_bfgs":
         warmup.step_implicit(dt, gravity=case.gravity, settings=implicit_settings)
     else:
-        warmup.elastic_forces()
+        warmup.compute_elastic_forces()
         warmup.step(dt, gravity=case.gravity)
     compile_seconds = time.perf_counter() - compile_start if use_jax else 0.0
 
-    force_ms = time_force(make_body(baseline, case, use_jax), force_repeats)
-    step_samples_ms = time_steps(
+    force_ms = compute_force_time(make_body(baseline, case, use_jax), force_repeats)
+    step_samples_ms = compute_step_times(
         make_body(baseline, case, use_jax),
         case,
         method,
@@ -136,23 +139,23 @@ def benchmark_backend(
     }
 
 
-def mesh_sizes(min_elements: int, max_elements: int, count: int, j: int, k: int) -> list[int]:
+def compute_mesh_sizes(min_elements: int, max_elements: int, count: int, j: int, k: int) -> list[int]:
     cells_per_x = 5 * (j - 1) * (k - 1)
     requested = np.geomspace(min_elements, max_elements, count)
     return [max(2, int(round(target / cells_per_x)) + 1) for target in requested]
 
 
-def summary(row: dict, backend: str, metric: str) -> tuple[float, float, float]:
+def compute_summary(row: dict, backend: str, metric: str) -> tuple[float, float, float]:
     values = np.array([run[metric] for run in row["timings"][backend]], dtype=float)
     return float(np.mean(values)), float(np.quantile(values, 0.25)), float(np.quantile(values, 0.75))
 
 
-def step_summary(row: dict, backend: str) -> tuple[float, float, float]:
+def compute_step_summary(row: dict, backend: str) -> tuple[float, float, float]:
     values = np.concatenate([run["step_samples_ms"] for run in row["timings"][backend]])
     return float(np.mean(values)), float(np.quantile(values, 0.25)), float(np.quantile(values, 0.75))
 
 
-def trajectory(
+def compute_trajectory(
     baseline: SoftBaseline,
     case: LoadCase,
     method: str,
@@ -164,7 +167,7 @@ def trajectory(
     mesh = baseline.mesh
     body = make_body(baseline, case, use_jax)
     x_previous = body.x.copy()
-    pressure_previous = body.neumann_forces(x_previous)
+    pressure_previous = body.compute_neumann_forces(x_previous)
     initial_potential = -np.sum(mesh.lumped_mass[:, None] * np.asarray(case.gravity) * mesh.x0)
     times = np.arange(steps + 1, dtype=float) * dt
     kinetic = np.zeros(steps + 1)
@@ -179,12 +182,12 @@ def trajectory(
             body.step(dt, gravity=case.gravity, sync=False)
             body.synchronize()
         x_current = np.asarray(body.x).copy()
-        pressure_current = body.neumann_forces(x_current)
+        pressure_current = body.compute_neumann_forces(x_current)
         displacement = x_current - x_previous
         pressure_work[step] = pressure_work[step - 1] + 0.5 * np.sum((pressure_previous + pressure_current) * displacement)
         kinetic[step] = 0.5 * np.sum(mesh.lumped_mass[:, None] * body.v * body.v)
         potential[step] = -np.sum(mesh.lumped_mass[:, None] * np.asarray(case.gravity) * x_current) - initial_potential
-        elastic[step] = body.elastic_energy(x_current)
+        elastic[step] = body.compute_elastic_energy(x_current)
         states.append(x_current)
         x_previous = x_current
         pressure_previous = pressure_current
@@ -215,8 +218,8 @@ def plot_scaling(all_results: dict, output: Path, runs: int, steps: int) -> None
                 backends = sorted({backend for row in results for backend in row["timings"]})
                 fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), constrained_layout=True)
                 for backend in backends:
-                    force = np.array([summary(row, backend, "force_ms") for row in results])
-                    step = np.array([step_summary(row, backend) for row in results])
+                    force = np.array([compute_summary(row, backend, "force_ms") for row in results])
+                    step = np.array([compute_step_summary(row, backend) for row in results])
                     line = styles.get(backend, "o-")
                     axes[0].loglog(elements, force[:, 0], line, label=backend)
                     axes[0].fill_between(elements, force[:, 1], force[:, 2], alpha=0.2)
@@ -311,11 +314,16 @@ def main() -> None:
     selected_scenarios = (args.scenario,) if args.scenario else SCENARIOS
     selected_methods = (args.method,) if args.method else METHODS
     settings_path = args.settings if args.settings.is_absolute() else PROJECT_ROOT / args.settings
+    if not settings_path.is_file():
+        parser.error(
+            f"BFGS settings file not found: {settings_path}. "
+            "Run examples/autotune-soft-on-bending-beam.py first or pass --settings."
+        )
     with settings_path.open() as stream:
         tuned_settings = json.load(stream)
     tuned_combinations = tuned_settings.get("combinations", {})
 
-    def settings_for(backend: str) -> dict:
+    def get_settings(backend: str) -> dict:
         entry = tuned_combinations.get(f"implicit_bfgs/{backend}")
         if entry is not None:
             return dict(entry.get("solver_settings", {}))
@@ -325,25 +333,25 @@ def main() -> None:
     print("Material and geometry: canonical 10 cm skin-like soft-body baselines")
     all_results = {}
     trajectories = {}
-    largest_i = mesh_sizes(args.min_elements, args.max_elements, args.num_sizes, args.j, args.k)[-1]
+    largest_i = compute_mesh_sizes(args.min_elements, args.max_elements, args.num_sizes, args.j, args.k)[-1]
 
     for scenario_name in selected_scenarios:
-        case = load_case(scenario_name)
+        case = create_load_case(scenario_name)
         all_results[scenario_name] = {}
         print(f"\n=== {scenario_name} ===")
         for method in selected_methods:
             results = []
-            for i in mesh_sizes(args.min_elements, args.max_elements, args.num_sizes, args.j, args.k):
+            for i in compute_mesh_sizes(args.min_elements, args.max_elements, args.num_sizes, args.j, args.k):
                 baseline = make_cantilever(i, args.j, args.k, scenario_name)
                 mesh, fixed, pressure_faces = baseline.mesh, baseline.fixed, baseline.pressure_faces
                 row = {"elements": mesh.tet_count, "nodes": mesh.node_count, "timings": {}}
-                row["timings"]["NumPy"] = [benchmark_backend(baseline, case, method, steps, args.force_repeats, args.dt, False, settings_for("NumPy")) for _ in range(runs)]
+                row["timings"]["NumPy"] = [benchmark_backend(baseline, case, method, steps, args.force_repeats, args.dt, False, get_settings("NumPy")) for _ in range(runs)]
                 if has_jax:
-                    row["timings"]["JAX"] = [benchmark_backend(baseline, case, method, steps, args.force_repeats, args.dt, True, settings_for("JAX")) for _ in range(runs)]
+                    row["timings"]["JAX"] = [benchmark_backend(baseline, case, method, steps, args.force_repeats, args.dt, True, get_settings("JAX")) for _ in range(runs)]
                 results.append(row)
                 print(f"{method:15} {mesh.tet_count:7,} elements ({mesh.node_count:7,} nodes; {runs} runs × {steps} steps)")
                 for backend in row["timings"]:
-                    mean, q25, q75 = step_summary(row, backend)
+                    mean, q25, q75 = compute_step_summary(row, backend)
                     print(f"  {backend:5} one-step mean={mean:9.3f} ms [{q25:9.3f}, {q75:9.3f}]")
             all_results[scenario_name][method] = results
 
@@ -353,15 +361,15 @@ def main() -> None:
                 if use_jax and not has_jax:
                     continue
                 label = f"{method}/{backend_name}"
-                trajectories.setdefault(scenario_name, {})[label] = trajectory(
+                trajectories.setdefault(scenario_name, {})[label] = compute_trajectory(
                     baseline, case, method, steps, args.dt, use_jax,
-                    settings_for(backend_name)
+                    get_settings(backend_name)
                 )
 
     mesh = make_cantilever(largest_i, args.j, args.k, selected_scenarios[0]).mesh
     plot_scaling(all_results, output, runs, steps)
     states_output = output.with_name(f"{output.stem}_states{output.suffix}")
-    plot_trajectory_pages(trajectories, boundary_faces(mesh.elements), states_output)
+    plot_trajectory_pages(trajectories, compute_boundary_faces(mesh.elements), states_output)
     print(f"\nWrote scaling plots to {output}")
     print(f"Wrote mesh and energy plots to {states_output}")
 

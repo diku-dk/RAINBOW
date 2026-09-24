@@ -16,6 +16,8 @@ from typing import Protocol
 
 import numpy as np
 
+from .nonlinear import solve_lbfgs
+
 try:  # Keep importing the package possible without installing JAX.
     import jax
     import jax.numpy as jnp
@@ -38,7 +40,7 @@ Array = np.ndarray
 class Material(Protocol):
     """Constitutive model interface used by future material implementations."""
 
-    def lame_parameters(self) -> tuple[float, float]: ...
+    def compute_lame_parameters(self) -> tuple[float, float]: ...
 
     @property
     def model_code(self) -> int: ...
@@ -56,10 +58,14 @@ class SVKMaterial:
     def model_code(self) -> int:
         return 0
 
-    def lame_parameters(self) -> tuple[float, float]:
+    def compute_lame_parameters(self) -> tuple[float, float]:
         e, nu = self.youngs_modulus, self.poisson_ratio
+        if not np.isfinite(e) or e <= 0.0:
+            raise ValueError("youngs_modulus must be finite and positive")
         if not (-1.0 < nu < 0.5):
             raise ValueError("poisson_ratio must be in (-1, 0.5)")
+        if not np.isfinite(self.density) or self.density <= 0.0:
+            raise ValueError("density must be finite and positive")
         return (nu * e / ((1.0 + nu) * (1.0 - 2.0 * nu)), e / (2.0 * (1.0 + nu)))
 
 
@@ -93,6 +99,12 @@ class TetMesh:
             raise ValueError("vertices must have shape (N, 3)")
         if t.ndim != 2 or t.shape[1] != 4:
             raise ValueError("elements must have shape (K, 4)")
+        if not np.all(np.isfinite(x0)):
+            raise ValueError("vertices must be finite")
+        if np.any(t < 0) or np.any(t >= len(x0)):
+            raise ValueError("elements contain an invalid vertex index")
+        if not np.isfinite(density) or density <= 0.0:
+            raise ValueError("density must be finite and positive")
         p = x0[t]
         dm = np.stack((p[:, 1] - p[:, 0], p[:, 2] - p[:, 0], p[:, 3] - p[:, 0]), axis=2)
         det = np.linalg.det(dm)
@@ -141,14 +153,18 @@ class SoftBody:
         self.fixed = np.zeros(self.mesh.node_count, dtype=bool) if self.fixed is None else np.asarray(self.fixed, dtype=bool)
         if self.x.shape != (self.mesh.node_count, 3) or self.v.shape != self.x.shape:
             raise ValueError("x and v must have shape (N, 3)")
+        if not np.all(np.isfinite(self.x)) or not np.all(np.isfinite(self.v)):
+            raise ValueError("x and v must be finite")
         if self.fixed.shape != (self.mesh.node_count,):
             raise ValueError("fixed must have shape (N,)")
         self.external_forces = np.zeros_like(self.x) if self.external_forces is None else np.asarray(self.external_forces, dtype=np.float64)
         if self.external_forces.shape != self.x.shape:
             raise ValueError("external_forces must have shape (N, 3)")
+        if not np.all(np.isfinite(self.external_forces)):
+            raise ValueError("external_forces must be finite")
         self.pressure_faces = np.empty((0, 3), dtype=np.int32) if self.pressure_faces is None else np.asarray(self.pressure_faces, dtype=np.int32)
         self.pressure = np.asarray(self.pressure, dtype=np.float64)
-        self._validate_pressure_boundary()
+        self.validate_pressure_boundary()
         self._jax_enabled = bool(self.use_jax and _HAS_JAX)
         self._jax_x = None
         self._jax_v = None
@@ -159,21 +175,35 @@ class SoftBody:
         )
         self._pressure_static = (jnp.asarray(self.pressure_faces), jnp.asarray(self.pressure)) if self._jax_enabled else None
         self._external_forces_device = jnp.asarray(self.external_forces) if self._jax_enabled else None
+        self._jax_x0 = jnp.asarray(self.mesh.x0) if self._jax_enabled else None
 
-    def _validate_pressure_boundary(self) -> None:
+    def validate_pressure_boundary(self) -> None:
+        """Validate the configured pressure-face set and pressure values."""
         if self.pressure_faces.ndim != 2 or self.pressure_faces.shape[1] != 3:
             raise ValueError("pressure_faces must have shape (M, 3)")
         if np.any(self.pressure_faces < 0) or np.any(self.pressure_faces >= self.mesh.node_count):
             raise ValueError("pressure_faces contains an invalid vertex index")
+        if np.any(
+            (self.pressure_faces[:, 0] == self.pressure_faces[:, 1])
+            | (self.pressure_faces[:, 0] == self.pressure_faces[:, 2])
+            | (self.pressure_faces[:, 1] == self.pressure_faces[:, 2])
+        ):
+            raise ValueError("pressure_faces must contain three distinct vertices per face")
         if self.pressure.ndim == 0:
+            if not np.isfinite(self.pressure):
+                raise ValueError("pressure must be finite")
             return
         if self.pressure.shape != (len(self.pressure_faces),):
             raise ValueError("pressure must be a scalar or have one value per pressure face")
+        if not np.all(np.isfinite(self.pressure)):
+            raise ValueError("pressure must be finite")
 
     def set_fixed_vertices(self, vertices: Array) -> None:
         """Set Dirichlet conditions from a sequence of fixed vertex indices."""
         mask = np.zeros(self.mesh.node_count, dtype=bool)
         indices = np.asarray(vertices, dtype=np.int32)
+        if indices.ndim != 1:
+            raise ValueError("fixed vertex list must have shape (K,)")
         if np.any(indices < 0) or np.any(indices >= self.mesh.node_count):
             raise ValueError("fixed vertex list contains an invalid index")
         mask[indices] = True
@@ -189,9 +219,15 @@ class SoftBody:
         conventional inward pressure, pass a negative value. A scalar applies
         uniformly; an array supplies one pressure per face.
         """
-        self.pressure_faces = np.asarray(faces, dtype=np.int32)
-        self.pressure = np.asarray(pressure, dtype=np.float64)
-        self._validate_pressure_boundary()
+        faces_array = np.asarray(faces, dtype=np.int32)
+        pressure_array = np.asarray(pressure, dtype=np.float64)
+        old_faces, old_pressure = self.pressure_faces, self.pressure
+        self.pressure_faces, self.pressure = faces_array, pressure_array
+        try:
+            self.validate_pressure_boundary()
+        except ValueError:
+            self.pressure_faces, self.pressure = old_faces, old_pressure
+            raise
         if self._jax_enabled:
             self._pressure_static = (jnp.asarray(self.pressure_faces), jnp.asarray(self.pressure))
 
@@ -200,6 +236,8 @@ class SoftBody:
         forces = np.asarray(forces, dtype=np.float64)
         if forces.shape != self.x.shape:
             raise ValueError("external_forces must have shape (N, 3)")
+        if not np.all(np.isfinite(forces)):
+            raise ValueError("external_forces must be finite")
         self.external_forces = forces.copy()
         if self._jax_enabled:
             self._external_forces_device = jnp.asarray(self.external_forces)
@@ -236,6 +274,8 @@ class SoftBody:
         gravity = np.asarray(gravity, dtype=np.float64)
         if gravity.shape != (3,):
             raise ValueError("gravity must have shape (3,)")
+        if not np.all(np.isfinite(gravity)):
+            raise ValueError("gravity must be finite")
         if self._jax_enabled:
             if self._jax_x is None:
                 self._jax_x = jnp.asarray(self.x)
@@ -244,10 +284,11 @@ class SoftBody:
                 self._jax_x,
                 self._jax_v,
                 *self._static,
+                self._jax_x0,
                 *self._pressure_static,
                 self._external_forces_device,
                 jnp.asarray(gravity),
-                *self.material.lame_parameters(),
+                *self.material.compute_lame_parameters(),
                 self.material.model_code,
                 dt,
             )
@@ -292,6 +333,8 @@ class SoftBody:
         gravity = np.asarray(gravity, dtype=np.float64)
         if gravity.shape != (3,):
             raise ValueError("gravity must have shape (3,)")
+        if not np.all(np.isfinite(gravity)):
+            raise ValueError("gravity must be finite")
         cfg = {
             "max_iterations": 25,
             "tolerance": 1.0e-6,
@@ -311,6 +354,14 @@ class SoftBody:
             cfg.update(settings)
         if cfg["max_iterations"] < 1 or cfg["history_size"] < 0:
             raise ValueError("max_iterations must be positive and history_size cannot be negative")
+        if cfg["max_line_search_iterations"] < 1:
+            raise ValueError("max_line_search_iterations must be positive")
+        if not (0.0 < cfg["line_search_reduction"] < 1.0):
+            raise ValueError("line_search_reduction must be in (0, 1)")
+        if not (0.0 <= cfg["line_search_c1"] < 1.0):
+            raise ValueError("line_search_c1 must be in [0, 1)")
+        if cfg["tolerance"] <= 0.0 or cfg["directional_epsilon"] <= 0.0 or cfg["curvature_tolerance"] < 0.0:
+            raise ValueError("solver tolerances and directional_epsilon must be valid positive values")
 
         x_n = np.asarray(self.x, dtype=np.float64).copy()
         v_n = np.asarray(self.v, dtype=np.float64).copy()
@@ -327,7 +378,7 @@ class SoftBody:
                 *self._pressure_static,
                 self._external_forces_device,
                 jnp.asarray(gravity),
-                *self.material.lame_parameters(),
+                *self.material.compute_lame_parameters(),
                 self.material.model_code,
                 dt,
                 jnp.asarray(dofs, dtype=jnp.int32),
@@ -364,89 +415,36 @@ class SoftBody:
         scale = mass_dof / (dt * dt)
 
         def residual(position: Array) -> Array:
-            force = self._total_forces(position, gravity)
-            return (scale * (position.reshape(-1)[dofs] - x_n.reshape(-1)[dofs] - dt * v_n.reshape(-1)[dofs]) - force[free].reshape(-1))
+            position_array = np.asarray(position).reshape(self.x.shape)
+            force = self._total_forces(position_array, gravity)
+            result = np.zeros(position.size, dtype=np.float64)
+            result[dofs] = scale * (
+                position_array.reshape(-1)[dofs] - x_n.reshape(-1)[dofs] - dt * v_n.reshape(-1)[dofs]
+            ) - force[free].reshape(-1)
+            return result
 
         def directional_residual(position: Array, direction: Array) -> Array:
-            df = self._directional_force(position, direction, gravity, cfg["directional_epsilon"])
-            return scale * direction.reshape(-1)[dofs] - df[free].reshape(-1)
+            position_array = np.asarray(position).reshape(self.x.shape)
+            direction_array = np.asarray(direction).reshape(self.x.shape)
+            df = self._directional_force(position_array, direction_array, gravity, cfg["directional_epsilon"])
+            result = np.zeros(position.size, dtype=np.float64)
+            result[dofs] = scale * direction_array.reshape(-1)[dofs] - df[free].reshape(-1)
+            return result
 
-        g = residual(x)
-        initial_norm = max(float(np.linalg.norm(g)), 1.0)
-        history_s: list[Array] = []
-        history_y: list[Array] = []
-        history_rho: list[float] = []
-        converged = False
-        line_search_steps = 0
-        iterations = 0
-
-        for iteration in range(int(cfg["max_iterations"])):
-            iterations = iteration + 1
-            norm_g = float(np.linalg.norm(g))
-            if norm_g <= float(cfg["tolerance"]) * initial_norm:
-                converged = True
-                break
-
-            # L-BFGS inverse-Jacobian application to -g. The inertial diagonal
-            # is a useful initial inverse-Jacobian approximation.
-            direction = -g.copy()
-            alpha_values = []
-            for s, y, rho in reversed(list(zip(history_s, history_y, history_rho))):
-                alpha = rho * np.dot(s, direction)
-                alpha_values.append(alpha)
-                direction -= alpha * y
-            direction *= dt * dt * inv_mass_dof
-            for (s, y, rho), alpha in zip(zip(history_s, history_y, history_rho), reversed(alpha_values)):
-                direction += s * (alpha - rho * np.dot(y, direction))
-            if np.dot(direction, g) >= 0.0 or not np.all(np.isfinite(direction)):
-                direction = -dt * dt * inv_mass_dof * g
-
-            phi = 0.5 * np.dot(g, g)
-            slope = np.dot(g, direction)
-            step_length = 1.0
-            accepted = False
-            for search_iteration in range(int(cfg["max_line_search_iterations"])):
-                trial = x.copy()
-                trial.reshape(-1)[dofs] += step_length * direction
-                trial[self.fixed] = self.mesh.x0[self.fixed]
-                trial_g = residual(trial)
-                if not cfg["line_search"] or 0.5 * np.dot(trial_g, trial_g) <= phi + cfg["line_search_c1"] * step_length * slope:
-                    accepted = True
-                    line_search_steps += search_iteration + 1
-                    break
-                step_length *= cfg["line_search_reduction"]
-            if not accepted:
-                line_search_steps += int(cfg["max_line_search_iterations"])
-                break
-
-            s = step_length * direction
-            full_direction = np.zeros_like(trial)
-            full_direction.reshape(-1)[dofs] = s
-            y = directional_residual(trial, full_direction)
-            curvature = np.dot(s, y)
-            if curvature > cfg["curvature_tolerance"] * np.linalg.norm(s) * max(np.linalg.norm(y), 1.0e-30):
-                history_s.append(s)
-                history_y.append(y)
-                history_rho.append(1.0 / curvature)
-                if len(history_s) > int(cfg["history_size"]):
-                    history_s.pop(0)
-                    history_y.pop(0)
-                    history_rho.pop(0)
-            x, g = trial, trial_g
-
-        final_norm = float(np.linalg.norm(g))
-        self.last_implicit_info = {
-            "converged": converged,
-            "iterations": iterations,
-            "final_residual_norm": final_norm,
-            "initial_residual_norm": initial_norm,
-            "line_search_steps": line_search_steps,
-            "history_length": len(history_s),
-        }
-        if not converged and cfg["raise_on_failure"]:
+        x = x.reshape(-1)
+        diagonal = np.zeros(x.size, dtype=np.float64)
+        diagonal[dofs] = dt * dt * inv_mass_dof
+        x, _, self.last_implicit_info = solve_lbfgs(
+            x,
+            residual,
+            directional_residual,
+            diagonal,
+            cfg,
+        )
+        if not self.last_implicit_info["converged"] and cfg["raise_on_failure"]:
             raise RuntimeError(f"implicit BFGS solve did not converge: {self.last_implicit_info}")
-        self.x = x
-        self.v = (x - x_n) / dt
+        self.x = x.reshape(x_n.shape)
+        self.v = (self.x - x_n) / dt
         self.x[self.fixed] = self.mesh.x0[self.fixed]
         self.v[self.fixed] = 0.0
         if self._jax_enabled:
@@ -456,11 +454,26 @@ class SoftBody:
 
     def _total_forces(self, x: Array, gravity: Array) -> Array:
         forces = self._noninertial_forces(x)
-        forces += self.mesh.lumped_mass[:, None] * gravity
+        forces += self.compute_body_forces(gravity)
         return forces
 
+    def compute_body_forces(self, gravity: Array = (0.0, -9.81, 0.0)) -> Array:
+        """Return lumped nodal forces from a uniform body acceleration.
+
+        ``gravity`` is an acceleration in m/s².  The corresponding volumetric
+        body-force density is ``material.density * gravity`` in N/m³, and the
+        nodal force is that density integrated over each barycentric dual
+        control volume.
+        """
+        acceleration = np.asarray(gravity, dtype=np.float64)
+        if acceleration.shape != (3,):
+            raise ValueError("gravity must have shape (3,)")
+        if not np.all(np.isfinite(acceleration)):
+            raise ValueError("gravity must be finite")
+        return self.mesh.lumped_mass[:, None] * acceleration
+
     def _noninertial_forces(self, x: Array) -> Array:
-        forces = _numpy_forces(x, self.mesh, *self.material.lame_parameters(), self.material.model_code)
+        forces = _numpy_forces(x, self.mesh, *self.material.compute_lame_parameters(), self.material.model_code)
         forces += _numpy_pressure_forces(x, self.pressure_faces, self.pressure, self.mesh.node_count)
         forces += self.external_forces
         return forces
@@ -468,7 +481,7 @@ class SoftBody:
     def _directional_force(self, x: Array, direction: Array, gravity: Array, epsilon: float) -> Array:
         if self._jax_enabled:
             def force_kernel(position):
-                elastic = _jax_forces(position, *self._static, *self.material.lame_parameters(), self.material.model_code)
+                elastic = _jax_forces(position, *self._static, *self.material.compute_lame_parameters(), self.material.model_code)
                 pressure = _jax_pressure_forces(position, *self._pressure_static)
                 return elastic + pressure + self._external_forces_device + jnp.asarray(self.mesh.lumped_mass)[:, None] * jnp.asarray(gravity)
 
@@ -478,22 +491,35 @@ class SoftBody:
         h = epsilon * max(1.0, float(np.linalg.norm(x))) / length
         return (self._total_forces(x + h * direction, gravity) - self._total_forces(x, gravity)) / h
 
-    def deformation_gradient(self, x: Array | None = None) -> Array:
-        x = self.x if x is None else x
-        p = np.asarray(x)[self.mesh.elements]
+    def compute_deformation_gradient(self, x: Array | None = None) -> Array:
+        x = self.x if x is None else np.asarray(x, dtype=np.float64)
+        if x.shape != (self.mesh.node_count, 3):
+            raise ValueError("x must have shape (node_count, 3)")
+        p = x[self.mesh.elements]
         d = np.stack((p[:, 1] - p[:, 0], p[:, 2] - p[:, 0], p[:, 3] - p[:, 0]), axis=2)
         return d @ self.mesh.inv_Dm
 
-    def elastic_forces(self, x: Array | None = None) -> Array:
+    def compute_green_lagrange_strain(self, x: Array | None = None) -> Array:
+        """Return the element Green--Lagrange strain tensors.
+
+        The returned array has shape ``(tet_count, 3, 3)`` and is computed as
+        ``E = 0.5 * (F.T @ F - I)`` for each element.
+        """
+        deformation_gradient = self.compute_deformation_gradient(x)
+        identity = np.eye(3, dtype=deformation_gradient.dtype)
+        right_cauchy_green = np.einsum("...ji,...jk->...ik", deformation_gradient, deformation_gradient)
+        return 0.5 * (right_cauchy_green - identity)
+
+    def compute_elastic_forces(self, x: Array | None = None) -> Array:
         """Return internal elastic forces, with shape ``(N, 3)``."""
         x = self.x if x is None else x
-        lam, mu = self.material.lame_parameters()
+        lam, mu = self.material.compute_lame_parameters()
         if self._jax_enabled:
             x_device = self._jax_x if x is self.x and self._jax_x is not None else jnp.asarray(x)
             return np.asarray(_jax_forces(x_device, *self._static, lam, mu, self.material.model_code))
         return _numpy_forces(np.asarray(x), self.mesh, lam, mu, self.material.model_code)
 
-    def neumann_forces(self, x: Array | None = None) -> Array:
+    def compute_neumann_forces(self, x: Array | None = None) -> Array:
         """Return pressure nodal forces from the configured face set."""
         x = self.x if x is None else x
         if self._jax_enabled:
@@ -501,10 +527,10 @@ class SoftBody:
             return np.asarray(_jax_pressure_forces(x_device, *self._pressure_static))
         return _numpy_pressure_forces(np.asarray(x), self.pressure_faces, self.pressure, self.mesh.node_count)
 
-    def elastic_energy(self, x: Array | None = None) -> float:
+    def compute_elastic_energy(self, x: Array | None = None) -> float:
         x = self.x if x is None else x
-        f = self.deformation_gradient(x)
-        lam, mu = self.material.lame_parameters()
+        f = self.compute_deformation_gradient(x)
+        lam, mu = self.material.compute_lame_parameters()
         density = _numpy_energy_density(f, lam, mu, self.material.model_code)
         return float(np.sum(self.mesh.volume * density))
 
@@ -546,7 +572,7 @@ def _numpy_pk1_stress(f: Array, lam: float, mu: float, model_code: int) -> Array
                 np.cross(f[:, 2], f[:, 0]),
                 np.cross(f[:, 0], f[:, 1]),
             ),
-            axis=2,
+            axis=1,
         )
         j = np.linalg.det(f)
         return mu_hat * (1.0 - 1.0 / (i_c + 1.0))[:, None, None] * f + lam_hat * (j - alpha)[:, None, None] * d_j
@@ -605,7 +631,7 @@ if _HAS_JAX:
                     jnp.cross(f[:, 2], f[:, 0]),
                     jnp.cross(f[:, 0], f[:, 1]),
                 ),
-                axis=2,
+                axis=1,
             )
             j = jnp.linalg.det(f)
             p1 = mu_hat * (1.0 - 1.0 / (i_c + 1.0))[:, None, None] * f + lam_hat * (j - alpha)[:, None, None] * d_j
@@ -626,15 +652,15 @@ if _HAS_JAX:
         local = values[:, None] * area_vectors / 3.0
         return jax.ops.segment_sum(jnp.repeat(local, 3, axis=0), faces.reshape(-1), x.shape[0])
 
-    @jax.jit(static_argnums=(13,))
-    def _jax_step(x, v, elements, inv_dm, volume_grad_n, inverse_mass, fixed, pressure_faces, pressure, external_forces, gravity, lam, mu, model_code, dt):
+    @jax.jit(static_argnums=(14,))
+    def _jax_step(x, v, elements, inv_dm, volume_grad_n, inverse_mass, fixed, x0, pressure_faces, pressure, external_forces, gravity, lam, mu, model_code, dt):
         local, elements = _jax_element_forces(x, elements, inv_dm, volume_grad_n, lam, mu, model_code)
         force = jax.ops.segment_sum(local.reshape((-1, 3)), elements.reshape(-1), x.shape[0])
         force += _jax_pressure_forces(x, pressure_faces, pressure)
         force += external_forces
         active = ~fixed
         v_new = jnp.where(active[:, None], v + dt * (force * inverse_mass[:, None] + gravity), 0.0)
-        x_new = jnp.where(active[:, None], x + dt * v_new, x)
+        x_new = jnp.where(active[:, None], x + dt * v_new, x0)
         return x_new, v_new
 
     @jax.jit(static_argnums=(15, 21, 22, 23, 24))
@@ -696,7 +722,7 @@ if _HAS_JAX:
         history_y = jnp.zeros((history_capacity, free_count), dtype=x_n.dtype)
         history_rho = jnp.zeros((history_capacity,), dtype=x_n.dtype)
 
-        def lbfgs_direction(g, hist_s, hist_y, hist_rho, count):
+        def compute_lbfgs_direction(g, hist_s, hist_y, hist_rho, count):
             direction = -g
             alpha_values = jnp.zeros((history_capacity,), dtype=g.dtype)
 
@@ -772,7 +798,7 @@ if _HAS_JAX:
                     return x, g, hist_s, hist_y, hist_rho, count, True, True, iteration + 1, line_steps
 
                 def search_state():
-                    direction = lbfgs_direction(g, hist_s, hist_y, hist_rho, count)
+                    direction = compute_lbfgs_direction(g, hist_s, hist_y, hist_rho, count)
                     direction = jnp.where(
                         (jnp.dot(direction, g) < 0.0) & jnp.all(jnp.isfinite(direction)),
                         direction,

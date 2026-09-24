@@ -29,6 +29,45 @@ sum.
 
 ## Materials
 
+The constitutive tests verify more than backend agreement. For both SVK and
+stable Neo-Hookean materials they check zero stress in the reference state,
+that the first Piola stress is the deformation-gradient derivative of the
+energy, frame indifference under left rotations, isotropy under right
+rotations, and symmetry of `P F^T`. Inverted and near-singular deformation
+gradients are also checked for finite values.
+
+The JAX implementation keeps analytical stress expressions in the runtime
+kernel. Energy autodiff is used as an independent test oracle, not as the
+production implementation: on the development machine, a 100,000-element
+JAX benchmark made autodiff about 2.3x slower for SVK and 14.7x slower for
+stable Neo-Hookean. Autodiff remains useful when adding or changing a
+material, after which an analytical kernel can be introduced once validated.
+
+## Autodiff benchmark scope
+
+The autodiff comparison was fully JIT compiled. It used
+`jax.jit(jax.vmap(jax.grad(energy_density)))`, paid compilation in a warm-up
+call, and synchronized device execution with `block_until_ready()` before
+recording each runtime sample. There was no Python loop over elements and no
+host callback in the measured path. The analytical implementation was also
+JIT compiled and measured after warm-up.
+
+The result should nevertheless be interpreted as a constitutive-kernel result,
+not as a universal end-to-end solver result. The benchmark compared batched
+stress evaluation and did not include element indexing, nodal force scatter,
+or the complete timestep. The autodiff input used flattened nine-component
+deformation gradients, while the analytical path used matrix-shaped inputs.
+The benchmark was run on one CPU backend, one batch size, and one family of
+deformation states. Different mesh sizes, accelerators, or memory-pressure
+conditions may change the relative result.
+
+The current engineering decision is therefore to retain analytical stress
+expressions in the production force kernels and use energy autodiff as an
+independent correctness oracle. A future performance study should compare
+both approaches through the complete `_jax_forces` path, including element
+gathering and nodal scatter, over representative mesh sizes and target
+hardware before making a broader performance claim.
+
 ### Saint Venant--Kirchhoff
 
 ```text
@@ -69,8 +108,10 @@ removes the singularity targeted by the model.
 ### Dirichlet conditions
 
 `fixed` is a boolean nodal mask. Fixed positions are restored to their
-reference positions and fixed velocities are set to zero after every step.
-`set_fixed_vertices(indices)` is the convenience API for creating the mask.
+reference positions and fixed velocities are set to zero after every step,
+including the JAX semi-implicit path. `set_fixed_vertices(indices)` is the
+convenience API for creating the mask. Initial positions, velocities, external
+loads, pressures, and accelerations must be finite.
 
 ### Pressure Neumann conditions
 

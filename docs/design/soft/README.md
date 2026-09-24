@@ -29,6 +29,13 @@ general multi-body scene management are intentionally outside the prototype.
 - [Numerical formulation](numerics.md) — FEM forces, materials, boundary conditions, and time integration.
 - [Testing and verification](testing.md) — test layers, commands, and known limitations.
 - [Canonical baselines](baselines.md) — shared 10 cm stretch, compression, bend, and twist examples.
+- [Naming convention](naming.md) — operation-oriented names for public APIs,
+  examples, and tests.
+
+The verification examples can be run from the project root with either
+`python -m examples.verify_semi_implicit_svk` or
+`python examples/verify_semi_implicit_svk.py`. The profiling examples require
+the auto-tuner settings file described in [testing](testing.md).
 
 ## Quick start
 
@@ -53,4 +60,10 @@ body.step(
         "tolerance": 1.0e-6,
     },
 )
+
+The public API is intentionally small: construct a `TetMesh`, choose an
+`SVKMaterial` or `StableNeoHookeanMaterial`, construct a `SoftBody`, configure
+fixed vertices/pressure/external loads, query kinematics/forces/energy, and
+advance with `step` or `step_implicit`. These paths are exercised by
+`unit_tests/test_soft_api.py`.
 ```

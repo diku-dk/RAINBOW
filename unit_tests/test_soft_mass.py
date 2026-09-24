@@ -1,0 +1,13 @@
+"""Mass matrix, dual-volume, and body-force tests."""
+
+import unittest
+
+from unit_tests.test_soft_support import _SoftBodyTests
+
+
+class TestSoftMass(unittest.TestCase):
+    test_beam_lumped_masses_match_barycentric_dual_control_volumes = _SoftBodyTests.test_beam_lumped_masses_match_barycentric_dual_control_volumes
+    test_beam_total_mass_is_density_times_analytic_volume_at_all_resolutions = _SoftBodyTests.test_beam_total_mass_is_density_times_analytic_volume_at_all_resolutions
+    test_beam_mass_scales_linearly_with_density = _SoftBodyTests.test_beam_mass_scales_linearly_with_density
+    test_beam_body_forces_have_correct_density_and_dual_volume_integral = _SoftBodyTests.test_beam_body_forces_have_correct_density_and_dual_volume_integral
+    test_body_force_api_rejects_invalid_acceleration_shape = _SoftBodyTests.test_body_force_api_rejects_invalid_acceleration_shape

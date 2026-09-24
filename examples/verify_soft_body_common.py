@@ -44,7 +44,7 @@ def verify(method: str, material_name: str, use_jax: bool = True) -> None:
     displacement = np.linalg.norm(body.x - initial, axis=1).max()
     print(f"material={material_name} method={method} nodes={body.mesh.node_count} tets={body.mesh.tet_count}")
     print(f"steps={steps} dt={dt:g} max_displacement={displacement:.6e}")
-    print(f"elastic_energy={body.elastic_energy():.6e}")
+    print(f"elastic_energy={body.compute_elastic_energy():.6e}")
     if method == "implicit_bfgs":
         print(f"implicit_info={body.last_implicit_info}")
 

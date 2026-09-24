@@ -5,6 +5,7 @@
 ```text
 darerl/simulators/soft/
 ├── mesh.py       NumPy-only structured beam and surface-mesh utilities
+├── nonlinear.py  reusable NumPy L-BFGS and Armijo solver routines
 ├── solver.py     mesh data, materials, forces, boundary conditions, steppers
 └── __init__.py   public exports
 ```
@@ -68,7 +69,7 @@ path use float64.
 
 ## Extensibility points
 
-Material models implement `lame_parameters()` and `model_code`. New models
+Material models implement `compute_lame_parameters()` and `model_code`. New models
 must provide:
 
 1. a NumPy first Piola stress expression;
@@ -78,3 +79,9 @@ must provide:
 
 Future constitutive models should avoid coupling material logic to boundary
 conditions or timestepper code.
+
+The NumPy implicit stepper delegates L-BFGS direction construction, curvature
+history management, Armijo backtracking, and residual iteration to
+`nonlinear.py`. The JAX implicit path remains device-resident in `solver.py`;
+its fixed iteration bounds and history arrays are expressed directly with JAX
+primitives for compilation.

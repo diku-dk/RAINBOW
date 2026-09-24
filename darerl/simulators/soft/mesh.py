@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 
-def boundary_faces(elements: np.ndarray) -> np.ndarray:
+def compute_boundary_faces(elements: np.ndarray) -> np.ndarray:
     """Extract the unique triangular boundary faces from tetrahedra."""
     tetrahedra = np.asarray(elements, dtype=np.int32)
     if tetrahedra.ndim != 2 or tetrahedra.shape[1] != 4:

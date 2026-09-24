@@ -5,8 +5,6 @@ gravity. Candidate semi-implicit and implicit backward-Euler runs sweep
 timestep multipliers. Implicit runs also sweep solver settings, and the
 fastest valid candidate is selected independently for each backend.
 
-Example::
-
 The fine semi-implicit NumPy trajectory is used as a reference. Candidate
 semi-implicit and implicit backward-Euler runs sweep timestep multipliers.
 Implicit runs also sweep solver settings, and the fastest valid candidate is
@@ -27,8 +25,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from darerl.simulators.soft import SoftBody, TetMesh, create_bending_baseline
-from darerl.simulators.soft.mesh import boundary_faces
+from darerl.simulators.soft import SoftBody, create_bending_baseline
+from darerl.simulators.soft.mesh import compute_boundary_faces
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BENDING_GRAVITY = create_bending_baseline().gravity
@@ -99,7 +97,7 @@ def simulate_candidate(
                 }
             if method == "implicit_bfgs":
                 iterations.append(body.last_implicit_info["iterations"])
-    except (OverflowError, RuntimeError, FloatingPointError, ValueError) as error:
+    except Exception as error:
         return {
             "valid": False,
             "error": str(error),
@@ -117,7 +115,7 @@ def simulate_candidate(
     }
 
 
-def trajectory_error(candidate: np.ndarray, reference: np.ndarray, reference_dt: float, candidate_dt: float) -> float:
+def compute_trajectory_error(candidate: np.ndarray, reference: np.ndarray, reference_dt: float, candidate_dt: float) -> float:
     reference_indices = np.rint(np.arange(len(candidate)) * candidate_dt / reference_dt).astype(np.int64)
     differences = candidate - reference[reference_indices]
     scale = max(float(np.ptp(reference[:, :, 0])), 1.0)
@@ -171,7 +169,7 @@ def plot_results(
         return
     valid = [result for result in results if result["valid"]]
     with PdfPages(path) as pdf:
-        faces = boundary_faces(baseline_elements)
+        faces = compute_boundary_faces(baseline_elements)
         frame_indices = np.linspace(0, len(baseline_states) - 1, 4, dtype=int)
         figure, axes = plt.subplots(
             1, 4, figsize=(14, 4), subplot_kw={"projection": "3d"}, constrained_layout=True
@@ -361,7 +359,7 @@ def main() -> None:
                     "jit_seconds": candidate.get("jit_seconds", 0.0),
                 }
                 if candidate["valid"]:
-                    result["trajectory_error"] = trajectory_error(candidate["states"], reference_states, args.baseline_dt, dt)
+                    result["trajectory_error"] = compute_trajectory_error(candidate["states"], reference_states, args.baseline_dt, dt)
                     result["trajectory_error_percent"] = 100.0 * result["trajectory_error"]
                     result["mean_iterations"] = float(np.mean(candidate["iterations"])) if candidate["iterations"] else 0.0
                     result["error"] = ""

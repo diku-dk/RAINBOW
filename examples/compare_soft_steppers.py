@@ -21,14 +21,17 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import sys
 import time
 from pathlib import Path
 
 import numpy as np
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
 from darerl.simulators.soft import SoftBody, SoftBaseline, create_bending_baseline
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 GRAVITY = create_bending_baseline().gravity
 
 
@@ -62,7 +65,7 @@ def advance(
     return time.perf_counter() - start, np.array(body.x, copy=True), history
 
 
-def timed_case(
+def compute_timed_case(
     name: str,
     i: int,
     j: int,
@@ -140,13 +143,13 @@ def plot_results(path: Path, results: list[dict]) -> None:
         if panel is axes[0]:
             values = [result["mean_seconds"] * 1000.0 for result in group]
         else:
-            values = [result["final_displacement"] for result in group]
+            values = [result["mean_seconds"] * 1000.0 for result in group]
         panel.bar(x, values, color=colors)
         panel.set_xticks(x, case_labels, rotation=20)
         panel.grid(axis="y", alpha=0.25)
     axes[0].set_ylabel("mean runtime [ms]")
     axes[0].set_title("Equal dt = 0.001")
-    axes[1].set_ylabel("tip displacement [m]")
+    axes[1].set_ylabel("mean runtime [ms]")
     axes[1].set_title("Tuned implicit dt with matched substeps")
     figure = axes[0].figure
     figure.suptitle("Semi-implicit versus fully implicit bending beam")
@@ -171,11 +174,16 @@ def main() -> None:
         parser.error("--semi-substeps and --runs must be positive")
 
     settings_path = args.settings if args.settings.is_absolute() else PROJECT_ROOT / args.settings
+    if not settings_path.is_file():
+        parser.error(
+            f"BFGS settings file not found: {settings_path}. "
+            "Run examples/autotune-soft-on-bending-beam.py first or pass --settings."
+        )
     with settings_path.open() as stream:
         tuned = json.load(stream)
     tuned_combinations = tuned.get("combinations", {})
 
-    def settings_for(backend: str) -> dict:
+    def get_settings(backend: str) -> dict:
         entry = tuned_combinations.get(f"implicit_bfgs/{backend}")
         if entry is not None:
             return dict(entry.get("solver_settings", {}))
@@ -188,7 +196,7 @@ def main() -> None:
     if implicit_entry is None:
         raise ValueError("settings file does not contain an implicit_bfgs combination")
     implicit_dt = float(implicit_entry["dt"])
-    implicit_settings = settings_for(preferred_backend)
+    implicit_settings = get_settings(preferred_backend)
     use_jax = args.backend == "jax"
     if use_jax:
         try:
@@ -202,8 +210,8 @@ def main() -> None:
     if not np.isclose(equal_steps * equal_dt, args.duration, rtol=1.0e-10, atol=1.0e-14):
         parser.error("duration must be an integer multiple of 0.001")
     results = []
-    results.extend(timed_case("equal_dt", args.i, args.j, args.k, use_jax, args.duration, equal_dt, implicit_settings, 1, args.runs)[:2])
-    results.extend(timed_case("tuned_dt", args.i, args.j, args.k, use_jax, args.duration, implicit_dt, implicit_settings, args.semi_substeps, args.runs)[2:])
+    results.extend(compute_timed_case("equal_dt", args.i, args.j, args.k, use_jax, args.duration, equal_dt, implicit_settings, 1, args.runs)[:2])
+    results.extend(compute_timed_case("tuned_dt", args.i, args.j, args.k, use_jax, args.duration, implicit_dt, implicit_settings, args.semi_substeps, args.runs)[2:])
     output = args.output if args.output.is_absolute() else PROJECT_ROOT / args.output
     csv_path = args.csv if args.csv.is_absolute() else PROJECT_ROOT / args.csv
     output.parent.mkdir(parents=True, exist_ok=True)
