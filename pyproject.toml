@@ -1,0 +1,9 @@
+[project]
+name = "rainbow"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.0",
+    "jax>=0.4.30",
+    "matplotlib>=3.9",
+]
