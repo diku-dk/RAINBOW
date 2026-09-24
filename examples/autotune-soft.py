@@ -58,7 +58,13 @@ def simulate_reference(case: str, i: int, j: int, k: int, dt: float, duration: f
     states[0] = body.x
     start = time.perf_counter()
     for step in range(1, steps + 1):
-        body.step(dt, gravity=gravity)
+        with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+            body.step(dt, gravity=gravity)
+        if not np.all(np.isfinite(body.x)) or not np.all(np.isfinite(body.v)):
+            raise RuntimeError(
+                f"reference trajectory became non-finite at step {step}; "
+                "reduce --baseline-dt or use a less aggressive baseline load"
+            )
         states[step] = body.x
     elapsed = time.perf_counter() - start
     return body, states, elapsed
@@ -97,10 +103,11 @@ def simulate_candidate(
         iterations = []
         start = time.perf_counter()
         for step in range(1, steps + 1):
-            if method == "implicit_bfgs":
-                body.step_implicit(dt, gravity=gravity, settings=settings)
-            else:
-                body.step(dt, gravity=gravity)
+            with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+                if method == "implicit_bfgs":
+                    body.step_implicit(dt, gravity=gravity, settings=settings)
+                else:
+                    body.step(dt, gravity=gravity)
             states[step] = body.x
             if not np.all(np.isfinite(body.x)) or not np.all(np.isfinite(body.v)):
                 return {

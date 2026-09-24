@@ -33,8 +33,10 @@ BASELINE_LENGTH = 0.10
 BASELINE_HEIGHT = 0.02
 BASELINE_DEPTH = 0.02
 
-# Deliberately strong loads make deformation visible in short simulations.
-BENDING_GRAVITY = (0.0, -98.1, 0.0)
+# Standard gravity produces a clearly nonlinear cantilever response at the
+# canonical 10 cm scale while remaining compatible with the default fine
+# semi-implicit reference timestep used by the autotuner.
+BENDING_GRAVITY = (0.0, -9.81, 0.0)
 STRETCH_PRESSURE = 5.0e4
 COMPRESSION_PRESSURE = -5.0e4
 TWIST_TORQUE = 5.0e-3
