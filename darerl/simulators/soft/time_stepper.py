@@ -179,6 +179,7 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
         object.__setattr__(body, "_x", np.asarray(x_device))
         object.__setattr__(body, "_v", np.asarray(v_device))
         body._jax_host_synced = True
+        history_count = int(info[1]) + (0 if bool(info[0]) else 1)
         body.last_implicit_info = {
             "converged": bool(info[0]), "iterations": int(info[1]),
             "final_residual_norm": float(info[2]), "initial_residual_norm": float(info[3]),
@@ -189,7 +190,7 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
             "watchdog_steps": 0,
             "watchdog_acceptances": 0,
             "rescue_steps": int(info[9]),
-            "residual_norm_history": np.asarray(info[10], dtype=np.float64)[: int(info[1]) + 1].tolist(),
+            "residual_norm_history": np.asarray(info[10], dtype=np.float64)[:history_count].tolist(),
         }
         if not body.last_implicit_info["converged"] and cfg["raise_on_failure"]:
             raise RuntimeError(f"implicit BFGS solve did not converge: {body.last_implicit_info}")
