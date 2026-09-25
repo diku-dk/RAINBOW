@@ -317,11 +317,11 @@ def main() -> None:
     else:
         has_jax = True
 
-    output = args.output if args.output.is_absolute() else PROJECT_ROOT / args.output
-    output.parent.mkdir(parents=True, exist_ok=True)
     selected_scenarios = (args.case,)
     if args.output is None:
         args.output = Path(f"output/soft_{args.case}_modes.pdf")
+    output = args.output if args.output.is_absolute() else PROJECT_ROOT / args.output
+    output.parent.mkdir(parents=True, exist_ok=True)
     selected_methods = (args.method,) if args.method else METHODS
     settings_path = args.settings if args.settings.is_absolute() else PROJECT_ROOT / args.settings
     if not settings_path.is_file():
