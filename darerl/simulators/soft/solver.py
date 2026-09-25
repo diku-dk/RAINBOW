@@ -594,6 +594,8 @@ if _HAS_JAX:
         history_s = jnp.zeros((history_capacity, free_count), dtype=x_n.dtype)
         history_y = jnp.zeros((history_capacity, free_count), dtype=x_n.dtype)
         history_rho = jnp.zeros((history_capacity,), dtype=x_n.dtype)
+        residual_norm_history = jnp.zeros((max_iterations + 1,), dtype=x_n.dtype)
+        residual_norm_history = residual_norm_history.at[0].set(jnp.linalg.norm(g_initial))
 
         def compute_lbfgs_direction(g, hist_s, hist_y, hist_rho, count):
             direction = -g
@@ -657,18 +659,19 @@ if _HAS_JAX:
             return new_values[0], new_values[1], new_values[2], new_count
 
         def iteration_body(iteration, state):
-            x, g, hist_s, hist_y, hist_rho, count, done, converged, iterations, line_steps, direction_fallback_steps, gradient_fallback_steps, rescue_steps = state
+            x, g, hist_s, hist_y, hist_rho, count, residual_history, done, converged, iterations, line_steps, direction_fallback_steps, gradient_fallback_steps, rescue_steps = state
 
             def no_op(current_state):
                 return current_state
 
             def solve(current_state):
-                x, g, hist_s, hist_y, hist_rho, count, done, converged, iterations, line_steps, direction_fallback_steps, gradient_fallback_steps, rescue_steps = current_state
+                x, g, hist_s, hist_y, hist_rho, count, residual_history, done, converged, iterations, line_steps, direction_fallback_steps, gradient_fallback_steps, rescue_steps = current_state
                 norm_g = jnp.linalg.norm(g)
                 already_converged = norm_g <= tolerance * initial_norm
+                residual_history = residual_history.at[iteration].set(norm_g)
 
                 def converged_state():
-                    return x, g, hist_s, hist_y, hist_rho, count, True, True, iteration + 1, line_steps, direction_fallback_steps, gradient_fallback_steps, rescue_steps
+                    return x, g, hist_s, hist_y, hist_rho, count, residual_history, True, True, iteration + 1, line_steps, direction_fallback_steps, gradient_fallback_steps, rescue_steps
 
                 def search_state():
                     direction = compute_lbfgs_direction(g, hist_s, hist_y, hist_rho, count)
@@ -764,6 +767,7 @@ if _HAS_JAX:
                         hist_y_new,
                         hist_rho_new,
                         count_new,
+                        residual_history.at[iteration + 1].set(jnp.linalg.norm(jnp.where(accepted, trial_g, g))),
                         ~accepted,
                         jnp.asarray(False),
                         iteration + 1,
@@ -777,12 +781,12 @@ if _HAS_JAX:
 
             return jax.lax.cond(done, no_op, solve, state)
 
-        state = (x_initial, g_initial, history_s, history_y, history_rho, jnp.asarray(0), jnp.asarray(False), jnp.asarray(False), jnp.asarray(0), jnp.asarray(0), jnp.asarray(0), jnp.asarray(0), jnp.asarray(0))
-        x, g, _, _, _, history_length, done, converged, iterations, line_steps, direction_fallback_steps, gradient_fallback_steps, rescue_steps = jax.lax.fori_loop(
+        state = (x_initial, g_initial, history_s, history_y, history_rho, jnp.asarray(0), residual_norm_history, jnp.asarray(False), jnp.asarray(False), jnp.asarray(0), jnp.asarray(0), jnp.asarray(0), jnp.asarray(0), jnp.asarray(0))
+        x, g, _, _, _, history_length, residual_norm_history, done, converged, iterations, line_steps, direction_fallback_steps, gradient_fallback_steps, rescue_steps = jax.lax.fori_loop(
             0, max_iterations, iteration_body, state
         )
         velocity = (x - x_n) / dt
         velocity = jnp.where(fixed[:, None], 0.0, velocity)
         final_norm = jnp.linalg.norm(g)
         reduction_factor = final_norm / initial_norm
-        return x, velocity, (converged, iterations, final_norm, initial_norm, line_steps, history_length, reduction_factor, direction_fallback_steps, gradient_fallback_steps, rescue_steps)
+        return x, velocity, (converged, iterations, final_norm, initial_norm, line_steps, history_length, reduction_factor, direction_fallback_steps, gradient_fallback_steps, rescue_steps, residual_norm_history)

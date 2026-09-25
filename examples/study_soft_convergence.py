@@ -65,94 +65,81 @@ def run_combination(baseline, backend: str, strategy: str, duration: float, dt: 
     """Run one tuned implicit combination and collect invocation diagnostics."""
     body = baseline.create_body(use_jax=backend == "JAX")
     steps = max(1, int(round(duration / dt)))
-    factors = np.empty(steps, dtype=np.float64)
-    rates = np.empty(steps, dtype=np.float64)
     iterations = np.empty(steps, dtype=np.int32)
-    initial_norms = np.empty(steps, dtype=np.float64)
-    final_norms = np.empty(steps, dtype=np.float64)
+    residual_histories = []
     gravity = np.asarray(baseline.gravity, dtype=np.float64)
     for index in range(steps):
         body.step_implicit(dt, gravity=gravity, settings=settings)
         info = body.last_implicit_info
-        factor = float(info["residual_reduction_factor"])
-        factors[index] = factor
-        rates[index] = -math.log10(max(factor, np.finfo(float).tiny))
         iterations[index] = int(info["iterations"])
-        initial_norms[index] = float(info["initial_residual_norm"])
-        final_norms[index] = float(info["final_residual_norm"])
+        residual_histories.append(np.asarray(info["residual_norm_history"], dtype=np.float64))
     return {
         "backend": backend,
         "strategy": strategy,
         "dt": dt,
         "steps": steps,
         "actual_duration": steps * dt,
-        "factor": factors,
-        "rate": rates,
         "iterations": iterations,
-        "initial_norm": initial_norms,
-        "final_norm": final_norms,
+        "residual_history": residual_histories,
     }
 
 
 def write_csv(path: Path, results: list[dict]) -> None:
-    fields = ["backend", "strategy", "invocation", "dt", "iterations", "reduction_factor", "convergence_rate", "initial_residual_norm", "final_residual_norm"]
+    fields = ["backend", "strategy", "invocation", "iteration", "dt", "residual_norm"]
     with path.open("w", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
         for result in results:
             for index in range(result["steps"]):
-                writer.writerow({
-                    "backend": result["backend"],
-                    "strategy": result["strategy"],
-                    "invocation": index + 1,
-                    "dt": result["dt"],
-                    "iterations": result["iterations"][index],
-                    "reduction_factor": result["factor"][index],
-                    "convergence_rate": result["rate"][index],
-                    "initial_residual_norm": result["initial_norm"][index],
-                    "final_residual_norm": result["final_norm"][index],
-                })
+                for iteration, residual_norm in enumerate(result["residual_history"][index]):
+                    writer.writerow({
+                        "backend": result["backend"],
+                        "strategy": result["strategy"],
+                        "invocation": index + 1,
+                        "iteration": iteration,
+                        "dt": result["dt"],
+                        "residual_norm": residual_norm,
+                    })
 
 
 def plot_report(path: Path, results: list[dict], case: str, duration: float) -> None:
-    """Write per-invocation and quartile convergence plots."""
+    """Write two residual-history plots for every backend/strategy pair."""
     from matplotlib.backends.backend_pdf import PdfPages
 
-    labels = [f"{result['backend']} / {result['strategy']}" for result in results]
     with PdfPages(path) as pdf:
-        columns = 2
-        rows = max(1, math.ceil(len(results) / columns))
-        figure, axes = plt.subplots(rows, columns, figsize=(12, max(7, 3.2 * rows)), squeeze=False)
-        for axis, result, label in zip(axes.flat, results, labels):
-            axis.plot(np.arange(1, result["steps"] + 1), result["rate"], linewidth=1.0)
-            axis.axhline(np.mean(result["rate"]), color="tab:red", linestyle="--", linewidth=1.0, label="mean")
-            axis.set_title(label, fontsize=9)
-            axis.set_xlabel("implicit solver invocation")
-            axis.set_ylabel("-log10 residual reduction")
-            axis.grid(True, alpha=0.25)
-            axis.legend(fontsize=8)
-        for axis in axes.flat[len(results):]:
-            axis.axis("off")
-        figure.suptitle(f"L-BFGS convergence per invocation: {case}, requested duration={duration:g} s")
-        figure.tight_layout()
-        pdf.savefig(figure)
-        plt.close(figure)
+        for result in results:
+            label = f"{result['backend']} / {result['strategy']}"
+            histories = result["residual_history"]
+            width = max(len(history) for history in histories)
+            values = np.full((len(histories), width), np.nan, dtype=np.float64)
+            for index, history in enumerate(histories):
+                values[index, : len(history)] = history
+            iterations = np.arange(width)
 
-        figure, axis = plt.subplots(figsize=(12, 5))
-        x = np.arange(len(results))
-        means = np.array([np.mean(result["rate"]) for result in results])
-        lower = np.array([np.quantile(result["rate"], 0.25) for result in results])
-        upper = np.array([np.quantile(result["rate"], 0.75) for result in results])
-        axis.fill_between(x, lower, upper, color="tab:blue", alpha=0.25, label="25th–75th percentile")
-        axis.plot(x, means, "o-", color="tab:blue", label="mean")
-        axis.set_xticks(x, labels, rotation=30, ha="right")
-        axis.set_ylabel("-log10 residual reduction")
-        axis.set_title("Mean L-BFGS convergence rate with quartiles")
-        axis.grid(axis="y", alpha=0.25)
-        axis.legend()
-        figure.tight_layout()
-        pdf.savefig(figure)
-        plt.close(figure)
+            figure, axes = plt.subplots(1, 2, figsize=(13, 5))
+            for history in histories:
+                axes[0].plot(np.arange(len(history)), history, color="tab:blue", alpha=0.18, linewidth=0.8)
+            axes[0].set_yscale("log")
+            axes[0].set_xlabel("L-BFGS iteration")
+            axes[0].set_ylabel("residual norm")
+            axes[0].set_title("All residual histories")
+            axes[0].grid(True, which="both", alpha=0.25)
+
+            mean = np.nanmean(values, axis=0)
+            lower = np.nanquantile(values, 0.25, axis=0)
+            upper = np.nanquantile(values, 0.75, axis=0)
+            axes[1].fill_between(iterations, lower, upper, color="tab:blue", alpha=0.25, label="25th–75th percentile")
+            axes[1].plot(iterations, mean, color="tab:blue", linewidth=1.5, label="mean")
+            axes[1].set_yscale("log")
+            axes[1].set_xlabel("L-BFGS iteration")
+            axes[1].set_ylabel("residual norm")
+            axes[1].set_title("Mean residual history with quartiles")
+            axes[1].grid(True, which="both", alpha=0.25)
+            axes[1].legend(fontsize=8)
+            figure.suptitle(f"{label}: {case}, requested duration={duration:g} s")
+            figure.tight_layout()
+            pdf.savefig(figure)
+            plt.close(figure)
 
 
 def parse_args() -> argparse.Namespace:
@@ -170,7 +157,8 @@ def main() -> None:
     args = parse_args()
     if args.duration <= 0.0:
         raise ValueError("duration must be positive")
-    settings_path = args.settings if args.settings.is_absolute() else Path(__file__).resolve().parents[1] / args.settings
+    project_root = Path(__file__).resolve().parents[1]
+    settings_path = args.settings if args.settings.is_absolute() else project_root / args.settings
     if not settings_path.is_file():
         raise FileNotFoundError(f"settings file not found: {settings_path}; run examples/autotune-soft.py first")
     try:
@@ -190,13 +178,15 @@ def main() -> None:
             dt, settings = load_settings(settings_path, backend, strategy)
             result = run_combination(baseline, backend, strategy, args.duration, dt, settings)
             results.append(result)
+            final_factors = np.array([history[-1] / max(history[0], np.finfo(float).tiny) for history in result["residual_history"]])
+            rates = -np.log10(np.maximum(final_factors, np.finfo(float).tiny))
             print(
                 f"{backend:5s} {strategy:18s} dt={dt:.3e} invocations={result['steps']:5d} "
-                f"mean_rate={np.mean(result['rate']):.3f} "
-                f"quartiles=({np.quantile(result['rate'], .25):.3f}, {np.quantile(result['rate'], .75):.3f})"
+                f"mean_rate={np.mean(rates):.3f} "
+                f"quartiles=({np.quantile(rates, .25):.3f}, {np.quantile(rates, .75):.3f})"
             )
-    output = args.output or Path(f"output/soft_{args.case}_convergence.pdf")
-    csv_path = args.csv or Path(f"output/soft_{args.case}_convergence.csv")
+    output = args.output or project_root / f"output/soft_{args.case}_convergence.pdf"
+    csv_path = args.csv or project_root / f"output/soft_{args.case}_convergence.csv"
     output.parent.mkdir(parents=True, exist_ok=True)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     write_csv(csv_path, results)

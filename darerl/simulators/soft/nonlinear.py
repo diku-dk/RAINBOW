@@ -140,6 +140,7 @@ def solve_lbfgs(
     diagonal = np.asarray(diagonal, dtype=np.float64)
     g = np.asarray(residual(x), dtype=np.float64)
     initial_norm = max(float(np.linalg.norm(g)), 1.0)
+    residual_norm_history = [float(np.linalg.norm(g))]
     history_s: list[Array] = []
     history_y: list[Array] = []
     history_rho: list[float] = []
@@ -236,6 +237,7 @@ def solve_lbfgs(
             float(settings["curvature_tolerance"]),
         )
         x, g = trial, trial_g
+        residual_norm_history.append(float(np.linalg.norm(g)))
 
         trial_merit = 0.5 * float(np.dot(g, g))
         if globalization == "watchdog":
@@ -269,5 +271,6 @@ def solve_lbfgs(
         "watchdog_steps": watchdog_steps,
         "watchdog_acceptances": watchdog_acceptances,
         "rescue_steps": rescue_steps,
+        "residual_norm_history": residual_norm_history,
     }
     return x, g, info

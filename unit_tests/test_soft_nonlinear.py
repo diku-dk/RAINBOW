@@ -207,6 +207,9 @@ class TestSoftNonlinear(unittest.TestCase):
         self.assertLess(np.linalg.norm(residual_at_solution), 1.0e-8)
         self.assertGreaterEqual(info["iterations"], 1)
         self.assertGreater(info["history_length"], 0)
+        self.assertGreaterEqual(len(info["residual_norm_history"]), 2)
+        self.assertAlmostEqual(info["residual_norm_history"][0], info["initial_residual_norm"])
+        self.assertAlmostEqual(info["residual_norm_history"][-1], info["final_residual_norm"])
 
     def test_lbfgs_solver_reports_nonconvergence_at_iteration_limit(self):
         residual = lambda x: np.array([x[0] - 1.0])

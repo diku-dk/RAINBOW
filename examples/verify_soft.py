@@ -226,7 +226,12 @@ def plot_report(runs_by_case: dict[tuple[str, Case], list[Run]], output: Path, f
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--case", choices=tuple(BASELINE_FACTORIES), default="bending")
-    parser.add_argument("--dt", type=float, default=2.0e-4, help="coarsest timestep")
+    parser.add_argument(
+        "--dt",
+        type=float,
+        default=1.0e-4,
+        help="coarsest timestep; chosen below the explicit SVK stability limit for the canonical beam",
+    )
     parser.add_argument("--final-time", type=float, default=2.0e-2)
     parser.add_argument("--refinement-levels", type=int, default=3, choices=range(3, 6))
     backend = parser.add_mutually_exclusive_group()
