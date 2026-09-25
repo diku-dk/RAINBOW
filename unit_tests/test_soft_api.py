@@ -63,8 +63,8 @@ class TestSoftAPI(unittest.TestCase):
                 settings={"max_iterations": 5, "history_size": 1},
             )
             body.synchronize()
-            self.assertTrue(np.all(np.isfinite(body.x)))
-            self.assertTrue(np.all(np.isfinite(body.v)))
+            self.assertTrue(np.all(np.isfinite(body.get_x())))
+            self.assertTrue(np.all(np.isfinite(body.get_v())))
 
     @unittest.skipUnless(JAX_AVAILABLE, "JAX is not installed")
     def test_public_body_api_is_operational_on_jax(self):
@@ -84,7 +84,7 @@ class TestSoftAPI(unittest.TestCase):
             gravity=np.zeros(3),
             settings={"max_iterations": 5, "history_size": 1},
         )
-        self.assertTrue(np.all(np.isfinite(body.x)))
+        self.assertTrue(np.all(np.isfinite(body.get_x())))
 
     def test_all_canonical_baseline_factories_create_bodies(self):
         factories = (
@@ -98,7 +98,7 @@ class TestSoftAPI(unittest.TestCase):
             self.assertGreater(baseline.mesh.tet_count, 0)
             self.assertEqual(baseline.fixed.shape, (baseline.mesh.node_count,))
             body = baseline.create_body(use_jax=False)
-            self.assertEqual(body.x.shape, baseline.mesh.x0.shape)
+            self.assertEqual(body.get_x().shape, baseline.mesh.x0.shape)
 
 
 if __name__ == "__main__":

@@ -112,6 +112,12 @@ class SoftBody:
         self._external_forces_device = jnp.asarray(self.external_forces) if self._jax_enabled else None
         self._jax_x0 = jnp.asarray(self.mesh.x0) if self._jax_enabled else None
 
+    def __setattr__(self, name: str, value: object) -> None:
+        """Keep simulation state private and enforce the explicit state API."""
+        if name in {"x", "v"}:
+            raise AttributeError(f"SoftBody has no public '{name}' state; use set_{name}()")
+        object.__setattr__(self, name, value)
+
     def get_x(self) -> Array:
         """Return a copy of the current positions for rendering or inspection."""
         if self._jax_enabled and self._jax_x is not None and not self._jax_host_synced:
@@ -257,8 +263,9 @@ class SoftBody:
     def set_state(self, x: Array, v: Array | None = None) -> None:
         """Set the body state and invalidate any cached JAX state.
 
-        Direct assignment to ``x`` or ``v`` is also detected, but this method
-        provides the validated public API for state updates.
+        This is the validated public API for updating both state arrays at
+        once, which is useful when restoring a snapshot or synchronizing a
+        rendering-owned copy back into the solver.
         """
         x_array = np.asarray(x, dtype=np.float64)
         v_array = np.zeros_like(x_array) if v is None else np.asarray(v, dtype=np.float64)

@@ -51,8 +51,8 @@ class TestSoftExamples(unittest.TestCase):
                         for _ in range(1000):
                             body.step(1.0e-4, gravity=baseline.gravity, sync=False)
                         body.synchronize()
-                    self.assertTrue(np.all(np.isfinite(body.x)), (factory.__name__, material, use_jax))
-                    self.assertTrue(np.all(np.isfinite(body.v)), (factory.__name__, material, use_jax))
+                    self.assertTrue(np.all(np.isfinite(body.get_x())), (factory.__name__, material, use_jax))
+                    self.assertTrue(np.all(np.isfinite(body.get_v())), (factory.__name__, material, use_jax))
 
     def test_verification_portfolio_contains_eight_combinations(self):
         cases = verify_soft.make_cases()

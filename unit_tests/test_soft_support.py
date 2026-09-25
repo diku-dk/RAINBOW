@@ -891,8 +891,8 @@ class _SoftBodyTests:
             jax_body = SoftBody(mesh, material, fixed=fixed, use_jax=True)
             numpy_body.step(1.0e-3, gravity=(0.0, 0.0, -9.81))
             jax_body.step(1.0e-3, gravity=(0.0, 0.0, -9.81))
-                np.testing.assert_allclose(jax_body.get_x(), numpy_body.get_x(), rtol=3.0e-5, atol=3.0e-5)
-                np.testing.assert_allclose(jax_body.get_v(), numpy_body.get_v(), rtol=3.0e-5, atol=3.0e-5)
+            np.testing.assert_allclose(jax_body.get_x(), numpy_body.get_x(), rtol=3.0e-5, atol=3.0e-5)
+            np.testing.assert_allclose(jax_body.get_v(), numpy_body.get_v(), rtol=3.0e-5, atol=3.0e-5)
 
     def test_implicit_bfgs_converges_under_gravity_for_both_materials(self):
         mesh, _ = one_tet()
@@ -962,13 +962,13 @@ class _SoftBodyTests:
         np.testing.assert_allclose(body.get_v()[[0, 1]], 0.0, atol=1.0e-12)
 
     @unittest.skipUnless(JAX_AVAILABLE, "JAX is not installed")
-    def test_jax_public_state_assignment_invalidates_device_cache(self):
+    def test_jax_state_setter_invalidates_device_cache(self):
         mesh, rest = one_tet()
         body = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), use_jax=True)
         body.step(1.0e-3, gravity=(0.0, 0.0, -1.0))
         deformed = rest.copy()
         deformed[1, 0] = 1.1
-        body.x = deformed
+        body.set_x(deformed)
         expected = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), use_jax=False).compute_elastic_forces(deformed)
         np.testing.assert_allclose(body.compute_elastic_forces(), expected, rtol=3.0e-10, atol=3.0e-10)
 
@@ -995,6 +995,14 @@ class _SoftBodyTests:
             body.set_x(np.zeros((3, 3)))
         with self.assertRaises(ValueError):
             body.set_v(np.full_like(rest, np.nan))
+        with self.assertRaises(AttributeError):
+            body.x = positions
+        with self.assertRaises(AttributeError):
+            body.v = velocities
+        with self.assertRaises(AttributeError):
+            _ = body.x
+        with self.assertRaises(AttributeError):
+            _ = body.v
 
     @unittest.skipUnless(JAX_AVAILABLE, "JAX is not installed")
     def test_jax_unsynchronized_step_keeps_solver_on_device_until_getter_or_sync(self):
