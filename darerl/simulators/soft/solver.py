@@ -588,7 +588,7 @@ if _HAS_JAX:
                     slope = jnp.dot(g, direction)
 
                     def line_search_loop(search_iteration, search_state):
-                        trial_x, trial_g, step_length, accepted, attempts = search_state
+                        trial_x, trial_g, step_length, accepted, attempts, best_x, best_g, best_phi, best_step = search_state
                         trial_flat = x.reshape(-1).at[dofs].add(step_length * direction)
                         candidate_x = trial_flat.reshape(x.shape)
                         candidate_x = jnp.where(fixed[:, None], x0, candidate_x)
@@ -608,21 +608,37 @@ if _HAS_JAX:
                         )
                         armijo = 0.5 * jnp.dot(candidate_g, candidate_g) <= phi + line_search_c1 * step_length * slope
                         sufficient_decrease = feasible & armijo
-                        accept_now = (~accepted) & feasible & ((not line_search) | armijo)
+                        candidate_phi = 0.5 * jnp.dot(candidate_g, candidate_g)
+                        finite_candidate = jnp.isfinite(candidate_phi)
+                        accept_now = (~accepted) & feasible & finite_candidate & ((not line_search) | armijo)
+                        best_now = feasible & jnp.isfinite(candidate_phi) & (candidate_phi < best_phi)
                         trial_x = jnp.where(accept_now, candidate_x, trial_x)
                         trial_g = jnp.where(accept_now, candidate_g, trial_g)
+                        best_x = jnp.where(best_now, candidate_x, best_x)
+                        best_g = jnp.where(best_now, candidate_g, best_g)
+                        best_phi = jnp.where(best_now, candidate_phi, best_phi)
+                        best_step = jnp.where(best_now, step_length, best_step)
                         step_length = jnp.where((~accepted) & (~sufficient_decrease) & line_search, step_length * line_search_reduction, step_length)
                         attempts = attempts + (~accepted).astype(attempts.dtype)
-                        return trial_x, trial_g, step_length, accepted | accept_now, attempts
+                        return trial_x, trial_g, step_length, accepted | accept_now, attempts, best_x, best_g, best_phi, best_step
 
                     trial_x = x
                     trial_g = g
-                    trial_x, trial_g, step_length, accepted, search_steps = jax.lax.fori_loop(
+                    best_x = x
+                    best_g = g
+                    best_phi = phi
+                    best_step = jnp.asarray(1.0, dtype=x.dtype)
+                    trial_x, trial_g, step_length, accepted, search_steps, best_x, best_g, best_phi, best_step = jax.lax.fori_loop(
                         0,
                         max_line_search_iterations,
                         line_search_loop,
-                        (trial_x, trial_g, jnp.asarray(1.0, dtype=x.dtype), jnp.asarray(False), jnp.asarray(0)),
+                        (trial_x, trial_g, jnp.asarray(1.0, dtype=x.dtype), jnp.asarray(False), jnp.asarray(0), best_x, best_g, best_phi, best_step),
                     )
+                    rescue = (~accepted) & (best_phi < phi)
+                    trial_x = jnp.where(rescue, best_x, trial_x)
+                    trial_g = jnp.where(rescue, best_g, trial_g)
+                    step_length = jnp.where(rescue, best_step, step_length)
+                    accepted = accepted | rescue
                     s = step_length * direction
                     full_direction = jnp.zeros_like(x).reshape(-1).at[dofs].set(s).reshape(x.shape)
                     df = directional_force_action(trial_x, full_direction)

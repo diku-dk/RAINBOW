@@ -192,6 +192,42 @@ inverse-mass direction is used. Convergence is declared when
 ||g(x)|| ≤ tolerance · max(||g(x⁰)||, 1).
 ```
 
+### Globalization and fallback
+
+The line search globalizes the local quasi-Newton model by accepting a trial
+`x + αd` only when its residual merit satisfies
+
+```text
+φ(x + αd) ≤ φ(x) + c₁ α gᵀd.
+```
+
+Rejected steps reduce `α` by `line_search_reduction`. If the trial fails the
+element-Jacobian feasibility policy, it is rejected before its residual is
+evaluated. This is a cheap endpoint guard, not a continuous collision or
+root-crossing test. Non-finite trial residuals are rejected independently of
+whether Armijo backtracking is enabled.
+
+When all L-BFGS trials are rejected, the NumPy solver retries with the
+preconditioned negative-gradient direction `d_g = -Dg`. It can then rescue the
+best finite trial encountered when that trial has lower merit than the current
+state, even if strict Armijo was not satisfied. The event count is returned as
+`gradient_fallback_steps`.
+
+The optional `globalization="watchdog"` mode permits bounded non-monotone
+progress after strict backtracking fails. Trials with merit at most
+`watchdog_growth_factor` times the saved strict merit are allowed for at most
+`max_watchdog_steps` iterations. The saved strict iterate is restored and the
+L-BFGS history is cleared when that budget is exceeded, since old curvature
+pairs no longer describe the restored state. The number of accepted
+non-monotone trials is reported as `watchdog_acceptances`.
+
+These controls change only how the residual is reached, not the constitutive
+model. The NumPy implementation exposes `globalization`,
+`enable_gradient_fallback`, `max_watchdog_steps`, and
+`watchdog_growth_factor`. The JAX implementation keeps its fixed-shape search
+inside the compiled kernel and implements descent-direction fallback and
+best-finite-trial rescue; it does not execute the Python watchdog path.
+
 The JAX version keeps the residual, history, line search, and iteration inside
 one JIT-compiled device-resident kernel.
 

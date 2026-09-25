@@ -69,11 +69,14 @@ def compute_backtracking_line_search(
     reduction: float,
     c1: float,
     feasible: Feasibility | None = None,
+    merit_limit: float | None = None,
+    accept_best: bool = False,
 ) -> dict:
-    """Perform residual backtracking with an optional trial feasibility test."""
+    """Perform residual backtracking with feasibility and rescue support."""
     phi = 0.5 * float(np.dot(gradient, gradient))
     slope = float(np.dot(gradient, direction))
     step_length = 1.0
+    best = None
     for iteration in range(max_iterations):
         trial = position + step_length * direction
         if feasible is not None and not feasible(trial):
@@ -81,21 +84,40 @@ def compute_backtracking_line_search(
             continue
         trial_gradient = residual(trial)
         trial_phi = 0.5 * float(np.dot(trial_gradient, trial_gradient))
-        if not enabled or trial_phi <= phi + c1 * step_length * slope:
+        if np.isfinite(trial_phi) and (best is None or trial_phi < best["merit"]):
+            best = {
+                "position": trial.copy(),
+                "gradient": trial_gradient.copy(),
+                "step_length": step_length,
+                "merit": trial_phi,
+            }
+        limit = phi if merit_limit is None else merit_limit
+        if np.isfinite(trial_phi) and (not enabled or trial_phi <= limit + c1 * step_length * slope):
             return {
                 "accepted": True,
                 "position": trial,
                 "gradient": trial_gradient,
                 "step_length": step_length,
                 "iterations": iteration + 1,
+                "rescued": False,
             }
         step_length *= reduction
+    if accept_best and best is not None and best["merit"] < phi:
+        return {
+            "accepted": True,
+            "position": best["position"],
+            "gradient": best["gradient"],
+            "step_length": best["step_length"],
+            "iterations": max_iterations,
+            "rescued": True,
+        }
     return {
         "accepted": False,
         "position": position,
         "gradient": gradient,
         "step_length": 0.0,
         "iterations": max_iterations,
+        "rescued": False,
     }
 
 
@@ -124,6 +146,16 @@ def solve_lbfgs(
     converged = False
     line_search_steps = 0
     iterations = 0
+    fallback_steps = 0
+    watchdog_steps = 0
+    watchdog_x = None
+    watchdog_g = None
+    watchdog_merit = None
+    watchdog_acceptances = 0
+    globalization = settings.get("globalization", "backtracking")
+    enable_gradient_fallback = bool(settings.get("enable_gradient_fallback", True))
+    max_watchdog_steps = int(settings.get("max_watchdog_steps", 3))
+    watchdog_growth = float(settings.get("watchdog_growth_factor", 1.1))
 
     for iteration in range(int(settings["max_iterations"])):
         iterations = iteration + 1
@@ -135,6 +167,12 @@ def solve_lbfgs(
         if float(np.dot(direction, g)) >= 0.0 or not np.all(np.isfinite(direction)):
             direction = -diagonal * g
 
+        merit_limit = None
+        current_merit = 0.5 * float(np.dot(g, g))
+        position_before_trial = x.copy()
+        gradient_before_trial = g.copy()
+        if globalization == "watchdog" and watchdog_steps > 0:
+            merit_limit = watchdog_merit * watchdog_growth
         line_search = compute_backtracking_line_search(
             x,
             g,
@@ -145,10 +183,40 @@ def solve_lbfgs(
             float(settings["line_search_reduction"]),
             float(settings["line_search_c1"]),
             feasible=feasible,
+            merit_limit=merit_limit,
         )
         line_search_steps += line_search["iterations"]
         if not line_search["accepted"]:
-            break
+            if globalization == "watchdog":
+                if watchdog_steps == 0:
+                    watchdog_x = x.copy()
+                    watchdog_g = g.copy()
+                    watchdog_merit = 0.5 * float(np.dot(g, g))
+                line_search = compute_backtracking_line_search(
+                    x, g, direction, residual,
+                    True,
+                    int(settings["max_line_search_iterations"]),
+                    float(settings["line_search_reduction"]),
+                    float(settings["line_search_c1"]),
+                    feasible=feasible,
+                    merit_limit=watchdog_merit * watchdog_growth,
+                )
+                line_search_steps += line_search["iterations"]
+            if not line_search["accepted"] and enable_gradient_fallback:
+                fallback_steps += 1
+                gradient_direction = -diagonal * g
+                line_search = compute_backtracking_line_search(
+                    x, g, gradient_direction, residual,
+                    True,
+                    int(settings["max_line_search_iterations"]),
+                    float(settings["line_search_reduction"]),
+                    float(settings["line_search_c1"]),
+                    feasible=feasible,
+                    accept_best=True,
+                )
+                line_search_steps += line_search["iterations"]
+            if not line_search["accepted"]:
+                break
 
         trial = line_search["position"]
         trial_g = line_search["gradient"]
@@ -165,6 +233,25 @@ def solve_lbfgs(
         )
         x, g = trial, trial_g
 
+        trial_merit = 0.5 * float(np.dot(g, g))
+        if globalization == "watchdog":
+            if trial_merit > current_merit:
+                if watchdog_steps == 0:
+                    # Keep the last strict iterate as the restoration point.
+                    watchdog_x = position_before_trial
+                    watchdog_g = gradient_before_trial
+                    watchdog_merit = current_merit
+                watchdog_steps += 1
+                watchdog_acceptances += 1
+            elif watchdog_steps > 0 and trial_merit < watchdog_merit:
+                watchdog_steps = 0
+            if watchdog_steps > max_watchdog_steps:
+                x, g = watchdog_x, watchdog_g
+                history_s.clear()
+                history_y.clear()
+                history_rho.clear()
+                watchdog_steps = 0
+
     info = {
         "converged": converged,
         "iterations": iterations,
@@ -173,5 +260,8 @@ def solve_lbfgs(
         "residual_reduction_factor": float(np.linalg.norm(g) / initial_norm),
         "line_search_steps": line_search_steps,
         "history_length": len(history_s),
+        "gradient_fallback_steps": fallback_steps,
+        "watchdog_steps": watchdog_steps,
+        "watchdog_acceptances": watchdog_acceptances,
     }
     return x, g, info

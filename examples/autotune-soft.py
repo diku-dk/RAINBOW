@@ -85,6 +85,7 @@ def simulate_candidate(
         raise ValueError("duration must be an integer multiple of every candidate dt")
     jit_seconds = 0.0
     gravity = CASE_FACTORIES[case](i, j, k).gravity
+    start = time.perf_counter()
     try:
         if use_jax:
             warmup, _ = make_case_body(case, i, j, k, use_jax)
@@ -121,7 +122,7 @@ def simulate_candidate(
         return {
             "valid": False,
             "error": str(error),
-            "elapsed": time.perf_counter() - locals().get("start", time.perf_counter()),
+            "elapsed": max(0.0, time.perf_counter() - start),
             "jit_seconds": jit_seconds,
         }
     elapsed = time.perf_counter() - start
@@ -416,18 +417,19 @@ def main() -> None:
                     result["error"] = candidate["error"]
                 results.append(result)
                 combination_results.append(result)
+                failure = "" if result["valid"] else f" INVALID: {result['error']}"
                 if strategy is not None:
                     print(
                         f"dt={dt:.3e} max_it={iterations:2d} history={history:2d} "
                         f"tol={tolerance:.1e} line_search={line_search!s:5s} "
                         f"compute={result['elapsed']:.3f}s jit={result['jit_seconds']:.3f}s "
                         f"error={result['trajectory_error_percent']:.4f}% "
-                        f"mean_it={result['mean_iterations']:.2f}"
+                        f"mean_it={result['mean_iterations']:.2f}{failure}"
                     )
                 else:
                     print(
                         f"dt={dt:.3e} compute={result['elapsed']:.3f}s jit={result['jit_seconds']:.3f}s "
-                        f"error={result['trajectory_error_percent']:.4f}%"
+                        f"error={result['trajectory_error_percent']:.4f}%{failure}"
                     )
 
             if method == "semi_implicit":
@@ -453,8 +455,17 @@ def main() -> None:
                 valid_reference = [result for result in combination_results if result["valid"]]
                 reference_pool = acceptable_reference or valid_reference
                 reference_pool.sort(key=lambda result: result["dt"], reverse=True)
-                exploration_dts = [result["dt"] for result in reference_pool[:2]]
-                if not exploration_dts:
+                if reference_pool:
+                    boundary_dt = reference_pool[0]["dt"]
+                    boundary_index = candidate_dts.index(boundary_dt)
+                    # Include the largest robust timestep and the next larger
+                    # candidate. This is where solver settings can recover a
+                    # timestep rejected by the robust profile.
+                    exploration_indices = {boundary_index}
+                    if boundary_index + 1 < len(candidate_dts):
+                        exploration_indices.add(boundary_index + 1)
+                    exploration_dts = [candidate_dts[index] for index in sorted(exploration_indices)]
+                else:
                     exploration_dts = candidate_dts[:2]
 
                 # These values cover the meaningful regimes: low/medium/high

@@ -55,7 +55,8 @@ They cover:
   definition/symmetry, multi-element consistency, and position-shape validation.
 - isolated nonlinear-solver checks in `test_soft_nonlinear.py`: L-BFGS
   directions and history, curvature rejection, Armijo acceptance and failure,
-  quadratic convergence, and iteration-limit reporting.
+  best-finite-trial rescue, gradient fallback, watchdog acceptance, quadratic
+  convergence, and iteration-limit reporting.
 - directional-residual strategy checks: analytical tangent-action and
   closed-form derivatives agree with independent central differences for both
   constitutive models, and all three strategies converge to the same implicit
@@ -125,6 +126,13 @@ all timesteps. The default parameter values are three iteration caps
 (`10,20,30`), three history sizes (`4,8,12`), two residual tolerances
 (`1e-4,1e-6`), and two line-search modes. Each combination entry contains its
 tuned timestep and solver settings.
+
+An invalid autotune candidate is not an accuracy result. It means the
+trajectory became non-finite or the implicit nonlinear solve failed to
+converge. The console reports the failure reason. In particular, implicit
+backward Euler is only as stable as the nonlinear solve that computes its
+step; a mathematically stable time discretization does not guarantee that a
+finite-iteration L-BFGS solve will converge at an arbitrarily large timestep.
 
 `examples/study_soft_convergence.py` loads those strategy/backend-specific
 settings and records one residual-reduction rate for every implicit solver

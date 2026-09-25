@@ -66,7 +66,16 @@ def step_semi_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, sync: b
 
 
 def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: dict | None = None):
-    """Advance ``body`` with backward Euler and matrix-free L-BFGS."""
+    """Advance ``body`` with backward Euler and matrix-free L-BFGS.
+
+    NumPy uses residual-norm backtracking with a trial-state Jacobian guard and
+    can additionally use a preconditioned gradient fallback or bounded
+    ``globalization="watchdog"`` mode. These are controlled by
+    ``enable_gradient_fallback``, ``max_watchdog_steps``, and
+    ``watchdog_growth_factor``. Diagnostics are stored in
+    ``body.last_implicit_info``; the JAX implementation keeps its fixed-shape
+    search inside the compiled kernel.
+    """
     gravity = _validate_step_inputs(dt, gravity)
     cfg = {
         "max_iterations": 25,
@@ -81,6 +90,10 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
         "directional_residual_strategy": "tangent_action",
         "prevent_inversion": None,
         "minimum_jacobian": 0.0,
+        "globalization": "backtracking",
+        "enable_gradient_fallback": True,
+        "max_watchdog_steps": 3,
+        "watchdog_growth_factor": 1.1,
         "raise_on_failure": False,
     }
     if settings is not None:
@@ -102,6 +115,14 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
         raise ValueError("prevent_inversion must be True, False, or None")
     if not np.isfinite(cfg["minimum_jacobian"]) or cfg["minimum_jacobian"] < 0.0:
         raise ValueError("minimum_jacobian must be finite and non-negative")
+    if cfg["globalization"] not in ("backtracking", "watchdog"):
+        raise ValueError("globalization must be 'backtracking' or 'watchdog'")
+    if not isinstance(cfg["enable_gradient_fallback"], (bool, np.bool_)):
+        raise ValueError("enable_gradient_fallback must be boolean")
+    if cfg["max_watchdog_steps"] < 1:
+        raise ValueError("max_watchdog_steps must be positive")
+    if not np.isfinite(cfg["watchdog_growth_factor"]) or cfg["watchdog_growth_factor"] < 1.0:
+        raise ValueError("watchdog_growth_factor must be finite and at least one")
     strategy_codes = {"tangent_action": 0, "closed_form": 1, "finite_difference": 2}
     strategy = cfg["directional_residual_strategy"]
     if strategy not in strategy_codes:

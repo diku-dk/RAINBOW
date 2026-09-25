@@ -199,3 +199,16 @@ and inverted elements. Set `prevent_inversion` to `True` or `False` to override
 this policy, and use `minimum_jacobian` to impose a positive clearance above
 zero. A non-feasible current state is rejected immediately when the guard is
 enabled.
+
+The NumPy L-BFGS path also supports two globalization layers. The default
+backtracking mode first tries the L-BFGS direction, then a preconditioned
+negative-gradient direction if the line search is exhausted. A finite trial
+with a lower residual may be accepted as a rescue step. Optional watchdog mode
+allows a bounded number of non-monotone trials before restoring the saved best
+iterate. These controls are exposed through `globalization`,
+`enable_gradient_fallback`, `max_watchdog_steps`, and
+`watchdog_growth_factor` in implicit solver settings. The JAX kernel always
+uses its device-resident backtracking path and accepts the best finite
+residual-reducing trial when strict Armijo backtracking is exhausted. Both
+backends reject non-finite trial residuals, including when ordinary line
+search is disabled.

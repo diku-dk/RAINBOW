@@ -102,6 +102,14 @@ class TestSoftNonlinear(unittest.TestCase):
         self.assertFalse(failed["accepted"])
         self.assertEqual(failed["iterations"], 3)
 
+    def test_line_search_rejects_nonfinite_residual_even_when_disabled(self):
+        nonfinite_residual = lambda x: np.full_like(x, np.nan)
+        result = compute_backtracking_line_search(
+            np.array([0.0]), np.array([1.0]), np.array([-1.0]), nonfinite_residual,
+            enabled=False, max_iterations=2, reduction=0.5, c1=1.0e-4,
+        )
+        self.assertFalse(result["accepted"])
+
     def test_line_search_rejects_infeasible_trial_before_accepting_feasible_trial(self):
         residual = lambda x: x - 1.0
         result = compute_backtracking_line_search(
@@ -124,6 +132,67 @@ class TestSoftNonlinear(unittest.TestCase):
         self.assertTrue(result["accepted"])
         self.assertEqual(result["iterations"], 2)
         np.testing.assert_allclose(result["position"], [0.5])
+
+    def test_line_search_can_rescue_with_best_finite_residual(self):
+        residual = lambda x: x - 1.0
+        result = compute_backtracking_line_search(
+            np.array([0.0]), np.array([-1.0]), np.array([0.5]), residual,
+            enabled=True, max_iterations=1, reduction=0.5, c1=1.0,
+            accept_best=True,
+        )
+        self.assertTrue(result["accepted"])
+        self.assertTrue(result["rescued"])
+        np.testing.assert_allclose(result["position"], [0.5])
+
+    def test_lbfgs_reports_gradient_fallback_when_line_search_is_exhausted(self):
+        constant_residual = lambda x: np.ones_like(x)
+        directional = lambda x, direction: np.zeros_like(direction)
+        _, _, info = solve_lbfgs(
+            np.zeros(2), constant_residual, directional, np.ones(2),
+            solver_settings(max_iterations=1, enable_gradient_fallback=True),
+        )
+        self.assertEqual(info["gradient_fallback_steps"], 1)
+        self.assertFalse(info["converged"])
+
+    def test_watchdog_accepts_a_bounded_nonmonotone_trial(self):
+        # The residual grows mildly along the first trial direction. Strict
+        # Armijo rejects it, while the watchdog merit allowance accepts a
+        # bounded reduction in globalization strictness.
+        def residual(x):
+            return np.array([1.0 - 0.04 * x[0]])
+
+        directional = lambda x, direction: np.zeros_like(direction)
+        _, _, info = solve_lbfgs(
+            np.zeros(1), residual, directional, np.ones(1),
+            solver_settings(
+                max_iterations=1,
+                globalization="watchdog",
+                enable_gradient_fallback=False,
+                max_line_search_iterations=1,
+            ),
+        )
+        self.assertEqual(info["watchdog_acceptances"], 1)
+        self.assertEqual(info["gradient_fallback_steps"], 0)
+
+    def test_watchdog_restores_saved_iterate_after_budget_is_exceeded(self):
+        def residual(x):
+            return np.array([1.0 - 0.04 * x[0]])
+
+        directional = lambda x, direction: np.zeros_like(direction)
+        solution, _, info = solve_lbfgs(
+            np.zeros(1), residual, directional, np.ones(1),
+            solver_settings(
+                max_iterations=2,
+                globalization="watchdog",
+                enable_gradient_fallback=False,
+                max_watchdog_steps=1,
+            ),
+        )
+        # The first non-monotone trial is relative to the initial strict
+        # iterate, so exceeding the budget restores the origin.
+        np.testing.assert_allclose(solution, [0.0])
+        self.assertGreaterEqual(info["watchdog_acceptances"], 2)
+        self.assertEqual(info["history_length"], 0)
 
     def test_lbfgs_solver_converges_on_quadratic_residual(self):
         matrix = np.diag([2.0, 5.0, 9.0])

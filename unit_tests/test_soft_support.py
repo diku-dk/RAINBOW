@@ -321,6 +321,12 @@ class _SoftBodyTests:
             body.step_implicit(1.0e-3, settings={"directional_residual_strategy": "unknown"})
         with self.assertRaises(ValueError):
             body.step_implicit(1.0e-3, settings={"minimum_jacobian": -1.0})
+        with self.assertRaises(ValueError):
+            body.step_implicit(1.0e-3, settings={"globalization": "unknown"})
+        with self.assertRaises(ValueError):
+            body.step_implicit(1.0e-3, settings={"max_watchdog_steps": 0})
+        with self.assertRaises(ValueError):
+            body.step_implicit(1.0e-3, settings={"watchdog_growth_factor": 0.9})
 
     def test_stvk_implicit_line_search_rejects_inverted_current_state_by_default(self):
         mesh, rest = one_tet()
@@ -935,6 +941,28 @@ class _SoftBodyTests:
             self.assertTrue(jax_body.last_implicit_info["converged"])
             np.testing.assert_allclose(jax_body.x, numpy_body.x, rtol=3.0e-5, atol=3.0e-5)
             np.testing.assert_allclose(jax_body.v, numpy_body.v, rtol=3.0e-5, atol=3.0e-5)
+
+    @unittest.skipUnless(JAX_AVAILABLE, "JAX is not installed")
+    def test_jax_implicit_reduced_line_search_step_remains_finite(self):
+        """Exercise the compiled one-trial search and its rescue bookkeeping."""
+        mesh, _ = one_tet()
+        fixed = np.array([True, False, False, False])
+        settings = {
+            "max_iterations": 2,
+            "max_line_search_iterations": 1,
+            "line_search": True,
+            "raise_on_failure": False,
+        }
+        numpy_body = SoftBody(mesh, StableNeoHookeanMaterial(100.0, 0.3, 1.0), fixed=fixed, use_jax=False)
+        jax_body = SoftBody(mesh, StableNeoHookeanMaterial(100.0, 0.3, 1.0), fixed=fixed, use_jax=True)
+        pressure_faces = [[1, 2, 3]]
+        numpy_body.set_pressure_boundary(pressure_faces, 0.05)
+        jax_body.set_pressure_boundary(pressure_faces, 0.05)
+        numpy_body.step_implicit(1.0e-2, gravity=(0.0, 0.0, -1.0), settings=settings)
+        jax_body.step_implicit(1.0e-2, gravity=(0.0, 0.0, -1.0), settings=settings)
+        self.assertTrue(np.all(np.isfinite(jax_body.x)))
+        self.assertTrue(np.all(np.isfinite(jax_body.v)))
+        np.testing.assert_allclose(jax_body.x, numpy_body.x, rtol=3.0e-5, atol=3.0e-5)
 
 
     def test_force_is_restoring_for_small_stretch(self):
