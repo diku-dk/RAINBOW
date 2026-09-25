@@ -128,3 +128,12 @@ trial-state Jacobian guard.
 evaluation, and the JAX backend kernels used by the time steppers. Its public
 `step(...)` and `step_implicit(...)` methods are dispatch conveniences; they
 do not contain integration logic.
+
+`SoftBody.set_state(x, v)` is the validated public state-update API. Simulation
+state is private; time steps publish new NumPy state arrays rather than mutating the
+published arrays in place, so a rendering thread obtains either the previous
+or the next snapshot through `get_x()`/`get_v()`. With JAX, semi-implicit
+`sync=False` keeps the authoritative state on the device; the first getter or
+`synchronize()` call intentionally performs the device-to-host transfer. Any
+state setter invalidates both device buffers so position and velocity remain a
+coherent pair.

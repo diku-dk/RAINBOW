@@ -87,12 +87,13 @@ def compute_trajectory(
 ) -> tuple[np.ndarray, float]:
     frame_count = int(round(duration * fps))
     body = make_body(baseline, use_jax)
-    states = np.empty((frame_count + 1,) + body.x.shape, dtype=np.float64)
-    states[0] = body.x
+    initial_x = body.get_x()
+    states = np.empty((frame_count + 1,) + initial_x.shape, dtype=np.float64)
+    states[0] = initial_x
     start = time.perf_counter()
     for frame in range(frame_count):
         advance_frame(body, method, 1.0 / fps, substeps, settings)
-        states[frame + 1] = np.asarray(body.x)
+        states[frame + 1] = body.get_x()
     return states, time.perf_counter() - start
 
 

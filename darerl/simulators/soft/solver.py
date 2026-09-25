@@ -44,32 +44,55 @@ except ImportError:  # pragma: no cover - exercised in environments without JAX
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(init=False)
 class SoftBody:
-    """Mutable state and operations for one tetrahedral soft body."""
+    """Mutable state and operations for one tetrahedral soft body.
+
+    Simulation state is private. Use :meth:`get_x`, :meth:`get_v`,
+    :meth:`set_x`, and :meth:`set_v` to exchange copies with rendering or
+    other threads; callers cannot mutate the solver's arrays through a getter.
+    """
 
     mesh: TetMesh
     material: Material
-    x: Array | None = None
-    v: Array | None = None
+    _x: Array
+    _v: Array
     fixed: Array | None = None
     use_jax: bool = True
     pressure_faces: Array | None = None
     pressure: float | Array = 0.0
     external_forces: Array | None = None
 
-    def __post_init__(self) -> None:
-        self.x = np.array(self.mesh.x0 if self.x is None else self.x, dtype=np.float64, copy=True)
-        self.v = np.zeros_like(self.x) if self.v is None else np.array(self.v, dtype=np.float64, copy=True)
+    def __init__(
+        self,
+        mesh: TetMesh,
+        material: Material,
+        x: Array | None = None,
+        v: Array | None = None,
+        fixed: Array | None = None,
+        use_jax: bool = True,
+        pressure_faces: Array | None = None,
+        pressure: float | Array = 0.0,
+        external_forces: Array | None = None,
+    ) -> None:
+        self.mesh = mesh
+        self.material = material
+        self.fixed = fixed
+        self.use_jax = use_jax
+        self.pressure_faces = pressure_faces
+        self.pressure = pressure
+        self.external_forces = external_forces
+        self._x = np.array(self.mesh.x0 if x is None else x, dtype=np.float64, copy=True)
+        self._v = np.zeros_like(self._x) if v is None else np.array(v, dtype=np.float64, copy=True)
         self.fixed = np.zeros(self.mesh.node_count, dtype=bool) if self.fixed is None else np.asarray(self.fixed, dtype=bool)
-        if self.x.shape != (self.mesh.node_count, 3) or self.v.shape != self.x.shape:
+        if self._x.shape != (self.mesh.node_count, 3) or self._v.shape != self._x.shape:
             raise ValueError("x and v must have shape (N, 3)")
-        if not np.all(np.isfinite(self.x)) or not np.all(np.isfinite(self.v)):
+        if not np.all(np.isfinite(self._x)) or not np.all(np.isfinite(self._v)):
             raise ValueError("x and v must be finite")
         if self.fixed.shape != (self.mesh.node_count,):
             raise ValueError("fixed must have shape (N,)")
-        self.external_forces = np.zeros_like(self.x) if self.external_forces is None else np.asarray(self.external_forces, dtype=np.float64)
-        if self.external_forces.shape != self.x.shape:
+        self.external_forces = np.zeros_like(self._x) if self.external_forces is None else np.asarray(self.external_forces, dtype=np.float64)
+        if self.external_forces.shape != self._x.shape:
             raise ValueError("external_forces must have shape (N, 3)")
         if not np.all(np.isfinite(self.external_forces)):
             raise ValueError("external_forces must be finite")
@@ -79,6 +102,7 @@ class SoftBody:
         self._jax_enabled = bool(self.use_jax and _HAS_JAX)
         self._jax_x = None
         self._jax_v = None
+        self._jax_host_synced = True
         self._static = (
             tuple(map(jnp.asarray, (self.mesh.elements, self.mesh.inv_Dm, self.mesh.volume_grad_N, self.mesh.inverse_lumped_mass, self.fixed)))
             if self._jax_enabled
@@ -87,6 +111,46 @@ class SoftBody:
         self._pressure_static = (jnp.asarray(self.pressure_faces), jnp.asarray(self.pressure)) if self._jax_enabled else None
         self._external_forces_device = jnp.asarray(self.external_forces) if self._jax_enabled else None
         self._jax_x0 = jnp.asarray(self.mesh.x0) if self._jax_enabled else None
+
+    def get_x(self) -> Array:
+        """Return a copy of the current positions for rendering or inspection."""
+        if self._jax_enabled and self._jax_x is not None and not self._jax_host_synced:
+            self._jax_x.block_until_ready()
+            return np.asarray(self._jax_x, dtype=np.float64).copy()
+        return np.asarray(self._x, dtype=np.float64).copy()
+
+    def get_v(self) -> Array:
+        """Return a copy of the current velocities for rendering or inspection."""
+        if self._jax_enabled and self._jax_v is not None and not self._jax_host_synced:
+            self._jax_v.block_until_ready()
+            return np.asarray(self._jax_v, dtype=np.float64).copy()
+        return np.asarray(self._v, dtype=np.float64).copy()
+
+    def set_x(self, x: Array) -> None:
+        """Replace positions and invalidate the cached JAX position state."""
+        x_array = np.asarray(x, dtype=np.float64)
+        if x_array.shape != (self.mesh.node_count, 3):
+            raise ValueError("x must have shape (node_count, 3)")
+        if not np.all(np.isfinite(x_array)):
+            raise ValueError("x must be finite")
+        self._x = x_array.copy()
+        if self._jax_enabled:
+            self._jax_x = None
+            self._jax_v = None
+            self._jax_host_synced = True
+
+    def set_v(self, v: Array) -> None:
+        """Replace velocities and invalidate the cached JAX velocity state."""
+        v_array = np.asarray(v, dtype=np.float64)
+        if v_array.shape != (self.mesh.node_count, 3):
+            raise ValueError("v must have shape (node_count, 3)")
+        if not np.all(np.isfinite(v_array)):
+            raise ValueError("v must be finite")
+        self._v = v_array.copy()
+        if self._jax_enabled:
+            self._jax_x = None
+            self._jax_v = None
+            self._jax_host_synced = True
 
     def validate_pressure_boundary(self) -> None:
         """Validate the configured pressure-face set and pressure values."""
@@ -145,7 +209,7 @@ class SoftBody:
     def set_external_forces(self, forces: Array) -> None:
         """Set persistent nodal von Neumann loads in world coordinates."""
         forces = np.asarray(forces, dtype=np.float64)
-        if forces.shape != self.x.shape:
+        if forces.shape != self._x.shape:
             raise ValueError("external_forces must have shape (N, 3)")
         if not np.all(np.isfinite(forces)):
             raise ValueError("external_forces must be finite")
@@ -155,7 +219,7 @@ class SoftBody:
 
     def clear_external_forces(self) -> None:
         """Remove all persistent nodal loads."""
-        self.set_external_forces(np.zeros_like(self.x))
+        self.set_external_forces(np.zeros_like(self._x))
 
     def step(
         self,
@@ -171,6 +235,9 @@ class SoftBody:
         for fully implicit backward Euler solved with matrix-free L-BFGS.
         ``settings`` is passed to the implicit solver; see
         :meth:`step_implicit` for supported keys.
+        With JAX, ``sync=False`` leaves semi-implicit state on the device and
+        returns device arrays. Call ``get_x()``, ``get_v()``, or
+        ``synchronize()`` when a host/rendering snapshot is required.
         """
         if method == "implicit_bfgs":
             return step_implicit(self, dt, np.asarray(gravity, dtype=np.float64), settings=settings)
@@ -186,6 +253,21 @@ class SoftBody:
     ) -> tuple[Array, Array]:
         """Advance with the implicit time-stepper and matrix-free L-BFGS."""
         return step_implicit(self, dt, gravity, settings)
+
+    def set_state(self, x: Array, v: Array | None = None) -> None:
+        """Set the body state and invalidate any cached JAX state.
+
+        Direct assignment to ``x`` or ``v`` is also detected, but this method
+        provides the validated public API for state updates.
+        """
+        x_array = np.asarray(x, dtype=np.float64)
+        v_array = np.zeros_like(x_array) if v is None else np.asarray(v, dtype=np.float64)
+        if x_array.shape != self._x.shape or v_array.shape != self._v.shape:
+            raise ValueError("x and v must have shape (node_count, 3)")
+        if not np.all(np.isfinite(x_array)) or not np.all(np.isfinite(v_array)):
+            raise ValueError("x and v must be finite")
+        self.set_x(x_array)
+        self.set_v(v_array)
 
     def _total_forces(self, x: Array, gravity: Array) -> Array:
         forces = self._noninertial_forces(x)
@@ -246,7 +328,7 @@ class SoftBody:
         )
 
     def compute_deformation_gradient(self, x: Array | None = None) -> Array:
-        x = self.x if x is None else np.asarray(x, dtype=np.float64)
+        x = self.get_x() if x is None else np.asarray(x, dtype=np.float64)
         if x.shape != (self.mesh.node_count, 3):
             raise ValueError("x must have shape (node_count, 3)")
         p = x[self.mesh.elements]
@@ -266,23 +348,25 @@ class SoftBody:
 
     def compute_elastic_forces(self, x: Array | None = None) -> Array:
         """Return internal elastic forces, with shape ``(N, 3)``."""
-        x = self.x if x is None else x
+        current_state = x is None
+        x = self._x if current_state else x
         lam, mu = self.material.compute_lame_parameters()
         if self._jax_enabled:
-            x_device = self._jax_x if x is self.x and self._jax_x is not None else jnp.asarray(x)
+            x_device = self._jax_x if current_state and self._jax_x is not None else jnp.asarray(x)
             return np.asarray(_jax_forces(x_device, *self._static, lam, mu, self.material.model_code))
         return compute_numpy_elastic_forces(np.asarray(x), self.mesh, lam, mu, self.material.model_code)
 
     def compute_neumann_forces(self, x: Array | None = None) -> Array:
         """Return pressure nodal forces from the configured face set."""
-        x = self.x if x is None else x
+        current_state = x is None
+        x = self._x if current_state else x
         if self._jax_enabled:
-            x_device = self._jax_x if x is self.x and self._jax_x is not None else jnp.asarray(x)
+            x_device = self._jax_x if current_state and self._jax_x is not None else jnp.asarray(x)
             return np.asarray(_jax_pressure_forces(x_device, *self._pressure_static))
         return compute_pressure_forces(np.asarray(x), self.pressure_faces, self.pressure, self.mesh.node_count)
 
     def compute_elastic_energy(self, x: Array | None = None) -> float:
-        x = self.x if x is None else x
+        x = self.get_x() if x is None else x
         f = self.compute_deformation_gradient(x)
         lam, mu = self.material.compute_lame_parameters()
         density = compute_energy_density(f, lam, mu, self.material.model_code)
@@ -290,10 +374,12 @@ class SoftBody:
 
     def synchronize(self) -> tuple[Array, Array]:
         """Synchronize device state and expose it as NumPy arrays."""
-        if self._jax_enabled and self._jax_x is not None:
+        if self._jax_enabled and self._jax_x is not None and not self._jax_host_synced:
             self._jax_x.block_until_ready()
-            self.x, self.v = np.asarray(self._jax_x), np.asarray(self._jax_v)
-        return self.x, self.v
+            object.__setattr__(self, "_x", np.asarray(self._jax_x))
+            object.__setattr__(self, "_v", np.asarray(self._jax_v))
+            self._jax_host_synced = True
+        return self.get_x(), self.get_v()
 
 
 if _HAS_JAX:
@@ -564,82 +650,99 @@ if _HAS_JAX:
             return new_values[0], new_values[1], new_values[2], new_count
 
         def iteration_body(iteration, state):
-            x, g, hist_s, hist_y, hist_rho, count, done, converged, iterations, line_steps = state
+            x, g, hist_s, hist_y, hist_rho, count, done, converged, iterations, line_steps, direction_fallback_steps, gradient_fallback_steps, rescue_steps = state
 
             def no_op(current_state):
                 return current_state
 
             def solve(current_state):
-                x, g, hist_s, hist_y, hist_rho, count, done, converged, iterations, line_steps = current_state
+                x, g, hist_s, hist_y, hist_rho, count, done, converged, iterations, line_steps, direction_fallback_steps, gradient_fallback_steps, rescue_steps = current_state
                 norm_g = jnp.linalg.norm(g)
                 already_converged = norm_g <= tolerance * initial_norm
 
                 def converged_state():
-                    return x, g, hist_s, hist_y, hist_rho, count, True, True, iteration + 1, line_steps
+                    return x, g, hist_s, hist_y, hist_rho, count, True, True, iteration + 1, line_steps, direction_fallback_steps, gradient_fallback_steps, rescue_steps
 
                 def search_state():
                     direction = compute_lbfgs_direction(g, hist_s, hist_y, hist_rho, count)
+                    valid_direction = (jnp.dot(direction, g) < 0.0) & jnp.all(jnp.isfinite(direction))
                     direction = jnp.where(
-                        (jnp.dot(direction, g) < 0.0) & jnp.all(jnp.isfinite(direction)),
+                        valid_direction,
                         direction,
                         -(dt * dt) * inv_mass_dof * g,
                     )
                     phi = 0.5 * jnp.dot(g, g)
-                    slope = jnp.dot(g, direction)
+                    def run_line_search(search_direction):
+                        slope = jnp.dot(g, search_direction)
 
-                    def line_search_loop(search_iteration, search_state):
-                        trial_x, trial_g, step_length, accepted, attempts, best_x, best_g, best_phi, best_step = search_state
-                        trial_flat = x.reshape(-1).at[dofs].add(step_length * direction)
-                        candidate_x = trial_flat.reshape(x.shape)
-                        candidate_x = jnp.where(fixed[:, None], x0, candidate_x)
+                        def line_search_loop(search_iteration, search_state):
+                            trial_x, trial_g, step_length, accepted, attempts, best_x, best_g, best_phi, best_step = search_state
+                            trial_flat = x.reshape(-1).at[dofs].add(step_length * search_direction)
+                            candidate_x = trial_flat.reshape(x.shape)
+                            candidate_x = jnp.where(fixed[:, None], x0, candidate_x)
 
-                        if prevent_inversion:
-                            candidate_jacobians = _jax_element_jacobians(candidate_x, elements, inv_dm)
-                            feasible = jnp.all(candidate_jacobians > minimum_jacobian)
-                        else:
-                            feasible = jnp.asarray(True)
+                            if prevent_inversion:
+                                candidate_jacobians = _jax_element_jacobians(candidate_x, elements, inv_dm)
+                                feasible = jnp.all(candidate_jacobians > minimum_jacobian)
+                            else:
+                                feasible = jnp.asarray(True)
 
-                        # Avoid evaluating elastic forces for an infeasible trial.
-                        candidate_g = jax.lax.cond(
-                            feasible,
-                            lambda _: residual(candidate_x),
-                            lambda _: g,
-                            operand=None,
+                            # Avoid force evaluation for infeasible or already
+                            # accepted trials; the fixed loop still executes
+                            # to keep the compiled shape static.
+                            candidate_g = jax.lax.cond(
+                                (~accepted) & feasible,
+                                lambda _: residual(candidate_x),
+                                lambda _: g,
+                                operand=None,
+                            )
+                            candidate_phi = 0.5 * jnp.dot(candidate_g, candidate_g)
+                            finite_candidate = jnp.isfinite(candidate_phi)
+                            armijo = candidate_phi <= phi + line_search_c1 * step_length * slope
+                            sufficient_decrease = feasible & finite_candidate & armijo
+                            accept_now = (~accepted) & feasible & finite_candidate & ((not line_search) | armijo)
+                            best_now = feasible & finite_candidate & (candidate_phi < best_phi)
+                            trial_x = jnp.where(accept_now, candidate_x, trial_x)
+                            trial_g = jnp.where(accept_now, candidate_g, trial_g)
+                            best_x = jnp.where(best_now, candidate_x, best_x)
+                            best_g = jnp.where(best_now, candidate_g, best_g)
+                            best_phi = jnp.where(best_now, candidate_phi, best_phi)
+                            best_step = jnp.where(best_now, step_length, best_step)
+                            step_length = jnp.where((~accepted) & (~sufficient_decrease) & line_search, step_length * line_search_reduction, step_length)
+                            attempts = attempts + (~accepted).astype(attempts.dtype)
+                            return trial_x, trial_g, step_length, accepted | accept_now, attempts, best_x, best_g, best_phi, best_step
+
+                        trial_x, trial_g, step_length, accepted, search_steps, best_x, best_g, best_phi, best_step = jax.lax.fori_loop(
+                            0,
+                            max_line_search_iterations,
+                            line_search_loop,
+                            (x, g, jnp.asarray(1.0, dtype=x.dtype), jnp.asarray(False), jnp.asarray(0), x, g, phi, jnp.asarray(1.0, dtype=x.dtype)),
                         )
-                        armijo = 0.5 * jnp.dot(candidate_g, candidate_g) <= phi + line_search_c1 * step_length * slope
-                        sufficient_decrease = feasible & armijo
-                        candidate_phi = 0.5 * jnp.dot(candidate_g, candidate_g)
-                        finite_candidate = jnp.isfinite(candidate_phi)
-                        accept_now = (~accepted) & feasible & finite_candidate & ((not line_search) | armijo)
-                        best_now = feasible & jnp.isfinite(candidate_phi) & (candidate_phi < best_phi)
-                        trial_x = jnp.where(accept_now, candidate_x, trial_x)
-                        trial_g = jnp.where(accept_now, candidate_g, trial_g)
-                        best_x = jnp.where(best_now, candidate_x, best_x)
-                        best_g = jnp.where(best_now, candidate_g, best_g)
-                        best_phi = jnp.where(best_now, candidate_phi, best_phi)
-                        best_step = jnp.where(best_now, step_length, best_step)
-                        step_length = jnp.where((~accepted) & (~sufficient_decrease) & line_search, step_length * line_search_reduction, step_length)
-                        attempts = attempts + (~accepted).astype(attempts.dtype)
-                        return trial_x, trial_g, step_length, accepted | accept_now, attempts, best_x, best_g, best_phi, best_step
+                        rescue = (~accepted) & (best_phi < phi)
+                        trial_x = jnp.where(rescue, best_x, trial_x)
+                        trial_g = jnp.where(rescue, best_g, trial_g)
+                        step_length = jnp.where(rescue, best_step, step_length)
+                        accepted = accepted | rescue
+                        return trial_x, trial_g, step_length, accepted, search_steps, rescue
 
-                    trial_x = x
-                    trial_g = g
-                    best_x = x
-                    best_g = g
-                    best_phi = phi
-                    best_step = jnp.asarray(1.0, dtype=x.dtype)
-                    trial_x, trial_g, step_length, accepted, search_steps, best_x, best_g, best_phi, best_step = jax.lax.fori_loop(
-                        0,
-                        max_line_search_iterations,
-                        line_search_loop,
-                        (trial_x, trial_g, jnp.asarray(1.0, dtype=x.dtype), jnp.asarray(False), jnp.asarray(0), best_x, best_g, best_phi, best_step),
+                    primary = run_line_search(direction)
+                    gradient_direction = -(dt * dt) * inv_mass_dof * g
+                    use_gradient_fallback = ~primary[3]
+                    result = jax.lax.cond(
+                        use_gradient_fallback,
+                        lambda _: run_line_search(gradient_direction),
+                        lambda _: primary,
+                        operand=None,
                     )
-                    rescue = (~accepted) & (best_phi < phi)
-                    trial_x = jnp.where(rescue, best_x, trial_x)
-                    trial_g = jnp.where(rescue, best_g, trial_g)
-                    step_length = jnp.where(rescue, best_step, step_length)
-                    accepted = accepted | rescue
-                    s = step_length * direction
+                    trial_x, trial_g, step_length, accepted, search_steps, rescue = result
+                    search_steps = search_steps + jnp.where(use_gradient_fallback, primary[4], 0)
+                    selected_direction = jax.lax.cond(
+                        use_gradient_fallback,
+                        lambda _: gradient_direction,
+                        lambda _: direction,
+                        operand=None,
+                    )
+                    s = step_length * selected_direction
                     full_direction = jnp.zeros_like(x).reshape(-1).at[dofs].set(s).reshape(x.shape)
                     df = directional_force_action(trial_x, full_direction)
                     y = scale * s - df.reshape(-1)[dofs]
@@ -658,18 +761,21 @@ if _HAS_JAX:
                         jnp.asarray(False),
                         iteration + 1,
                         line_steps + search_steps,
+                        direction_fallback_steps + (~valid_direction).astype(direction_fallback_steps.dtype),
+                        gradient_fallback_steps + use_gradient_fallback.astype(gradient_fallback_steps.dtype),
+                        rescue_steps + rescue.astype(rescue_steps.dtype),
                     )
 
                 return jax.lax.cond(already_converged, converged_state, search_state)
 
             return jax.lax.cond(done, no_op, solve, state)
 
-        state = (x_initial, g_initial, history_s, history_y, history_rho, jnp.asarray(0), jnp.asarray(False), jnp.asarray(False), jnp.asarray(0), jnp.asarray(0))
-        x, g, _, _, _, history_length, done, converged, iterations, line_steps = jax.lax.fori_loop(
+        state = (x_initial, g_initial, history_s, history_y, history_rho, jnp.asarray(0), jnp.asarray(False), jnp.asarray(False), jnp.asarray(0), jnp.asarray(0), jnp.asarray(0), jnp.asarray(0), jnp.asarray(0))
+        x, g, _, _, _, history_length, done, converged, iterations, line_steps, direction_fallback_steps, gradient_fallback_steps, rescue_steps = jax.lax.fori_loop(
             0, max_iterations, iteration_body, state
         )
         velocity = (x - x_n) / dt
         velocity = jnp.where(fixed[:, None], 0.0, velocity)
         final_norm = jnp.linalg.norm(g)
         reduction_factor = final_norm / initial_norm
-        return x, velocity, (converged, iterations, final_norm, initial_norm, line_steps, history_length, reduction_factor)
+        return x, velocity, (converged, iterations, final_norm, initial_norm, line_steps, history_length, reduction_factor, direction_fallback_steps, gradient_fallback_steps, rescue_steps)

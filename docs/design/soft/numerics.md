@@ -211,4 +211,9 @@ iterate. These controls are exposed through `globalization`,
 uses its device-resident backtracking path and accepts the best finite
 residual-reducing trial when strict Armijo backtracking is exhausted. Both
 backends reject non-finite trial residuals, including when ordinary line
-search is disabled.
+search is disabled. Both backends expose separate
+`direction_fallback_steps`, `gradient_fallback_steps`, and `rescue_steps`;
+watchdog diagnostics
+are zero for JAX because watchdog mode is explicitly unsupported there.
+On JAX, watchdog mode and disabling the compiled gradient fallback are rejected
+explicitly rather than silently ignored.

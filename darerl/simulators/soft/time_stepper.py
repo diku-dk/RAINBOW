@@ -36,8 +36,8 @@ def step_semi_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, sync: b
         from .solver import _jax_step, jnp
 
         if body._jax_x is None:
-            body._jax_x = jnp.asarray(body.x)
-            body._jax_v = jnp.asarray(body.v)
+            body._jax_x = jnp.asarray(body._x)
+            body._jax_v = jnp.asarray(body._v)
         body._jax_x, body._jax_v = _jax_step(
             body._jax_x,
             body._jax_v,
@@ -50,19 +50,28 @@ def step_semi_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, sync: b
             body.material.model_code,
             dt,
         )
+        body._jax_host_synced = False
         if sync:
             body.synchronize()
         else:
-            body.x, body.v = body._jax_x, body._jax_v
-        return body.x, body.v
+            # Keep the host snapshot unchanged. Rendering can explicitly call
+            # get_x()/get_v(), while the solver continues from device state.
+            return body._jax_x, body._jax_v
+        return body.get_x(), body.get_v()
 
-    forces = body._noninertial_forces(np.asarray(body.x))
+    current_x = np.asarray(body._x)
+    current_v = np.asarray(body._v)
+    next_x = current_x.copy()
+    next_v = current_v.copy()
+    forces = body._noninertial_forces(current_x)
     active = ~body.fixed
-    body.v[active] += dt * (forces[active] * body.mesh.inverse_lumped_mass[active, None] + gravity)
-    body.x[active] += dt * body.v[active]
-    body.v[body.fixed] = 0.0
-    body.x[body.fixed] = body.mesh.x0[body.fixed]
-    return body.x, body.v
+    next_v[active] += dt * (forces[active] * body.mesh.inverse_lumped_mass[active, None] + gravity)
+    next_x[active] += dt * next_v[active]
+    next_v[body.fixed] = 0.0
+    next_x[body.fixed] = body.mesh.x0[body.fixed]
+    body._v = next_v
+    body._x = next_x
+    return body.get_x(), body.get_v()
 
 
 def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: dict | None = None):
@@ -73,10 +82,14 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
     ``globalization="watchdog"`` mode. These are controlled by
     ``enable_gradient_fallback``, ``max_watchdog_steps``, and
     ``watchdog_growth_factor``. Diagnostics are stored in
-    ``body.last_implicit_info``; the JAX implementation keeps its fixed-shape
-    search inside the compiled kernel.
+    ``body.last_implicit_info``. The JAX implementation supports the
+    backtracking contract and reports the same diagnostic keys; watchdog mode
+    is intentionally NumPy-only because it requires a dynamic restoration
+    policy.
     """
     gravity = _validate_step_inputs(dt, gravity)
+    if body._jax_enabled and body._jax_x is not None:
+        body.synchronize()
     cfg = {
         "max_iterations": 25,
         "tolerance": 1.0e-6,
@@ -129,16 +142,23 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
         raise ValueError("directional_residual_strategy must be 'tangent_action', 'closed_form', or 'finite_difference'")
 
     prevent_inversion = body.material.model_code == 0 if cfg["prevent_inversion"] is None else bool(cfg["prevent_inversion"])
-    if prevent_inversion and np.any(compute_element_jacobians(body.x, body.mesh) <= cfg["minimum_jacobian"]):
+    if prevent_inversion and np.any(compute_element_jacobians(body._x, body.mesh) <= cfg["minimum_jacobian"]):
         raise ValueError("current state contains a collapsed or inverted element")
 
-    x_n = np.asarray(body.x, dtype=np.float64).copy()
-    v_n = np.asarray(body.v, dtype=np.float64).copy()
+    x_n = np.asarray(body._x, dtype=np.float64).copy()
+    v_n = np.asarray(body._v, dtype=np.float64).copy()
     free = np.flatnonzero(~body.fixed)
     dofs = np.arange(body.mesh.node_count * 3).reshape((-1, 3))[free].reshape(-1)
 
     if body._jax_enabled:
         from .solver import _jax_implicit_step, jnp
+
+        if cfg["globalization"] != "backtracking":
+            raise ValueError("JAX implicit stepping supports globalization='backtracking' only")
+        if not cfg["enable_gradient_fallback"]:
+            raise ValueError("JAX implicit stepping requires enable_gradient_fallback=True")
+        if cfg["max_watchdog_steps"] != 3 or cfg["watchdog_growth_factor"] != 1.1:
+            raise ValueError("watchdog settings are unsupported by the JAX implicit kernel")
 
         x_device, v_device, info = _jax_implicit_step(
             jnp.asarray(x_n), jnp.asarray(v_n), jnp.asarray(body.mesh.x0), *body._static,
@@ -156,16 +176,23 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
         )
         x_device.block_until_ready()
         body._jax_x, body._jax_v = x_device, v_device
-        body.x, body.v = np.asarray(x_device), np.asarray(v_device)
+        object.__setattr__(body, "_x", np.asarray(x_device))
+        object.__setattr__(body, "_v", np.asarray(v_device))
+        body._jax_host_synced = True
         body.last_implicit_info = {
             "converged": bool(info[0]), "iterations": int(info[1]),
             "final_residual_norm": float(info[2]), "initial_residual_norm": float(info[3]),
             "residual_reduction_factor": float(info[6]), "line_search_steps": int(info[4]),
             "history_length": int(info[5]),
+            "gradient_fallback_steps": int(info[7]),
+            "direction_fallback_steps": int(info[8]),
+            "watchdog_steps": 0,
+            "watchdog_acceptances": 0,
+            "rescue_steps": int(info[9]),
         }
         if not body.last_implicit_info["converged"] and cfg["raise_on_failure"]:
             raise RuntimeError(f"implicit BFGS solve did not converge: {body.last_implicit_info}")
-        return body.x, body.v
+        return body.get_x(), body.get_v()
 
     x = x_n + dt * v_n
     x[body.fixed] = body.mesh.x0[body.fixed]
@@ -174,15 +201,15 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
     scale = mass_dof / (dt * dt)
 
     def residual(position: np.ndarray) -> np.ndarray:
-        position_array = np.asarray(position).reshape(body.x.shape)
+        position_array = np.asarray(position).reshape(body._x.shape)
         force = body._total_forces(position_array, gravity)
         result = np.zeros(position.size, dtype=np.float64)
         result[dofs] = scale * (position_array.reshape(-1)[dofs] - x_n.reshape(-1)[dofs] - dt * v_n.reshape(-1)[dofs]) - force[free].reshape(-1)
         return result
 
     def directional_residual(position: np.ndarray, direction: np.ndarray) -> np.ndarray:
-        position_array = np.asarray(position).reshape(body.x.shape)
-        direction_array = np.asarray(direction).reshape(body.x.shape)
+        position_array = np.asarray(position).reshape(body._x.shape)
+        direction_array = np.asarray(direction).reshape(body._x.shape)
         df = body._directional_force(position_array, direction_array, gravity, cfg["directional_epsilon"], strategy)
         result = np.zeros(position.size, dtype=np.float64)
         result[dofs] = scale * direction_array.reshape(-1)[dofs] - df[free].reshape(-1)
@@ -190,7 +217,7 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
 
     feasible = None
     if prevent_inversion:
-        feasible = lambda position: bool(np.all(compute_element_jacobians(np.asarray(position).reshape(body.x.shape), body.mesh) > cfg["minimum_jacobian"]))
+        feasible = lambda position: bool(np.all(compute_element_jacobians(np.asarray(position).reshape(body._x.shape), body.mesh) > cfg["minimum_jacobian"]))
 
     x = x.reshape(-1)
     diagonal = np.zeros(x.size, dtype=np.float64)
@@ -198,11 +225,11 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
     x, _, body.last_implicit_info = solve_lbfgs(x, residual, directional_residual, diagonal, cfg, feasible=feasible)
     if not body.last_implicit_info["converged"] and cfg["raise_on_failure"]:
         raise RuntimeError(f"implicit BFGS solve did not converge: {body.last_implicit_info}")
-    body.x = x.reshape(x_n.shape)
-    body.v = (body.x - x_n) / dt
-    body.x[body.fixed] = body.mesh.x0[body.fixed]
-    body.v[body.fixed] = 0.0
-    return body.x, body.v
+    body._x = x.reshape(x_n.shape)
+    body._v = (body._x - x_n) / dt
+    body._x[body.fixed] = body.mesh.x0[body.fixed]
+    body._v[body.fixed] = 0.0
+    return body.get_x(), body.get_v()
 
 
 __all__ = ["step_implicit", "step_semi_implicit"]

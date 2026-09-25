@@ -269,8 +269,8 @@ class _SoftBodyTests:
                         body.step_implicit(1.0e-5, gravity=np.zeros(3), settings=settings)
                     else:
                         body.step(1.0e-5, gravity=np.zeros(3))
-                    np.testing.assert_allclose(body.x[fixed], rest[fixed], atol=1.0e-14)
-                    np.testing.assert_allclose(body.v[fixed], 0.0, atol=1.0e-14)
+                    np.testing.assert_allclose(body.get_x()[fixed], rest[fixed], atol=1.0e-14)
+                    np.testing.assert_allclose(body.get_v()[fixed], 0.0, atol=1.0e-14)
 
     def test_external_force_input_shape_is_validated(self):
         mesh, rest = one_tet()
@@ -327,20 +327,28 @@ class _SoftBodyTests:
             body.step_implicit(1.0e-3, settings={"max_watchdog_steps": 0})
         with self.assertRaises(ValueError):
             body.step_implicit(1.0e-3, settings={"watchdog_growth_factor": 0.9})
+        if JAX_AVAILABLE:
+            jax_body = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), use_jax=True)
+            with self.assertRaises(ValueError):
+                jax_body.step_implicit(1.0e-3, settings={"globalization": "watchdog"})
+            with self.assertRaises(ValueError):
+                jax_body.step_implicit(1.0e-3, settings={"enable_gradient_fallback": False})
 
     def test_stvk_implicit_line_search_rejects_inverted_current_state_by_default(self):
         mesh, rest = one_tet()
         body = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), use_jax=False)
-        body.x = rest.copy()
-        body.x[[1, 2]] = body.x[[2, 1]]
+        inverted = rest.copy()
+        inverted[[1, 2]] = inverted[[2, 1]]
+        body.set_x(inverted)
         with self.assertRaises(ValueError):
             body.step_implicit(1.0e-3, settings={"max_iterations": 2})
 
     def test_stvk_inversion_guard_can_be_disabled(self):
         mesh, rest = one_tet()
         body = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), use_jax=False)
-        body.x = rest.copy()
-        body.x[[1, 2]] = body.x[[2, 1]]
+        inverted = rest.copy()
+        inverted[[1, 2]] = inverted[[2, 1]]
+        body.set_x(inverted)
         body.step_implicit(
             1.0e-5,
             settings={"prevent_inversion": False, "max_iterations": 1},
@@ -349,8 +357,9 @@ class _SoftBodyTests:
     def test_stable_neo_hookean_implicit_step_allows_inverted_current_state(self):
         mesh, rest = one_tet()
         body = SoftBody(mesh, StableNeoHookeanMaterial(100.0, 0.3, 1.0), use_jax=False)
-        body.x = rest.copy()
-        body.x[[1, 2]] = body.x[[2, 1]]
+        inverted = rest.copy()
+        inverted[[1, 2]] = inverted[[2, 1]]
+        body.set_x(inverted)
         body.step_implicit(
             1.0e-5,
             settings={"max_iterations": 1, "raise_on_failure": False},
@@ -382,7 +391,7 @@ class _SoftBodyTests:
                         },
                     )
                     self.assertTrue(body.last_implicit_info["converged"])
-                    results[use_jax, strategy] = body.x.copy()
+                    results[use_jax, strategy] = body.get_x()
         for use_jax in backends:
             np.testing.assert_allclose(results[use_jax, "tangent_action"], results[use_jax, "closed_form"], atol=2.0e-8)
             np.testing.assert_allclose(results[use_jax, "tangent_action"], results[use_jax, "finite_difference"], atol=2.0e-6)
@@ -430,8 +439,8 @@ class _SoftBodyTests:
         gravity = (0.0, 0.0, -9.81)
         numpy_body.step(1.0e-3, gravity=gravity)
         jax_body.step(1.0e-3, gravity=gravity)
-        np.testing.assert_allclose(jax_body.x, numpy_body.x, rtol=3.0e-11, atol=3.0e-11)
-        np.testing.assert_allclose(jax_body.v, numpy_body.v, rtol=3.0e-11, atol=3.0e-11)
+        np.testing.assert_allclose(jax_body.get_x(), numpy_body.get_x(), rtol=3.0e-11, atol=3.0e-11)
+        np.testing.assert_allclose(jax_body.get_v(), numpy_body.get_v(), rtol=3.0e-11, atol=3.0e-11)
 
     @unittest.skipUnless(JAX_AVAILABLE, "JAX is not installed")
     def test_jax_and_numpy_restore_initially_displaced_fixed_vertices(self):
@@ -444,10 +453,10 @@ class _SoftBodyTests:
         gravity = np.zeros(3)
         numpy_body.step(1.0e-3, gravity=gravity)
         jax_body.step(1.0e-3, gravity=gravity)
-        np.testing.assert_allclose(numpy_body.x[fixed], rest[fixed], atol=1.0e-14)
-        np.testing.assert_allclose(jax_body.x[fixed], rest[fixed], atol=1.0e-14)
-        np.testing.assert_allclose(jax_body.x, numpy_body.x, rtol=3.0e-11, atol=3.0e-11)
-        np.testing.assert_allclose(jax_body.v, numpy_body.v, rtol=3.0e-11, atol=3.0e-11)
+        np.testing.assert_allclose(numpy_body.get_x()[fixed], rest[fixed], atol=1.0e-14)
+        np.testing.assert_allclose(jax_body.get_x()[fixed], rest[fixed], atol=1.0e-14)
+        np.testing.assert_allclose(jax_body.get_x(), numpy_body.get_x(), rtol=3.0e-11, atol=3.0e-11)
+        np.testing.assert_allclose(jax_body.get_v(), numpy_body.get_v(), rtol=3.0e-11, atol=3.0e-11)
 
     def test_regular_tet_is_centered_and_equiangular(self):
         _, vertices = regular_tet_body(SVKMaterial(1000.0, 0.3, 1.0))
@@ -768,8 +777,8 @@ class _SoftBodyTests:
             self.assertAlmostEqual(np.ptp(case.mesh.x0[:, 2]), BASELINE_DEPTH)
             body = case.create_body(use_jax=False)
             body.step(1.0e-6, gravity=case.gravity)
-            self.assertTrue(np.all(np.isfinite(body.x)))
-            self.assertTrue(np.all(np.isfinite(body.v)))
+            self.assertTrue(np.all(np.isfinite(body.get_x())))
+            self.assertTrue(np.all(np.isfinite(body.get_v())))
 
     def test_baseline_loads_have_expected_bending_stretch_compression_and_twist_resultants(self):
         bending = create_bending_baseline(4, 3, 3)
@@ -882,8 +891,8 @@ class _SoftBodyTests:
             jax_body = SoftBody(mesh, material, fixed=fixed, use_jax=True)
             numpy_body.step(1.0e-3, gravity=(0.0, 0.0, -9.81))
             jax_body.step(1.0e-3, gravity=(0.0, 0.0, -9.81))
-            np.testing.assert_allclose(jax_body.x, numpy_body.x, rtol=3.0e-5, atol=3.0e-5)
-            np.testing.assert_allclose(jax_body.v, numpy_body.v, rtol=3.0e-5, atol=3.0e-5)
+                np.testing.assert_allclose(jax_body.get_x(), numpy_body.get_x(), rtol=3.0e-5, atol=3.0e-5)
+                np.testing.assert_allclose(jax_body.get_v(), numpy_body.get_v(), rtol=3.0e-5, atol=3.0e-5)
 
     def test_implicit_bfgs_converges_under_gravity_for_both_materials(self):
         mesh, _ = one_tet()
@@ -907,7 +916,31 @@ class _SoftBodyTests:
                     settings={"max_iterations": 30, "history_size": 5, "raise_on_failure": True},
                 )
                 self.assertTrue(body.last_implicit_info["converged"])
-                self.assertTrue(np.all(np.isfinite(body.x)))
+                self.assertTrue(np.all(np.isfinite(body.get_x())))
+
+    def test_implicit_failure_keeps_finite_state_and_honors_raise_on_failure(self):
+        mesh, _ = one_tet()
+        fixed = np.array([True, False, False, False])
+        backends = (False, True) if JAX_AVAILABLE else (False,)
+        for use_jax in backends:
+            with self.subTest(use_jax=use_jax):
+                body = SoftBody(mesh, StableNeoHookeanMaterial(100.0, 0.3, 1.0), fixed=fixed, use_jax=use_jax)
+                body.set_pressure_boundary([[1, 2, 3]], 10.0)
+                body.step_implicit(
+                    1.0e-2,
+                    settings={"max_iterations": 1, "raise_on_failure": False},
+                )
+                self.assertFalse(body.last_implicit_info["converged"])
+                self.assertTrue(np.all(np.isfinite(body.get_x())))
+                self.assertTrue(np.all(np.isfinite(body.get_v())))
+
+                failing_body = SoftBody(mesh, StableNeoHookeanMaterial(100.0, 0.3, 1.0), fixed=fixed, use_jax=use_jax)
+                failing_body.set_pressure_boundary([[1, 2, 3]], 10.0)
+                with self.assertRaises(RuntimeError):
+                    failing_body.step_implicit(
+                        1.0e-2,
+                        settings={"max_iterations": 1, "raise_on_failure": True},
+                    )
 
     def test_all_fixed_implicit_system_is_supported_by_numpy_and_jax(self):
         mesh, rest = one_tet()
@@ -915,8 +948,8 @@ class _SoftBodyTests:
             with self.subTest(use_jax=use_jax):
                 body = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), fixed=np.ones(4, dtype=bool), use_jax=use_jax)
                 body.step_implicit(1.0e-3, gravity=(0.0, 0.0, -9.81), settings={"raise_on_failure": True})
-                np.testing.assert_allclose(body.x, rest, atol=1.0e-12)
-                np.testing.assert_allclose(body.v, 0.0, atol=1.0e-12)
+                np.testing.assert_allclose(body.get_x(), rest, atol=1.0e-12)
+                np.testing.assert_allclose(body.get_v(), 0.0, atol=1.0e-12)
 
     def test_jax_fixed_vertex_setter_updates_device_constraints(self):
         if not JAX_AVAILABLE:
@@ -925,8 +958,56 @@ class _SoftBodyTests:
         body = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), use_jax=True)
         body.set_fixed_vertices([0, 1])
         body.step(1.0e-3, gravity=(0.0, 0.0, -9.81))
-        np.testing.assert_allclose(body.x[[0, 1]], rest[[0, 1]], atol=1.0e-12)
-        np.testing.assert_allclose(body.v[[0, 1]], 0.0, atol=1.0e-12)
+        np.testing.assert_allclose(body.get_x()[[0, 1]], rest[[0, 1]], atol=1.0e-12)
+        np.testing.assert_allclose(body.get_v()[[0, 1]], 0.0, atol=1.0e-12)
+
+    @unittest.skipUnless(JAX_AVAILABLE, "JAX is not installed")
+    def test_jax_public_state_assignment_invalidates_device_cache(self):
+        mesh, rest = one_tet()
+        body = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), use_jax=True)
+        body.step(1.0e-3, gravity=(0.0, 0.0, -1.0))
+        deformed = rest.copy()
+        deformed[1, 0] = 1.1
+        body.x = deformed
+        expected = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), use_jax=False).compute_elastic_forces(deformed)
+        np.testing.assert_allclose(body.compute_elastic_forces(), expected, rtol=3.0e-10, atol=3.0e-10)
+
+    @unittest.skipUnless(JAX_AVAILABLE, "JAX is not installed")
+    def test_state_getters_return_copies_and_setters_synchronize_state(self):
+        mesh, rest = one_tet()
+        body = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), use_jax=True)
+        positions = body.get_x()
+        positions[1, 0] = 1.25
+        self.assertNotAlmostEqual(body.get_x()[1, 0], 1.25)
+        body.set_x(positions)
+        self.assertAlmostEqual(body.get_x()[1, 0], 1.25)
+        velocities = np.zeros_like(rest)
+        velocities[1, 2] = 2.0
+        body.set_v(velocities)
+        returned_velocity = body.get_v()
+        returned_velocity[1, 2] = 7.0
+        self.assertAlmostEqual(body.get_v()[1, 2], 2.0)
+        body.step(1.0e-3, gravity=(0.0, 0.0, -1.0), sync=False)
+        body.set_v(np.zeros_like(rest))
+        body.step(1.0e-3, gravity=(0.0, 0.0, -1.0), sync=False)
+        self.assertTrue(np.all(np.isfinite(body.get_x())))
+        with self.assertRaises(ValueError):
+            body.set_x(np.zeros((3, 3)))
+        with self.assertRaises(ValueError):
+            body.set_v(np.full_like(rest, np.nan))
+
+    @unittest.skipUnless(JAX_AVAILABLE, "JAX is not installed")
+    def test_jax_unsynchronized_step_keeps_solver_on_device_until_getter_or_sync(self):
+        mesh, rest = one_tet()
+        body = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), use_jax=True)
+        host_before = body._x.copy()
+        device_x, device_v = body.step(1.0e-3, gravity=(0.0, 0.0, -1.0), sync=False)
+        np.testing.assert_allclose(body._x, host_before)
+        self.assertEqual(device_x.shape, rest.shape)
+        self.assertEqual(device_v.shape, rest.shape)
+        self.assertFalse(np.allclose(body.get_x(), host_before))
+        body.synchronize()
+        np.testing.assert_allclose(body._x, body.get_x())
 
     @unittest.skipUnless(JAX_AVAILABLE, "JAX is not installed")
     def test_jax_implicit_bfgs_matches_numpy_native_solver(self):
@@ -939,30 +1020,39 @@ class _SoftBodyTests:
             numpy_body.step_implicit(1.0e-3, gravity=(0.0, 0.0, -9.81), settings=settings)
             jax_body.step_implicit(1.0e-3, gravity=(0.0, 0.0, -9.81), settings=settings)
             self.assertTrue(jax_body.last_implicit_info["converged"])
-            np.testing.assert_allclose(jax_body.x, numpy_body.x, rtol=3.0e-5, atol=3.0e-5)
-            np.testing.assert_allclose(jax_body.v, numpy_body.v, rtol=3.0e-5, atol=3.0e-5)
+            np.testing.assert_allclose(jax_body.get_x(), numpy_body.get_x(), rtol=3.0e-5, atol=3.0e-5)
+            np.testing.assert_allclose(jax_body.get_v(), numpy_body.get_v(), rtol=3.0e-5, atol=3.0e-5)
+            self.assertIn("rescue_steps", jax_body.last_implicit_info)
+            self.assertIn("gradient_fallback_steps", jax_body.last_implicit_info)
 
     @unittest.skipUnless(JAX_AVAILABLE, "JAX is not installed")
     def test_jax_implicit_reduced_line_search_step_remains_finite(self):
-        """Exercise the compiled one-trial search and its rescue bookkeeping."""
+        """Exercise a reduced-step best-finite-trial rescue in the JAX kernel."""
         mesh, _ = one_tet()
         fixed = np.array([True, False, False, False])
         settings = {
             "max_iterations": 2,
             "max_line_search_iterations": 1,
             "line_search": True,
+            "line_search_c1": 0.999999,
             "raise_on_failure": False,
         }
         numpy_body = SoftBody(mesh, StableNeoHookeanMaterial(100.0, 0.3, 1.0), fixed=fixed, use_jax=False)
         jax_body = SoftBody(mesh, StableNeoHookeanMaterial(100.0, 0.3, 1.0), fixed=fixed, use_jax=True)
-        pressure_faces = [[1, 2, 3]]
-        numpy_body.set_pressure_boundary(pressure_faces, 0.05)
-        jax_body.set_pressure_boundary(pressure_faces, 0.05)
-        numpy_body.step_implicit(1.0e-2, gravity=(0.0, 0.0, -1.0), settings=settings)
-        jax_body.step_implicit(1.0e-2, gravity=(0.0, 0.0, -1.0), settings=settings)
-        self.assertTrue(np.all(np.isfinite(jax_body.x)))
-        self.assertTrue(np.all(np.isfinite(jax_body.v)))
-        np.testing.assert_allclose(jax_body.x, numpy_body.x, rtol=3.0e-5, atol=3.0e-5)
+        external = np.array([
+            [0.0, 0.0, 0.0],
+            [0.13408497, 0.00156797, -0.13883301],
+            [0.03488328, -0.24476072, -0.0178998],
+            [-0.04394744, 0.15836487, -0.02608486],
+        ])
+        numpy_body.set_external_forces(external)
+        jax_body.set_external_forces(external)
+        numpy_body.step_implicit(0.07500939571694659, gravity=(0.0, 0.0, 0.0), settings=settings)
+        jax_body.step_implicit(0.07500939571694659, gravity=(0.0, 0.0, 0.0), settings=settings)
+        self.assertTrue(np.all(np.isfinite(jax_body.get_x())))
+        self.assertTrue(np.all(np.isfinite(jax_body.get_v())))
+        np.testing.assert_allclose(jax_body.get_x(), numpy_body.get_x(), rtol=3.0e-5, atol=3.0e-5)
+        self.assertGreaterEqual(jax_body.last_implicit_info["rescue_steps"], 1)
 
 
     def test_force_is_restoring_for_small_stretch(self):
@@ -1055,8 +1145,8 @@ class _SoftBodyTests:
         body = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), use_jax=False)
         body.set_fixed_vertices([0])
         body.step(0.01, gravity=(0.0, 0.0, -10.0))
-        np.testing.assert_allclose(body.x[0], x[0])
-        np.testing.assert_allclose(body.v[0], 0.0)
+        np.testing.assert_allclose(body.get_x()[0], x[0])
+        np.testing.assert_allclose(body.get_v()[0], 0.0)
 
     def test_implicit_bfgs_accepts_settings_and_preserves_rest_state(self):
         mesh, x = one_tet()
@@ -1067,7 +1157,7 @@ class _SoftBodyTests:
             gravity=(0.0, 0.0, 0.0),
             settings={"max_iterations": 8, "history_size": 3, "raise_on_failure": True},
         )
-        np.testing.assert_allclose(body.x, x)
+        np.testing.assert_allclose(body.get_x(), x)
         self.assertTrue(body.last_implicit_info["converged"])
 
 
@@ -1075,7 +1165,7 @@ class _SoftBodyTests:
         mesh, _ = one_tet()
         body = SoftBody(mesh, SVKMaterial(100.0, 0.3, 1.0), use_jax=False)
         body.step(0.01, gravity=(0, 0, -10))
-        self.assertTrue(np.all(body.v[:, 2] < 0.0))
+        self.assertTrue(np.all(body.get_v()[:, 2] < 0.0))
 
 
 if __name__ == "__main__":

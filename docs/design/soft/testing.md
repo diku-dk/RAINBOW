@@ -68,6 +68,9 @@ They cover:
   baseline load-resultant semantics.
 - backend parity for initially displaced fixed vertices and rejection of
   non-finite state, load, pressure, and gravity inputs.
+- synchronized public-state updates invalidate cached JAX state, and JAX
+  explicitly rejects NumPy-only watchdog settings rather than silently
+  ignoring them.
 - deterministic helper checks for profiler mesh scaling, compute_trajectory error
   handling, and autotuner sample alignment in `test_soft_examples.py`.
 

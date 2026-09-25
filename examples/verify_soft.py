@@ -79,8 +79,10 @@ def make_cases() -> list[Case]:
 
 def compute_energies(body: SoftBody, gravity: np.ndarray) -> dict[str, float]:
     """Compute kinetic, potential, elastic, and mechanical energies."""
-    kinetic = 0.5 * np.sum(body.mesh.lumped_mass[:, None] * body.v * body.v)
-    potential = -float(np.sum(body.mesh.lumped_mass[:, None] * body.x * gravity[None, :]))
+    v = body.get_v()
+    x = body.get_x()
+    kinetic = 0.5 * np.sum(body.mesh.lumped_mass[:, None] * v * v)
+    potential = -float(np.sum(body.mesh.lumped_mass[:, None] * x * gravity[None, :]))
     elastic = body.compute_elastic_energy()
     return {
         "kinetic": float(kinetic),
@@ -102,14 +104,14 @@ def run_case(
     if steps < 1 or not math.isclose(steps * dt, final_time, rel_tol=1e-10, abs_tol=1e-14):
         raise ValueError("final_time must be an integer multiple of dt")
     body = baseline.create_body(use_jax=use_jax, material_model=case.material)
-    initial = body.x.copy()
+    initial = body.get_x()
     gravity = np.asarray(baseline.gravity, dtype=np.float64)
     times = np.linspace(0.0, final_time, steps + 1)
-    states = np.empty((steps + 1,) + body.x.shape, dtype=np.float64)
+    states = np.empty((steps + 1,) + initial.shape, dtype=np.float64)
     energy_names = ("kinetic", "potential", "elastic", "mechanical")
     energies = {name: np.empty(steps + 1, dtype=np.float64) for name in energy_names}
 
-    states[0] = body.x
+    states[0] = initial
     initial_energy = compute_energies(body, gravity)
     for name in energy_names:
         energies[name][0] = initial_energy[name]
@@ -131,14 +133,16 @@ def run_case(
             body.step(dt, gravity=gravity, sync=not use_jax)
             if use_jax:
                 body.synchronize()
-        if not np.all(np.isfinite(body.x)) or not np.all(np.isfinite(body.v)):
+        x = body.get_x()
+        v = body.get_v()
+        if not np.all(np.isfinite(x)) or not np.all(np.isfinite(v)):
             raise RuntimeError(f"{case.label} produced non-finite state at t={times[index]:g}")
-        states[index] = body.x
+        states[index] = x
         current_energy = compute_energies(body, gravity)
         for name in energy_names:
             energies[name][index] = current_energy[name]
 
-    fixed_error = float(np.max(np.abs(body.x[baseline.fixed] - initial[baseline.fixed])))
+    fixed_error = float(np.max(np.abs(body.get_x()[baseline.fixed] - initial[baseline.fixed])))
     if fixed_error > 1.0e-11:
         raise RuntimeError(f"{case.label} violated fixed vertices by {fixed_error:.3e}")
     displacement = np.linalg.norm(states - initial[None, :, :], axis=2)

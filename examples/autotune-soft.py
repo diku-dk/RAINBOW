@@ -53,18 +53,21 @@ def simulate_reference(case: str, i: int, j: int, k: int, dt: float, duration: f
     steps = int(round(duration / dt))
     if not np.isclose(steps * dt, duration, rtol=1.0e-10, atol=1.0e-14):
         raise ValueError("duration must be an integer multiple of reference_dt")
-    states = np.empty((steps + 1,) + body.x.shape, dtype=np.float64)
-    states[0] = body.x
+    initial_x = body.get_x()
+    states = np.empty((steps + 1,) + initial_x.shape, dtype=np.float64)
+    states[0] = initial_x
     start = time.perf_counter()
     for step in range(1, steps + 1):
         with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
             body.step(dt, gravity=gravity)
-        if not np.all(np.isfinite(body.x)) or not np.all(np.isfinite(body.v)):
+        x = body.get_x()
+        v = body.get_v()
+        if not np.all(np.isfinite(x)) or not np.all(np.isfinite(v)):
             raise RuntimeError(
                 f"reference trajectory became non-finite at step {step}; "
                 "reduce --baseline-dt or use a less aggressive baseline load"
             )
-        states[step] = body.x
+        states[step] = x
     elapsed = time.perf_counter() - start
     return body, states, elapsed
 
@@ -98,8 +101,9 @@ def simulate_candidate(
             jit_seconds = time.perf_counter() - jit_start
 
         body, _ = make_case_body(case, i, j, k, use_jax)
-        states = np.empty((steps + 1,) + body.x.shape, dtype=np.float64)
-        states[0] = body.x
+        initial_x = body.get_x()
+        states = np.empty((steps + 1,) + initial_x.shape, dtype=np.float64)
+        states[0] = initial_x
         iterations = []
         start = time.perf_counter()
         for step in range(1, steps + 1):
@@ -108,8 +112,10 @@ def simulate_candidate(
                     body.step_implicit(dt, gravity=gravity, settings=settings)
                 else:
                     body.step(dt, gravity=gravity)
-            states[step] = body.x
-            if not np.all(np.isfinite(body.x)) or not np.all(np.isfinite(body.v)):
+            x = body.get_x()
+            v = body.get_v()
+            states[step] = x
+            if not np.all(np.isfinite(x)) or not np.all(np.isfinite(v)):
                 return {
                     "valid": False,
                     "error": f"non-finite state at step {step}",

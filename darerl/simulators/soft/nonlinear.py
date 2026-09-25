@@ -147,11 +147,13 @@ def solve_lbfgs(
     line_search_steps = 0
     iterations = 0
     fallback_steps = 0
+    direction_fallback_steps = 0
     watchdog_steps = 0
     watchdog_x = None
     watchdog_g = None
     watchdog_merit = None
     watchdog_acceptances = 0
+    rescue_steps = 0
     globalization = settings.get("globalization", "backtracking")
     enable_gradient_fallback = bool(settings.get("enable_gradient_fallback", True))
     max_watchdog_steps = int(settings.get("max_watchdog_steps", 3))
@@ -165,6 +167,7 @@ def solve_lbfgs(
 
         direction = compute_lbfgs_direction(g, history_s, history_y, history_rho, diagonal)
         if float(np.dot(direction, g)) >= 0.0 or not np.all(np.isfinite(direction)):
+            direction_fallback_steps += 1
             direction = -diagonal * g
 
         merit_limit = None
@@ -220,6 +223,7 @@ def solve_lbfgs(
 
         trial = line_search["position"]
         trial_g = line_search["gradient"]
+        rescue_steps += int(line_search.get("rescued", False))
         s = trial - x
         y = np.asarray(directional_residual(trial, s), dtype=np.float64)
         update_lbfgs_history(
@@ -261,7 +265,9 @@ def solve_lbfgs(
         "line_search_steps": line_search_steps,
         "history_length": len(history_s),
         "gradient_fallback_steps": fallback_steps,
+        "direction_fallback_steps": direction_fallback_steps,
         "watchdog_steps": watchdog_steps,
         "watchdog_acceptances": watchdog_acceptances,
+        "rescue_steps": rescue_steps,
     }
     return x, g, info

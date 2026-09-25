@@ -173,7 +173,7 @@ def compute_trajectory(
 ) -> dict[str, np.ndarray | SoftBody]:
     mesh = baseline.mesh
     body = make_body(baseline, case, use_jax)
-    x_previous = body.x.copy()
+    x_previous = body.get_x()
     pressure_previous = body.compute_neumann_forces(x_previous)
     initial_potential = -np.sum(mesh.lumped_mass[:, None] * np.asarray(case.gravity) * mesh.x0)
     times = np.arange(steps + 1, dtype=float) * dt
@@ -181,18 +181,19 @@ def compute_trajectory(
     potential = np.zeros(steps + 1)
     elastic = np.zeros(steps + 1)
     pressure_work = np.zeros(steps + 1)
-    states = [body.x.copy()]
+    states = [body.get_x()]
     for step in range(1, steps + 1):
         if method == "implicit_bfgs":
             body.step_implicit(dt, gravity=case.gravity, settings=implicit_settings)
         else:
             body.step(dt, gravity=case.gravity, sync=False)
             body.synchronize()
-        x_current = np.asarray(body.x).copy()
+        x_current = body.get_x()
         pressure_current = body.compute_neumann_forces(x_current)
         displacement = x_current - x_previous
         pressure_work[step] = pressure_work[step - 1] + 0.5 * np.sum((pressure_previous + pressure_current) * displacement)
-        kinetic[step] = 0.5 * np.sum(mesh.lumped_mass[:, None] * body.v * body.v)
+        velocity = body.get_v()
+        kinetic[step] = 0.5 * np.sum(mesh.lumped_mass[:, None] * velocity * velocity)
         potential[step] = -np.sum(mesh.lumped_mass[:, None] * np.asarray(case.gravity) * x_current) - initial_potential
         elastic[step] = body.compute_elastic_energy(x_current)
         states.append(x_current)

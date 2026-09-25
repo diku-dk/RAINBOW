@@ -220,6 +220,12 @@ progress after strict backtracking fails. Trials with merit at most
 L-BFGS history is cleared when that budget is exceeded, since old curvature
 pairs no longer describe the restored state. The number of accepted
 non-monotone trials is reported as `watchdog_acceptances`.
+Both backends also report `direction_fallback_steps`, `gradient_fallback_steps`,
+and `rescue_steps`; for JAX, `direction_fallback_steps` counts invalid
+quasi-Newton directions, while `gradient_fallback_steps` counts device-side
+line-search retries. For JAX, `rescue_steps` counts device-side
+best-finite-trial rescues, while NumPy counts rescues after the configured
+fallback search.
 
 These controls change only how the residual is reached, not the constitutive
 model. The NumPy implementation exposes `globalization`,
@@ -227,6 +233,7 @@ model. The NumPy implementation exposes `globalization`,
 `watchdog_growth_factor`. The JAX implementation keeps its fixed-shape search
 inside the compiled kernel and implements descent-direction fallback and
 best-finite-trial rescue; it does not execute the Python watchdog path.
+JAX rejects watchdog-specific settings instead of silently ignoring them.
 
 The JAX version keeps the residual, history, line search, and iteration inside
 one JIT-compiled device-resident kernel.
