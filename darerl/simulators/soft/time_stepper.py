@@ -123,7 +123,17 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
         raise ValueError("line_search_reduction must be in (0, 1)")
     if not (0.0 <= cfg["line_search_c1"] < 1.0):
         raise ValueError("line_search_c1 must be in [0, 1)")
-    if cfg["absolute_tolerance"] < 0.0 or cfg["relative_tolerance"] < 0.0 or (cfg["absolute_tolerance"] == 0.0 and cfg["relative_tolerance"] == 0.0) or cfg["directional_epsilon"] <= 0.0 or cfg["curvature_tolerance"] < 0.0:
+    if (
+        not np.isfinite(cfg["absolute_tolerance"])
+        or not np.isfinite(cfg["relative_tolerance"])
+        or cfg["absolute_tolerance"] < 0.0
+        or cfg["relative_tolerance"] < 0.0
+        or (cfg["absolute_tolerance"] == 0.0 and cfg["relative_tolerance"] == 0.0)
+        or not np.isfinite(cfg["directional_epsilon"])
+        or cfg["directional_epsilon"] <= 0.0
+        or not np.isfinite(cfg["curvature_tolerance"])
+        or cfg["curvature_tolerance"] < 0.0
+    ):
         raise ValueError("solver tolerances and directional_epsilon must be valid positive values")
     if cfg["prevent_inversion"] is not None and not isinstance(cfg["prevent_inversion"], (bool, np.bool_)):
         raise ValueError("prevent_inversion must be True, False, or None")

@@ -80,8 +80,9 @@ class TestSoftExamples(unittest.TestCase):
 
     def test_autotune_trajectory_error_compares_matching_time_samples(self):
         autotune = load_autotune_module()
-        reference = np.zeros((11, 1, 3))
-        candidate = np.zeros((2, 1, 3))
+        reference = np.zeros((11, 2, 3))
+        reference[:, 1, 0] = 1.0
+        candidate = np.zeros((2, 2, 3))
         candidate[1, 0, 0] = 2.0
         error = autotune.compute_trajectory_error(candidate, reference, 0.1, 0.5)
         self.assertEqual(error, 2.0)

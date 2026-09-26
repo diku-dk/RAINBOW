@@ -222,6 +222,17 @@ class TestSoftNonlinear(unittest.TestCase):
         self.assertTrue(info["converged"])
         self.assertEqual(info["iterations"], 1)
 
+    def test_lbfgs_solver_rejects_nonfinite_tolerances(self):
+        residual = lambda x: np.array([x[0] - 1.0])
+        directional = lambda x, direction: np.array([direction[0]])
+        for key in ("absolute_tolerance", "relative_tolerance", "directional_epsilon", "curvature_tolerance"):
+            with self.subTest(key=key):
+                with self.assertRaises(ValueError):
+                    solve_lbfgs(
+                        np.array([0.0]), residual, directional, np.ones(1),
+                        solver_settings(**{key: float("nan")}),
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()

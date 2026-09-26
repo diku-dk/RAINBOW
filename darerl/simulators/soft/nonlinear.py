@@ -136,6 +136,25 @@ def solve_lbfgs(
     approximation. The returned info dictionary is suitable for
     ``SoftBody.last_implicit_info``.
     """
+    tolerance_values = (
+        float(settings["absolute_tolerance"]),
+        float(settings["relative_tolerance"]),
+        float(settings.get("directional_epsilon", 1.0e-6)),
+        float(settings["curvature_tolerance"]),
+    )
+    if any(not np.isfinite(value) for value in tolerance_values):
+        raise ValueError("solver tolerances and directional_epsilon must be finite")
+    if (
+        float(settings["absolute_tolerance"]) < 0.0
+        or float(settings["relative_tolerance"]) < 0.0
+        or (
+            float(settings["absolute_tolerance"]) == 0.0
+            and float(settings["relative_tolerance"]) == 0.0
+        )
+        or tolerance_values[2] <= 0.0
+        or float(settings["curvature_tolerance"]) < 0.0
+    ):
+        raise ValueError("solver tolerances and directional_epsilon must be valid")
     x = np.asarray(position, dtype=np.float64).copy()
     diagonal = np.asarray(diagonal, dtype=np.float64)
     g = np.asarray(residual(x), dtype=np.float64)

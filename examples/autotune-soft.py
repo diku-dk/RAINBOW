@@ -1,14 +1,9 @@
 """Auto-tune all soft-body timestepper/backend combinations.
 
-The reference is a small-timestep semi-implicit cantilever bending under
-gravity. Candidate semi-implicit and implicit backward-Euler runs sweep
-timestep multipliers. Implicit runs also sweep solver settings, and the
-fastest valid candidate is selected independently for each backend.
-
-The fine semi-implicit NumPy trajectory is used as a reference. Candidate
-semi-implicit and implicit backward-Euler runs sweep timestep multipliers.
-Implicit runs also sweep solver settings, and the fastest valid candidate is
-selected independently for each backend.
+The reference is a fine-step semi-implicit cantilever simulation. Candidates
+are classified independently by stability, accuracy, and runtime. Implicit
+candidates additionally sweep L-BFGS settings without forming a Cartesian
+product of all settings, keeping the study practical.
 """
 
 from __future__ import annotations
@@ -47,18 +42,21 @@ def make_case_body(case: str, i: int, j: int, k: int, use_jax: bool) -> tuple[So
     return baseline.create_body(use_jax=use_jax), baseline.fixed
 
 
-def compute_energy_magnitude(body: SoftBody, gravity: np.ndarray) -> float:
-    """Return a positive scale for monitoring total stored mechanical energy."""
+def compute_energy_state(body: SoftBody, gravity: np.ndarray, previous_x: np.ndarray, previous_applied_force: np.ndarray) -> tuple[float, float, float, np.ndarray]:
+    """Return energy magnitude, mechanical energy, applied work, and load."""
     gravity = np.asarray(gravity, dtype=np.float64)
     x = body.get_x()
     v = body.get_v()
     kinetic = 0.5 * np.sum(body.mesh.lumped_mass[:, None] * v * v)
     potential = -np.sum(body.mesh.lumped_mass[:, None] * x * gravity[None, :])
     elastic = body.compute_elastic_energy(x)
-    return float(abs(kinetic) + abs(potential) + abs(elastic))
+    mechanical = float(kinetic + potential + elastic)
+    applied_force = body.compute_neumann_forces(x) + body.external_forces
+    work_increment = 0.5 * np.sum((previous_applied_force + applied_force) * (x - previous_x))
+    return float(abs(kinetic) + abs(potential) + abs(elastic)), mechanical, float(work_increment), applied_force
 
 
-def simulate_reference(case: str, i: int, j: int, k: int, dt: float, duration: float) -> tuple[SoftBody, np.ndarray, float, np.ndarray]:
+def simulate_reference(case: str, i: int, j: int, k: int, dt: float, duration: float) -> tuple[SoftBody, np.ndarray, float, dict[str, np.ndarray]]:
     body, fixed = make_case_body(case, i, j, k, use_jax=False)
     gravity = CASE_FACTORIES[case](i, j, k).gravity
     steps = int(round(duration / dt))
@@ -67,8 +65,12 @@ def simulate_reference(case: str, i: int, j: int, k: int, dt: float, duration: f
     initial_x = body.get_x()
     states = np.empty((steps + 1,) + initial_x.shape, dtype=np.float64)
     states[0] = initial_x
+    previous_x = initial_x.copy()
+    previous_force = body.compute_neumann_forces(previous_x) + body.external_forces
     energy_magnitudes = np.empty(steps + 1, dtype=np.float64)
-    energy_magnitudes[0] = compute_energy_magnitude(body, gravity)
+    mechanical_energy = np.empty(steps + 1, dtype=np.float64)
+    applied_work = np.zeros(steps + 1, dtype=np.float64)
+    energy_magnitudes[0], mechanical_energy[0], _, previous_force = compute_energy_state(body, gravity, previous_x, previous_force)
     start = time.perf_counter()
     for step in range(1, steps + 1):
         with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
@@ -81,11 +83,17 @@ def simulate_reference(case: str, i: int, j: int, k: int, dt: float, duration: f
                 "reduce --baseline-dt or use a less aggressive baseline load"
             )
         states[step] = x
-        energy_magnitudes[step] = compute_energy_magnitude(body, gravity)
+        energy_magnitudes[step], mechanical_energy[step], work_increment, previous_force = compute_energy_state(body, gravity, previous_x, previous_force)
+        applied_work[step] = applied_work[step - 1] + work_increment
+        previous_x = x.copy()
         if not np.isfinite(energy_magnitudes[step]):
             raise RuntimeError(f"reference energy became non-finite at step {step}")
     elapsed = time.perf_counter() - start
-    return body, states, elapsed, energy_magnitudes
+    return body, states, elapsed, {
+        "magnitude": energy_magnitudes,
+        "mechanical": mechanical_energy,
+        "work": applied_work,
+    }
 
 
 def simulate_candidate(
@@ -122,15 +130,27 @@ def simulate_candidate(
         states = np.empty((steps + 1,) + initial_x.shape, dtype=np.float64)
         states[0] = initial_x
         iterations = []
+        previous_x = initial_x.copy()
+        previous_force = body.compute_neumann_forces(previous_x) + body.external_forces
         energy_magnitudes = np.empty(steps + 1, dtype=np.float64)
-        energy_magnitudes[0] = compute_energy_magnitude(body, gravity)
+        mechanical_energy = np.empty(steps + 1, dtype=np.float64)
+        applied_work = np.zeros(steps + 1, dtype=np.float64)
+        energy_magnitudes[0], mechanical_energy[0], _, previous_force = compute_energy_state(body, gravity, previous_x, previous_force)
+        step_times_ms = []
         start = time.perf_counter()
         for step in range(1, steps + 1):
+            step_start = time.perf_counter()
             with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
                 if method == "implicit_bfgs":
                     body.step_implicit(dt, gravity=gravity, settings=settings)
                 else:
                     body.step(dt, gravity=gravity)
+                # JAX dispatch is asynchronous. Include device completion in
+                # the measured step; otherwise host-side profiling reports
+                # dispatch latency rather than usable real-time latency.
+                if use_jax:
+                    body.synchronize()
+            step_times_ms.append(1000.0 * (time.perf_counter() - step_start))
             x = body.get_x()
             v = body.get_v()
             states[step] = x
@@ -140,14 +160,18 @@ def simulate_candidate(
                     "error": f"non-finite state at step {step}",
                     "elapsed": time.perf_counter() - start,
                     "jit_seconds": jit_seconds,
+                    "step_times_ms": np.asarray(step_times_ms),
                 }
-            energy_magnitudes[step] = compute_energy_magnitude(body, gravity)
+            energy_magnitudes[step], mechanical_energy[step], work_increment, previous_force = compute_energy_state(body, gravity, previous_x, previous_force)
+            applied_work[step] = applied_work[step - 1] + work_increment
+            previous_x = x.copy()
             if not np.isfinite(energy_magnitudes[step]):
                 return {
                     "valid": False,
                     "error": f"non-finite energy at step {step}",
                     "elapsed": time.perf_counter() - start,
                     "jit_seconds": jit_seconds,
+                    "step_times_ms": np.asarray(step_times_ms),
                 }
             if energy_magnitudes[step] > energy_limit:
                 return {
@@ -155,6 +179,7 @@ def simulate_candidate(
                     "error": f"energy growth exceeded {energy_limit:.3e} J at step {step}",
                     "elapsed": time.perf_counter() - start,
                     "jit_seconds": jit_seconds,
+                    "step_times_ms": np.asarray(step_times_ms),
                 }
             if method == "implicit_bfgs":
                 iterations.append(body.last_implicit_info["iterations"])
@@ -164,8 +189,11 @@ def simulate_candidate(
             "error": str(error),
             "elapsed": max(0.0, time.perf_counter() - start),
             "jit_seconds": jit_seconds,
+            "step_times_ms": np.asarray(locals().get("step_times_ms", [])),
         }
-    elapsed = time.perf_counter() - start
+    elapsed = float(np.sum(step_times_ms)) / 1000.0
+    energy_scale = max(float(np.max(energy_magnitudes)), np.finfo(float).tiny)
+    balance_error = (mechanical_energy - mechanical_energy[0]) - applied_work
     return {
         "valid": True,
         "body": body,
@@ -173,13 +201,21 @@ def simulate_candidate(
         "elapsed": elapsed,
         "jit_seconds": jit_seconds,
         "iterations": iterations,
+        "step_times_ms": np.asarray(step_times_ms),
+        "energy_magnitudes": energy_magnitudes,
+        "mechanical_energy": mechanical_energy,
+        "applied_work": applied_work,
+        "energy_scale": energy_scale,
+        "max_energy_balance_error": float(np.max(np.abs(balance_error))),
     }
 
 
 def compute_trajectory_error(candidate: np.ndarray, reference: np.ndarray, reference_dt: float, candidate_dt: float) -> float:
     reference_indices = np.rint(np.arange(len(candidate)) * candidate_dt / reference_dt).astype(np.int64)
+    reference_indices = np.clip(reference_indices, 0, len(reference) - 1)
     differences = candidate - reference[reference_indices]
-    scale = max(float(np.ptp(reference[:, :, 0])), 1.0)
+    reference_extent = np.ptp(reference[0], axis=0)
+    scale = max(float(np.linalg.norm(reference_extent)), np.finfo(float).eps)
     error = float(np.max(np.linalg.norm(differences, axis=2)) / scale)
     return error if np.isfinite(error) else float("nan")
 
@@ -189,7 +225,7 @@ def parse_list(value: str, converter):
 
 
 def write_csv(path: Path, results: list[dict]) -> None:
-    fields = ["method", "backend", "directional_residual_strategy", "dt", "max_iterations", "history_size", "absolute_tolerance", "relative_tolerance", "line_search", "valid", "stability_valid", "accuracy_valid", "performance_valid", "error", "elapsed", "jit_seconds", "mean_iterations", "trajectory_error", "trajectory_error_percent"]
+    fields = ["method", "backend", "directional_residual_strategy", "dt", "max_iterations", "history_size", "absolute_tolerance", "relative_tolerance", "line_search", "max_line_search_iterations", "valid", "stability_valid", "accuracy_valid", "performance_valid", "error", "elapsed", "step_mean_ms", "step_p25_ms", "step_p75_ms", "jit_seconds", "mean_iterations", "max_energy_ratio", "max_energy_balance_error", "trajectory_error", "trajectory_error_percent"]
     with path.open("w", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
@@ -197,18 +233,27 @@ def write_csv(path: Path, results: list[dict]) -> None:
             writer.writerow({field: result.get(field, "") for field in fields})
 
 
-def write_settings(path: Path, best_by_combination: dict, baseline_dt: float, max_error_percent: float) -> None:
+def write_settings(
+    path: Path,
+    best_by_combination: dict,
+    baseline_dt: float,
+    max_error_percent: float,
+    validation_duration: float,
+    max_energy_growth: float,
+) -> None:
     """Write clean per-combination runtime settings."""
     document = {
         "combinations": best_by_combination,
         "metadata": {
             "baseline_dt": float(baseline_dt),
             "max_error_percent": float(max_error_percent),
+            "validation_duration": float(validation_duration),
+            "max_energy_growth": float(max_energy_growth),
+        },
         "preferred_combination": next(
             (key for key in best_by_combination if key.startswith("implicit_bfgs/") and key.endswith("/JAX")),
             next((key for key in best_by_combination if key.startswith("implicit_bfgs/") and key.endswith("/NumPy")), ""),
         ),
-        },
     }
     with path.open("w") as stream:
         json.dump(document, stream, indent=2)
@@ -231,7 +276,7 @@ def plot_results(
         from matplotlib.backends.backend_pdf import PdfPages
     except ImportError:
         return
-    valid = [result for result in results if result["valid"]]
+    valid = [result for result in results if result.get("accuracy_valid", False)]
     with PdfPages(path) as pdf:
         faces = compute_boundary_faces(baseline_elements)
         frame_indices = np.linspace(0, len(baseline_states) - 1, 4, dtype=int)
@@ -287,7 +332,7 @@ def plot_results(
                 )
                 parameters = ["dt"]
                 if best["method"] == "implicit_bfgs":
-                    parameters.extend(("max_iterations", "history_size", "relative_tolerance", "line_search"))
+                    parameters.extend(("max_iterations", "history_size", "absolute_tolerance", "relative_tolerance", "line_search", "max_line_search_iterations"))
                 figure, axes = plt.subplots(
                     1, len(parameters), figsize=(4.2 * len(parameters), 3.8),
                     squeeze=False, constrained_layout=True,
@@ -348,7 +393,7 @@ def main() -> None:
     )
     parser.add_argument("--max-dt", type=float, default=0.1, help="largest candidate timestep")
     parser.add_argument(
-        "--max-iterations", default="10,20,30",
+        "--max-iterations", default="5,10,15,20,25,30",
         help="candidate L-BFGS iteration caps; swept one parameter at a time",
     )
     parser.add_argument(
@@ -356,11 +401,18 @@ def main() -> None:
         help="candidate L-BFGS history sizes; swept one parameter at a time",
     )
     parser.add_argument(
-        "--relative-tolerances", default="1e-4,1e-6",
-        help="candidate relative residual tolerances; swept one parameter at a time",
+        "--relative-tolerances", default="2e-1,1e-1,1e-2,1e-3,1e-4,1e-6",
+        help="candidate relative residual tolerances, including permissive solves; swept one parameter at a time",
     )
-    parser.add_argument("--absolute-tolerance", type=float, default=1.0e-6, help="absolute L-BFGS residual tolerance used for every candidate")
+    parser.add_argument(
+        "--absolute-tolerances", default="1e-3,1e-4,1e-6,1e-8",
+        help="candidate absolute residual tolerances, including permissive solves; swept one parameter at a time",
+    )
     parser.add_argument("--line-search", default="true,false")
+    parser.add_argument(
+        "--max-line-search-iterations", default="12,24",
+        help="maximum backtracking trials for implicit candidates; swept one parameter at a time",
+    )
     parser.add_argument("--max-error-percent", type=float, default=5.0, help="maximum trajectory error relative to baseline, in percent")
     parser.add_argument("--backend", choices=("both", "numpy", "jax"), default="both")
     parser.add_argument("--output", type=Path, default=None)
@@ -369,7 +421,7 @@ def main() -> None:
 
     if args.baseline_dt <= 0.0 or args.baseline_steps < 1 or args.max_error_percent < 0.0:
         parser.error("baseline-dt must be positive, baseline-steps must be positive, and max-error-percent cannot be negative")
-    if args.validation_duration <= 0.0 or args.max_energy_growth <= 0.0:
+    if (args.validation_duration is not None and args.validation_duration <= 0.0) or args.max_energy_growth <= 0.0:
         parser.error("validation-duration and max-energy-growth must be positive")
     duration = max(args.baseline_dt * args.baseline_steps, 1.0) if args.validation_duration is None else args.validation_duration
     reference_steps = int(round(duration / args.baseline_dt))
@@ -395,9 +447,19 @@ def main() -> None:
     max_iterations = parse_list(args.max_iterations, int)
     history_sizes = parse_list(args.history_sizes, int)
     relative_tolerances = parse_list(args.relative_tolerances, float)
+    absolute_tolerances = parse_list(args.absolute_tolerances, float)
+    max_line_search_iterations = parse_list(args.max_line_search_iterations, int)
     line_search_values = [value.lower() in {"true", "1", "yes", "on"} for value in parse_list(args.line_search, str)]
-    if not max_iterations or not history_sizes or not relative_tolerances or not line_search_values:
+    if not max_iterations or not history_sizes or not relative_tolerances or not absolute_tolerances or not line_search_values or not max_line_search_iterations:
         parser.error("all solver sweep lists must contain at least one value")
+    if (
+        any(not np.isfinite(value) or value < 0.0 for value in absolute_tolerances)
+        or any(not np.isfinite(value) or value < 0.0 for value in relative_tolerances)
+        or any(value < 1 for value in max_iterations)
+        or any(value < 0 for value in history_sizes)
+        or any(value < 1 for value in max_line_search_iterations)
+    ):
+        parser.error("tolerances must be finite and non-negative; max-iterations must be positive; history sizes cannot be negative")
     if args.max_dt < args.baseline_dt:
         parser.error("max-dt must be at least baseline-dt")
     candidate_dts = []
@@ -411,10 +473,16 @@ def main() -> None:
             parser.error(f"baseline duration {duration} is not an integer multiple of candidate dt {dt}")
 
     print("Computing fine semi-implicit reference...")
-    reference_body, reference_states, reference_runtime, reference_energy = simulate_reference(args.case, args.i, args.j, args.k, args.baseline_dt, duration)
+    try:
+        reference_body, reference_states, reference_runtime, reference_energy = simulate_reference(
+            args.case, args.i, args.j, args.k, args.baseline_dt, duration
+        )
+    except (RuntimeError, ValueError) as error:
+        parser.error(f"unable to construct a finite reference trajectory: {error}")
     print(f"reference: {len(reference_states) - 1} steps, {reference_runtime:.3f} s")
-    reference_energy_limit = max(float(np.max(reference_energy)) * args.max_energy_growth, np.finfo(float).tiny)
-    print(f"reference energy envelope: {np.max(reference_energy):.3e} J; candidate limit: {reference_energy_limit:.3e} J")
+    reference_energy_scale = max(float(np.max(reference_energy["magnitude"])), 1.0e-12)
+    reference_energy_limit = reference_energy_scale * args.max_energy_growth
+    print(f"reference energy envelope: {np.max(reference_energy['magnitude']):.3e} J; candidate limit: {reference_energy_limit:.3e} J")
     max_displacement = float(np.max(np.linalg.norm(reference_states - reference_states[0], axis=2)))
     beam_length = float(np.ptp(reference_states[0, :, 0]))
     displacement_percent = 100.0 * max_displacement / max(beam_length, np.finfo(float).eps)
@@ -438,17 +506,18 @@ def main() -> None:
             combination_results = []
             seen = set()
 
-            def evaluate(dt, iterations=0, history=0, relative_tolerance=0.0, line_search=False):
-                key = (float(dt), int(iterations), int(history), float(relative_tolerance), bool(line_search))
+            def evaluate(dt, iterations=0, history=0, absolute_tolerance=0.0, relative_tolerance=0.0, line_search=False, max_line_search_iterations=0):
+                key = (float(dt), int(iterations), int(history), float(absolute_tolerance), float(relative_tolerance), bool(line_search), int(max_line_search_iterations))
                 if key in seen:
                     return
                 seen.add(key)
                 settings = {} if strategy is None else {
                     "max_iterations": iterations,
                     "history_size": history,
-                    "absolute_tolerance": args.absolute_tolerance,
+                    "absolute_tolerance": absolute_tolerance,
                     "relative_tolerance": relative_tolerance,
                     "line_search": line_search,
+                    "max_line_search_iterations": max_line_search_iterations,
                     "raise_on_failure": True,
                     "directional_residual_strategy": strategy,
                 }
@@ -460,9 +529,10 @@ def main() -> None:
                     "dt": dt,
                     "max_iterations": iterations,
                     "history_size": history,
-                    "absolute_tolerance": args.absolute_tolerance,
+                    "absolute_tolerance": absolute_tolerance,
                     "relative_tolerance": relative_tolerance,
                     "line_search": line_search,
+                    "max_line_search_iterations": max_line_search_iterations,
                     "valid": candidate["valid"],
                     "elapsed": candidate["elapsed"],
                     "jit_seconds": candidate.get("jit_seconds", 0.0),
@@ -471,14 +541,24 @@ def main() -> None:
                     result["trajectory_error"] = compute_trajectory_error(candidate["states"], reference_states, args.baseline_dt, dt)
                     result["trajectory_error_percent"] = 100.0 * result["trajectory_error"]
                     result["mean_iterations"] = float(np.mean(candidate["iterations"])) if candidate["iterations"] else 0.0
+                    result["step_mean_ms"] = float(np.mean(candidate["step_times_ms"]))
+                    result["step_p25_ms"] = float(np.quantile(candidate["step_times_ms"], 0.25))
+                    result["step_p75_ms"] = float(np.quantile(candidate["step_times_ms"], 0.75))
+                    result["max_energy_ratio"] = float(np.max(candidate["energy_magnitudes"]) / max(np.max(reference_energy["magnitude"]), np.finfo(float).tiny))
+                    result["max_energy_balance_error"] = candidate["max_energy_balance_error"]
                     result["error"] = ""
-                    result["stability_valid"] = True
-                    result["accuracy_valid"] = bool(result["trajectory_error"] <= max_error)
+                    result["stability_valid"] = bool(np.isfinite(result["trajectory_error"]))
+                    result["accuracy_valid"] = bool(result["stability_valid"] and result["trajectory_error"] <= max_error)
                     result["performance_valid"] = result["accuracy_valid"]
                 else:
                     result["trajectory_error"] = np.nan
                     result["trajectory_error_percent"] = np.nan
                     result["mean_iterations"] = np.nan
+                    result["step_mean_ms"] = np.nan
+                    result["step_p25_ms"] = np.nan
+                    result["step_p75_ms"] = np.nan
+                    result["max_energy_ratio"] = np.nan
+                    result["max_energy_balance_error"] = np.nan
                     result["error"] = candidate["error"]
                     result["stability_valid"] = False
                     result["accuracy_valid"] = False
@@ -494,14 +574,17 @@ def main() -> None:
                 if strategy is not None:
                     print(
                         f"dt={dt:.3e} max_it={iterations:2d} history={history:2d} "
-                        f"abs_tol={args.absolute_tolerance:.1e} rel_tol={relative_tolerance:.1e} line_search={line_search!s:5s} "
+                        f"abs_tol={absolute_tolerance:.1e} rel_tol={relative_tolerance:.1e} "
+                        f"line_search={line_search!s:5s} ls_it={max_line_search_iterations:2d} "
                         f"compute={result['elapsed']:.3f}s jit={result['jit_seconds']:.3f}s "
+                        f"step={result['step_mean_ms']:.3f}ms "
                         f"error={result['trajectory_error_percent']:.4f}% "
                         f"mean_it={result['mean_iterations']:.2f}{status}"
                     )
                 else:
                     print(
                         f"dt={dt:.3e} compute={result['elapsed']:.3f}s jit={result['jit_seconds']:.3f}s "
+                        f"step={result['step_mean_ms']:.3f}ms "
                         f"error={result['trajectory_error_percent']:.4f}%{status}"
                     )
 
@@ -515,31 +598,18 @@ def main() -> None:
                 robust = {
                     "iterations": max(max_iterations),
                     "history": max(history_sizes),
+                    "absolute_tolerance": min(absolute_tolerances),
                     "relative_tolerance": min(relative_tolerances),
                     "line_search": True if True in line_search_values else line_search_values[0],
+                    "max_line_search_iterations": max(max_line_search_iterations),
                 }
                 for dt in candidate_dts:
                     evaluate(dt, **robust)
 
-                acceptable_reference = [
-                    result for result in combination_results
-                    if result["valid"] and result["trajectory_error"] <= max_error
-                ]
-                valid_reference = [result for result in combination_results if result["valid"]]
-                reference_pool = acceptable_reference or valid_reference
-                reference_pool.sort(key=lambda result: result["dt"], reverse=True)
-                if reference_pool:
-                    boundary_dt = reference_pool[0]["dt"]
-                    boundary_index = candidate_dts.index(boundary_dt)
-                    # Include the largest robust timestep and the next larger
-                    # candidate. This is where solver settings can recover a
-                    # timestep rejected by the robust profile.
-                    exploration_indices = {boundary_index}
-                    if boundary_index + 1 < len(candidate_dts):
-                        exploration_indices.add(boundary_index + 1)
-                    exploration_dts = [candidate_dts[index] for index in sorted(exploration_indices)]
-                else:
-                    exploration_dts = candidate_dts[:2]
+                # Sweep solver settings at every candidate timestep. This
+                # avoids missing a setting that recovers a larger stable
+                # timestep than the robust profile can handle.
+                exploration_dts = candidate_dts
 
                 # These values cover the meaningful regimes: low/medium/high
                 # iteration and history budgets, two useful convergence
@@ -549,8 +619,10 @@ def main() -> None:
                 parameter_values = {
                     "iterations": max_iterations,
                     "history": history_sizes,
+                    "absolute_tolerance": absolute_tolerances,
                     "relative_tolerance": relative_tolerances,
                     "line_search": line_search_values,
+                    "max_line_search_iterations": max_line_search_iterations,
                 }
                 for dt in exploration_dts:
                     for parameter, values in parameter_values.items():
@@ -571,8 +643,10 @@ def main() -> None:
                     seed_settings = {
                         "iterations": int(seed["max_iterations"]),
                         "history": int(seed["history_size"]),
+                        "absolute_tolerance": float(seed["absolute_tolerance"]),
                         "relative_tolerance": float(seed["relative_tolerance"]),
                         "line_search": bool(seed["line_search"]),
+                        "max_line_search_iterations": int(seed["max_line_search_iterations"]),
                     }
                     # Re-test the selected solver profile over every timestep;
                     # this makes the final dt comparison fair and complete.
@@ -612,6 +686,7 @@ def main() -> None:
                     "absolute_tolerance": float("nan"),
                     "relative_tolerance": float("nan"),
                     "line_search": float("nan"),
+                    "max_line_search_iterations": float("nan"),
                     "raise_on_failure": False,
                     "directional_residual_strategy": strategy,
                 }
@@ -628,6 +703,9 @@ def main() -> None:
                     "jit_seconds": float("nan"),
                     "mean_iterations": float("nan"),
                     "failure": f"no candidate met max error of {args.max_error_percent:g}%",
+                    "stability_dt": float(max((result["dt"] for result in stable), default=np.nan)),
+                    "accuracy_dt": float("nan"),
+                    "performance_dt": float("nan"),
                 }
                 print(f"No valid candidate met --max-error for {label}; writing NaN settings")
                 continue
@@ -644,6 +722,7 @@ def main() -> None:
                     "absolute_tolerance": float(best["absolute_tolerance"]),
                     "relative_tolerance": float(best["relative_tolerance"]),
                     "line_search": bool(best["line_search"]),
+                    "max_line_search_iterations": int(best["max_line_search_iterations"]),
                     "raise_on_failure": True,
                     "directional_residual_strategy": strategy,
                 },
@@ -652,6 +731,9 @@ def main() -> None:
                 "elapsed": float(best["elapsed"]),
                 "jit_seconds": float(best["jit_seconds"]),
                 "mean_iterations": float(best["mean_iterations"]),
+                "stability_dt": float(max(result["dt"] for result in stable)),
+                "accuracy_dt": float(max(result["dt"] for result in accurate)),
+                "performance_dt": float(best["dt"]),
             }
             print(f"Best {label}: {best_by_combination[label]}")
     if not best_by_combination:
@@ -670,11 +752,17 @@ def main() -> None:
     )
     settings_output = args.settings_output if args.settings_output.is_absolute() else PROJECT_ROOT / args.settings_output
     settings_output.parent.mkdir(parents=True, exist_ok=True)
-    write_settings(settings_output, best_by_combination, args.baseline_dt, args.max_error_percent)
+    write_settings(
+        settings_output, best_by_combination, args.baseline_dt, args.max_error_percent,
+        duration, args.max_energy_growth,
+    )
     for label, best in best_by_combination.items():
         safe_label = label.replace("/", "-")
         individual = settings_output.with_name(f"{settings_output.stem}-{safe_label}{settings_output.suffix}")
-        write_settings(individual, {label: best}, args.baseline_dt, args.max_error_percent)
+        write_settings(
+            individual, {label: best}, args.baseline_dt, args.max_error_percent,
+            duration, args.max_energy_growth,
+        )
     print(f"Wrote results to {output}")
     print(f"Wrote tuning plot to {output.with_suffix('.pdf')}")
     print(f"Wrote runtime settings to {settings_output}")
