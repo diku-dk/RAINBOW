@@ -2,13 +2,16 @@
 
 ## Linear tetrahedral kinematics
 
-For a tetrahedron with reference vertices `X₀...X₃`, define
+For a tetrahedron with reference vertices $\mathbf X_0,\ldots,\mathbf X_3$,
+define
 
-```text
-Dₘ = [X₁-X₀, X₂-X₀, X₃-X₀]
-D  = [x₁-x₀, x₂-x₀, x₃-x₀]
-F  = D Dₘ⁻¹
-```
+$$
+\mathbf D_m=[\mathbf X_1-\mathbf X_0,\mathbf X_2-\mathbf X_0,\mathbf X_3-\mathbf X_0],
+\qquad
+\mathbf D=[\mathbf x_1-\mathbf x_0,\mathbf x_2-\mathbf x_0,\mathbf x_3-\mathbf x_0],
+\qquad
+\mathbf F=\mathbf D\mathbf D_m^{-1}.
+$$
 
 `Dₘ⁻¹` and the reference volume are precomputed by `TetMesh`. Reference
 orientation must be positive and nondegenerate. The nodal shape-function
@@ -17,11 +20,11 @@ partition-of-unity condition.
 
 ## Internal elastic forces
 
-For first Piola stress `P`, the element nodal force is
+For first Piola stress $\mathbf P$, the element nodal force is
 
-```text
-fₐᵉ = -V₀ P ∇Nₐ
-```
+$$
+\mathbf f_a^{\mathrm e}=-V_0\,\mathbf P\,\nabla N_a.
+$$
 
 Element contributions are accumulated into global nodal forces. The NumPy
 implementation uses `numpy.bincount`; the JAX implementation uses a segment
@@ -33,7 +36,8 @@ The constitutive tests verify more than backend agreement. For both SVK and
 stable Neo-Hookean materials they check zero stress in the reference state,
 that the first Piola stress is the deformation-gradient derivative of the
 energy, frame indifference under left rotations, isotropy under right
-rotations, and symmetry of `P F^T`. Inverted and near-singular deformation
+rotations, and symmetry of $\mathbf P\mathbf F^{\mathsf T}$. Inverted and
+near-singular deformation
 gradients are also checked for finite values.
 
 The JAX implementation keeps analytical stress expressions in the runtime
@@ -70,37 +74,40 @@ hardware before making a broader performance claim.
 
 ### Saint Venant--Kirchhoff
 
-```text
-C = FᵀF
-E = 1/2 (C-I)
-S = λ tr(E) I + 2 μ E
-P = F S
-```
+$$
+\mathbf C=\mathbf F^{\mathsf T}\mathbf F,\qquad
+\mathbf E=\frac12(\mathbf C-\mathbf I),\qquad
+\mathbf S=\lambda\operatorname{tr}(\mathbf E)\mathbf I+2\mu\mathbf E,\qquad
+\mathbf P=\mathbf F\mathbf S.
+$$
 
 ### Stable Neo-Hookean
 
 The implementation follows Smith, de Goes, and Kim, *Stable Neo-Hookean Flesh
 Simulation* (2018):
 
-```text
-μ̂ = 4μ/3
-λ̂ = λ + 5μ/6
-α = 1 + μ̂/λ̂ - μ̂/(4λ̂)
+$$
+\widehat\mu=\frac{4\mu}{3},\qquad
+\widehat\lambda=\lambda+\frac{5\mu}{6},\qquad
+\alpha=1+\frac{\widehat\mu}{\widehat\lambda}
+ -\frac{\widehat\mu}{4\widehat\lambda},
+$$
+$$
+\Psi(\mathbf F)=\frac{\widehat\mu}{2}(I_C-3)
+ +\frac{\widehat\lambda}{2}(J-\alpha)^2
+ -\frac{\widehat\mu}{2}\log(I_C+1).
+$$
 
-Ψ(F) = μ̂/2 (I_C-3)
-     + λ̂/2 (J-α)²
-     - μ̂/2 log(I_C+1)
-```
+where $I_C=\operatorname{tr}(\mathbf F^{\mathsf T}\mathbf F)$ and
+$J=\det(\mathbf F)$. Its first Piola stress is
 
-where `I_C = tr(FᵀF)` and `J = det(F)`. Its first Piola stress is
+$$
+\mathbf P=\widehat\mu\left(1-\frac{1}{I_C+1}\right)\mathbf F
+ +\widehat\lambda(J-\alpha)\frac{\partial J}{\partial\mathbf F}.
+$$
 
-```text
-P = μ̂ (1 - 1/(I_C+1)) F
-  + λ̂ (J-α) ∂J/∂F
-```
-
-The regularized `log(I_C+1)` term remains finite for collapsed (`J=0`) and
-inverted (`J<0`) elements. This does not make arbitrary simulations
+The regularized $\log(I_C+1)$ term remains finite for collapsed ($J=0$) and
+inverted ($J<0$) elements. This does not make arbitrary simulations
 physically valid after inversion; it only removes the singularity targeted by
 the model. The exact collapsed and inverted states are covered by the
 constitutive and assembled-force tests.
@@ -119,16 +126,17 @@ loads, pressures, and accelerations must be finite.
 
 Pressure faces are oriented triangles. For a face with current area vector
 
-```text
-a = 1/2 ((x₁-x₀) × (x₂-x₀))
-```
+$$
+\mathbf a=\frac12\bigl((\mathbf x_1-\mathbf x_0)\times(\mathbf x_2-\mathbf x_0)\bigr).
+$$
 
 and scalar pressure `p`, the constant traction linear-FEM load is integrated as
 
-```text
-f_face = p a
-f₀ = f₁ = f₂ = f_face / 3
-```
+$$
+\mathbf f_{\mathrm{face}}=p\mathbf a,
+\qquad
+\mathbf f_0=\mathbf f_1=\mathbf f_2=\frac{\mathbf f_{\mathrm{face}}}{3}.
+$$
 
 Positive pressure acts in the supplied face-normal direction. Reverse the sign
 for inward pressure. The current configuration is used, so this is a follower
@@ -140,27 +148,31 @@ Persistent nodal loads can be applied with `set_external_forces`.
 
 ### Semi-implicit Euler
 
-```text
-vⁿ⁺¹ = vⁿ + Δt M⁻¹ f(xⁿ)
-xⁿ⁺¹ = xⁿ + Δt vⁿ⁺¹
-```
+$$
+\begin{aligned}
+\mathbf v^{n+1}&=\mathbf v^n+\Delta t\,M^{-1}\mathbf f(\mathbf x^n),\\
+\mathbf x^{n+1}&=\mathbf x^n+\Delta t\,\mathbf v^{n+1}.
+\end{aligned}
+$$
 
 ### Fully implicit backward Euler
 
 The solver finds free positions satisfying
 
-```text
-g(x) = M/Δt² (x-xⁿ-Δt vⁿ) - f(x) = 0
-```
+$$
+\mathbf g(\mathbf x)=\frac{M}{\Delta t^2}
+ (\mathbf x-\mathbf x^n-\Delta t\,\mathbf v^n)-\mathbf f(\mathbf x)=\mathbf0.
+$$
 
-It uses limited-memory BFGS history vectors. For a direction `s`, the
+It uses limited-memory BFGS history vectors. For a direction $\mathbf s$, the
 directional residual is
 
-```text
-Jg(x)s = M/Δt² s - Jf(x)s
-```
+$$
+J_{\mathbf g}(\mathbf x)\,\mathbf s
+=\frac{M}{\Delta t^2}\mathbf s-J_{\mathbf f}(\mathbf x)\,\mathbf s.
+$$
 
-The force action `Jf(x)s` has three selectable implementations through
+The force action $J_{\mathbf f}(\mathbf x)\mathbf s$ has three selectable implementations through
 `directional_residual_strategy`:
 
 - `tangent_action`: JAX uses forward-mode `jax.jvp` on the complete force
@@ -182,9 +194,9 @@ The line search accepts an optional feasibility callback. For implicit soft-body
 steps, the callback evaluates the signed Jacobian of every current linear
 tetrahedron in the trial configuration and requires
 
-```text
-det(Fₑ) > minimum_jacobian
-```
+$$
+\det(\mathbf F_e)>\texttt{minimum\_jacobian}.
+$$
 
 This is an inexpensive endpoint test, not a continuous collision test or root
 solve: intermediate states between the current and trial positions are not

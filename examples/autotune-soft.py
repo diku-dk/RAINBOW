@@ -114,6 +114,19 @@ def simulate_candidate(
     jit_seconds = 0.0
     gravity = CASE_FACTORIES[case](i, j, k).gravity
     start = time.perf_counter()
+    diagnostic_names = (
+        "direction_fallback_steps",
+        "gradient_fallback_steps",
+        "watchdog_steps",
+        "watchdog_acceptances",
+        "rescue_steps",
+        "line_search_steps",
+    )
+    diagnostic_totals = {name: 0 for name in diagnostic_names}
+
+    def diagnostic_payload() -> dict[str, int]:
+        return {name: int(value) for name, value in diagnostic_totals.items()}
+
     try:
         if use_jax:
             warmup, _ = make_case_body(case, i, j, k, use_jax)
@@ -143,6 +156,9 @@ def simulate_candidate(
             with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
                 if method == "implicit_bfgs":
                     body.step_implicit(dt, gravity=gravity, settings=settings)
+                    info = body.last_implicit_info
+                    for name in diagnostic_names:
+                        diagnostic_totals[name] += int(info.get(name, 0))
                 else:
                     body.step(dt, gravity=gravity)
                 # JAX dispatch is asynchronous. Include device completion in
@@ -161,6 +177,7 @@ def simulate_candidate(
                     "elapsed": time.perf_counter() - start,
                     "jit_seconds": jit_seconds,
                     "step_times_ms": np.asarray(step_times_ms),
+                    **diagnostic_payload(),
                 }
             energy_magnitudes[step], mechanical_energy[step], work_increment, previous_force = compute_energy_state(body, gravity, previous_x, previous_force)
             applied_work[step] = applied_work[step - 1] + work_increment
@@ -172,6 +189,7 @@ def simulate_candidate(
                     "elapsed": time.perf_counter() - start,
                     "jit_seconds": jit_seconds,
                     "step_times_ms": np.asarray(step_times_ms),
+                    **diagnostic_payload(),
                 }
             if energy_magnitudes[step] > energy_limit:
                 return {
@@ -180,6 +198,7 @@ def simulate_candidate(
                     "elapsed": time.perf_counter() - start,
                     "jit_seconds": jit_seconds,
                     "step_times_ms": np.asarray(step_times_ms),
+                    **diagnostic_payload(),
                 }
             if method == "implicit_bfgs":
                 iterations.append(body.last_implicit_info["iterations"])
@@ -190,6 +209,7 @@ def simulate_candidate(
             "elapsed": max(0.0, time.perf_counter() - start),
             "jit_seconds": jit_seconds,
             "step_times_ms": np.asarray(locals().get("step_times_ms", [])),
+            **diagnostic_payload(),
         }
     elapsed = float(np.sum(step_times_ms)) / 1000.0
     energy_scale = max(float(np.max(energy_magnitudes)), np.finfo(float).tiny)
@@ -207,6 +227,7 @@ def simulate_candidate(
         "applied_work": applied_work,
         "energy_scale": energy_scale,
         "max_energy_balance_error": float(np.max(np.abs(balance_error))),
+        **diagnostic_payload(),
     }
 
 
@@ -225,7 +246,7 @@ def parse_list(value: str, converter):
 
 
 def write_csv(path: Path, results: list[dict]) -> None:
-    fields = ["method", "backend", "directional_residual_strategy", "dt", "max_iterations", "history_size", "absolute_tolerance", "relative_tolerance", "line_search", "max_line_search_iterations", "valid", "stability_valid", "accuracy_valid", "performance_valid", "error", "elapsed", "step_mean_ms", "step_p25_ms", "step_p75_ms", "jit_seconds", "mean_iterations", "max_energy_ratio", "max_energy_balance_error", "trajectory_error", "trajectory_error_percent"]
+    fields = ["method", "backend", "directional_residual_strategy", "dt", "max_iterations", "history_size", "absolute_tolerance", "relative_tolerance", "line_search", "max_line_search_iterations", "globalization", "valid", "stability_valid", "accuracy_valid", "performance_valid", "error", "elapsed", "step_mean_ms", "step_p25_ms", "step_p75_ms", "jit_seconds", "mean_iterations", "direction_fallback_steps", "gradient_fallback_steps", "watchdog_steps", "watchdog_acceptances", "rescue_steps", "line_search_steps", "max_energy_ratio", "max_energy_balance_error", "trajectory_error", "trajectory_error_percent"]
     with path.open("w", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
@@ -332,7 +353,7 @@ def plot_results(
                 )
                 parameters = ["dt"]
                 if best["method"] == "implicit_bfgs":
-                    parameters.extend(("max_iterations", "history_size", "absolute_tolerance", "relative_tolerance", "line_search", "max_line_search_iterations"))
+                    parameters.extend(("max_iterations", "history_size", "absolute_tolerance", "relative_tolerance", "line_search", "max_line_search_iterations", "globalization"))
                 figure, axes = plt.subplots(
                     1, len(parameters), figsize=(4.2 * len(parameters), 3.8),
                     squeeze=False, constrained_layout=True,
@@ -410,6 +431,10 @@ def main() -> None:
     )
     parser.add_argument("--line-search", default="true,false")
     parser.add_argument(
+        "--globalization", default="backtracking,watchdog",
+        help="implicit globalization strategies to sweep; JAX supports backtracking only",
+    )
+    parser.add_argument(
         "--max-line-search-iterations", default="12,24",
         help="maximum backtracking trials for implicit candidates; swept one parameter at a time",
     )
@@ -450,8 +475,11 @@ def main() -> None:
     absolute_tolerances = parse_list(args.absolute_tolerances, float)
     max_line_search_iterations = parse_list(args.max_line_search_iterations, int)
     line_search_values = [value.lower() in {"true", "1", "yes", "on"} for value in parse_list(args.line_search, str)]
-    if not max_iterations or not history_sizes or not relative_tolerances or not absolute_tolerances or not line_search_values or not max_line_search_iterations:
+    globalization_values = parse_list(args.globalization, str)
+    if not max_iterations or not history_sizes or not relative_tolerances or not absolute_tolerances or not line_search_values or not max_line_search_iterations or not globalization_values:
         parser.error("all solver sweep lists must contain at least one value")
+    if any(value not in {"backtracking", "watchdog"} for value in globalization_values):
+        parser.error("globalization must contain only backtracking or watchdog")
     if (
         any(not np.isfinite(value) or value < 0.0 for value in absolute_tolerances)
         or any(not np.isfinite(value) or value < 0.0 for value in relative_tolerances)
@@ -505,9 +533,10 @@ def main() -> None:
             print(f"\n=== {label} ===")
             combination_results = []
             seen = set()
+            active_globalization_values = ["backtracking"] if use_jax else globalization_values
 
-            def evaluate(dt, iterations=0, history=0, absolute_tolerance=0.0, relative_tolerance=0.0, line_search=False, max_line_search_iterations=0):
-                key = (float(dt), int(iterations), int(history), float(absolute_tolerance), float(relative_tolerance), bool(line_search), int(max_line_search_iterations))
+            def evaluate(dt, iterations=0, history=0, absolute_tolerance=0.0, relative_tolerance=0.0, line_search=False, max_line_search_iterations=0, globalization="backtracking"):
+                key = (float(dt), int(iterations), int(history), float(absolute_tolerance), float(relative_tolerance), bool(line_search), int(max_line_search_iterations), globalization)
                 if key in seen:
                     return
                 seen.add(key)
@@ -518,6 +547,7 @@ def main() -> None:
                     "relative_tolerance": relative_tolerance,
                     "line_search": line_search,
                     "max_line_search_iterations": max_line_search_iterations,
+                    "globalization": globalization,
                     "raise_on_failure": True,
                     "directional_residual_strategy": strategy,
                 }
@@ -533,10 +563,17 @@ def main() -> None:
                     "relative_tolerance": relative_tolerance,
                     "line_search": line_search,
                     "max_line_search_iterations": max_line_search_iterations,
+                    "globalization": globalization,
                     "valid": candidate["valid"],
                     "elapsed": candidate["elapsed"],
                     "jit_seconds": candidate.get("jit_seconds", 0.0),
                 }
+                for diagnostic_name in (
+                    "direction_fallback_steps", "gradient_fallback_steps",
+                    "watchdog_steps", "watchdog_acceptances", "rescue_steps",
+                    "line_search_steps",
+                ):
+                    result[diagnostic_name] = candidate.get(diagnostic_name, 0)
                 if candidate["valid"]:
                     result["trajectory_error"] = compute_trajectory_error(candidate["states"], reference_states, args.baseline_dt, dt)
                     result["trajectory_error_percent"] = 100.0 * result["trajectory_error"]
@@ -576,8 +613,13 @@ def main() -> None:
                         f"dt={dt:.3e} max_it={iterations:2d} history={history:2d} "
                         f"abs_tol={absolute_tolerance:.1e} rel_tol={relative_tolerance:.1e} "
                         f"line_search={line_search!s:5s} ls_it={max_line_search_iterations:2d} "
+                        f"globalization={globalization} "
                         f"compute={result['elapsed']:.3f}s jit={result['jit_seconds']:.3f}s "
                         f"step={result['step_mean_ms']:.3f}ms "
+                        f"fallback={result['gradient_fallback_steps']} "
+                        f"rescue={result['rescue_steps']} "
+                        f"watchdog={result['watchdog_acceptances']} "
+                        f"ls={result['line_search_steps']} "
                         f"error={result['trajectory_error_percent']:.4f}% "
                         f"mean_it={result['mean_iterations']:.2f}{status}"
                     )
@@ -585,6 +627,7 @@ def main() -> None:
                     print(
                         f"dt={dt:.3e} compute={result['elapsed']:.3f}s jit={result['jit_seconds']:.3f}s "
                         f"step={result['step_mean_ms']:.3f}ms "
+                        f"ls={result['line_search_steps']} "
                         f"error={result['trajectory_error_percent']:.4f}%{status}"
                     )
 
@@ -602,6 +645,7 @@ def main() -> None:
                     "relative_tolerance": min(relative_tolerances),
                     "line_search": True if True in line_search_values else line_search_values[0],
                     "max_line_search_iterations": max(max_line_search_iterations),
+                    "globalization": active_globalization_values[0],
                 }
                 for dt in candidate_dts:
                     evaluate(dt, **robust)
@@ -623,6 +667,7 @@ def main() -> None:
                     "relative_tolerance": relative_tolerances,
                     "line_search": line_search_values,
                     "max_line_search_iterations": max_line_search_iterations,
+                    "globalization": active_globalization_values,
                 }
                 for dt in exploration_dts:
                     for parameter, values in parameter_values.items():
@@ -647,6 +692,7 @@ def main() -> None:
                         "relative_tolerance": float(seed["relative_tolerance"]),
                         "line_search": bool(seed["line_search"]),
                         "max_line_search_iterations": int(seed["max_line_search_iterations"]),
+                        "globalization": seed["globalization"],
                     }
                     # Re-test the selected solver profile over every timestep;
                     # this makes the final dt comparison fair and complete.
@@ -687,6 +733,7 @@ def main() -> None:
                     "relative_tolerance": float("nan"),
                     "line_search": float("nan"),
                     "max_line_search_iterations": float("nan"),
+                    "globalization": "",
                     "raise_on_failure": False,
                     "directional_residual_strategy": strategy,
                 }
@@ -702,6 +749,13 @@ def main() -> None:
                     "elapsed": float("nan"),
                     "jit_seconds": float("nan"),
                     "mean_iterations": float("nan"),
+                    "diagnostics": {
+                        name: 0 for name in (
+                            "direction_fallback_steps", "gradient_fallback_steps",
+                            "watchdog_steps", "watchdog_acceptances", "rescue_steps",
+                            "line_search_steps",
+                        )
+                    },
                     "failure": f"no candidate met max error of {args.max_error_percent:g}%",
                     "stability_dt": float(max((result["dt"] for result in stable), default=np.nan)),
                     "accuracy_dt": float("nan"),
@@ -723,6 +777,7 @@ def main() -> None:
                     "relative_tolerance": float(best["relative_tolerance"]),
                     "line_search": bool(best["line_search"]),
                     "max_line_search_iterations": int(best["max_line_search_iterations"]),
+                    "globalization": best["globalization"],
                     "raise_on_failure": True,
                     "directional_residual_strategy": strategy,
                 },
@@ -731,6 +786,13 @@ def main() -> None:
                 "elapsed": float(best["elapsed"]),
                 "jit_seconds": float(best["jit_seconds"]),
                 "mean_iterations": float(best["mean_iterations"]),
+                "diagnostics": {
+                    name: int(best[name]) for name in (
+                        "direction_fallback_steps", "gradient_fallback_steps",
+                        "watchdog_steps", "watchdog_acceptances", "rescue_steps",
+                        "line_search_steps",
+                    )
+                },
                 "stability_dt": float(max(result["dt"] for result in stable)),
                 "accuracy_dt": float(max(result["dt"] for result in accurate)),
                 "performance_dt": float(best["dt"]),
