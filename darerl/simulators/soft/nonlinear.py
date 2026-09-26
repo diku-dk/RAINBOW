@@ -139,7 +139,8 @@ def solve_lbfgs(
     x = np.asarray(position, dtype=np.float64).copy()
     diagonal = np.asarray(diagonal, dtype=np.float64)
     g = np.asarray(residual(x), dtype=np.float64)
-    initial_norm = max(float(np.linalg.norm(g)), 1.0)
+    initial_norm = float(np.linalg.norm(g))
+    convergence_threshold = float(settings["absolute_tolerance"]) + float(settings["relative_tolerance"]) * initial_norm
     residual_norm_history = [float(np.linalg.norm(g))]
     history_s: list[Array] = []
     history_y: list[Array] = []
@@ -162,7 +163,7 @@ def solve_lbfgs(
 
     for iteration in range(int(settings["max_iterations"])):
         iterations = iteration + 1
-        if np.linalg.norm(g) <= float(settings["tolerance"]) * initial_norm:
+        if np.linalg.norm(g) <= convergence_threshold:
             converged = True
             break
 
@@ -259,11 +260,12 @@ def solve_lbfgs(
                 watchdog_steps = 0
 
     info = {
-        "converged": converged,
+        "converged": bool(converged or np.linalg.norm(g) <= convergence_threshold),
         "iterations": iterations,
         "final_residual_norm": float(np.linalg.norm(g)),
         "initial_residual_norm": initial_norm,
-        "residual_reduction_factor": float(np.linalg.norm(g) / initial_norm),
+        "convergence_threshold": convergence_threshold,
+        "residual_reduction_factor": float(np.linalg.norm(g) / max(initial_norm, np.finfo(float).tiny)),
         "line_search_steps": line_search_steps,
         "history_length": len(history_s),
         "gradient_fallback_steps": fallback_steps,

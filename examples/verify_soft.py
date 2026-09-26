@@ -119,7 +119,8 @@ def run_case(
     settings = {
         "max_iterations": 100,
         "history_size": 10,
-        "tolerance": 1.0e-6,
+        "absolute_tolerance": 1.0e-6,
+        "relative_tolerance": 1.0e-6,
         "line_search": True,
         "raise_on_failure": True,
     }

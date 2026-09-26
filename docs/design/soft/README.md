@@ -69,7 +69,8 @@ body.step(
     settings={
         "max_iterations": 25,
         "history_size": 10,
-        "tolerance": 1.0e-6,
+        "absolute_tolerance": 1.0e-6,
+        "relative_tolerance": 1.0e-6,
     },
 )
 ```

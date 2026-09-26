@@ -511,7 +511,7 @@ if _HAS_JAX:
         x_new = jnp.where(active[:, None], x + dt * v_new, x0)
         return x_new, v_new
 
-    @jax.jit(static_argnums=(15, 21, 22, 23, 24, 29, 31))
+    @jax.jit(static_argnums=(15, 22, 23, 24, 25, 30, 32))
     def _jax_implicit_step(
         x_n,
         v_n,
@@ -533,7 +533,8 @@ if _HAS_JAX:
         dofs,
         scale,
         inv_mass_dof,
-        tolerance,
+        absolute_tolerance,
+        relative_tolerance,
         max_iterations,
         history_size,
         line_search,
@@ -589,7 +590,8 @@ if _HAS_JAX:
         x_initial = x_n + dt * v_n
         x_initial = jnp.where(fixed[:, None], x0, x_initial)
         g_initial = residual(x_initial)
-        initial_norm = jnp.maximum(jnp.linalg.norm(g_initial), 1.0)
+        initial_norm = jnp.linalg.norm(g_initial)
+        convergence_threshold = absolute_tolerance + relative_tolerance * initial_norm
         history_capacity = max(history_size, 1)
         history_s = jnp.zeros((history_capacity, free_count), dtype=x_n.dtype)
         history_y = jnp.zeros((history_capacity, free_count), dtype=x_n.dtype)
@@ -667,7 +669,7 @@ if _HAS_JAX:
             def solve(current_state):
                 x, g, hist_s, hist_y, hist_rho, count, residual_history, done, converged, iterations, line_steps, direction_fallback_steps, gradient_fallback_steps, rescue_steps = current_state
                 norm_g = jnp.linalg.norm(g)
-                already_converged = norm_g <= tolerance * initial_norm
+                already_converged = norm_g <= convergence_threshold
                 residual_history = residual_history.at[iteration].set(norm_g)
 
                 def converged_state():
@@ -788,5 +790,6 @@ if _HAS_JAX:
         velocity = (x - x_n) / dt
         velocity = jnp.where(fixed[:, None], 0.0, velocity)
         final_norm = jnp.linalg.norm(g)
-        reduction_factor = final_norm / initial_norm
-        return x, velocity, (converged, iterations, final_norm, initial_norm, line_steps, history_length, reduction_factor, direction_fallback_steps, gradient_fallback_steps, rescue_steps, residual_norm_history)
+        converged = converged | (final_norm <= convergence_threshold)
+        reduction_factor = final_norm / jnp.maximum(initial_norm, jnp.finfo(x_n.dtype).tiny)
+        return x, velocity, (converged, iterations, final_norm, initial_norm, convergence_threshold, line_steps, history_length, reduction_factor, direction_fallback_steps, gradient_fallback_steps, rescue_steps, residual_norm_history)

@@ -126,7 +126,7 @@ For each implicit strategy it first tests a robust profile at every candidate
 timestep, then explores at most the two largest viable timesteps while varying
 one solver parameter at a time, and finally re-tests the selected profile at
 all timesteps. The default parameter values are three iteration caps
-(`10,20,30`), three history sizes (`4,8,12`), two residual tolerances
+(`10,20,30`), three history sizes (`4,8,12`), and two relative residual tolerances
 (`1e-4,1e-6`), and two line-search modes. Each combination entry contains its
 tuned timestep and solver settings.
 

@@ -92,7 +92,8 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
         body.synchronize()
     cfg = {
         "max_iterations": 25,
-        "tolerance": 1.0e-6,
+        "absolute_tolerance": 1.0e-6,
+        "relative_tolerance": 1.0e-6,
         "history_size": 10,
         "line_search": True,
         "max_line_search_iterations": 12,
@@ -122,7 +123,7 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
         raise ValueError("line_search_reduction must be in (0, 1)")
     if not (0.0 <= cfg["line_search_c1"] < 1.0):
         raise ValueError("line_search_c1 must be in [0, 1)")
-    if cfg["tolerance"] <= 0.0 or cfg["directional_epsilon"] <= 0.0 or cfg["curvature_tolerance"] < 0.0:
+    if cfg["absolute_tolerance"] < 0.0 or cfg["relative_tolerance"] < 0.0 or (cfg["absolute_tolerance"] == 0.0 and cfg["relative_tolerance"] == 0.0) or cfg["directional_epsilon"] <= 0.0 or cfg["curvature_tolerance"] < 0.0:
         raise ValueError("solver tolerances and directional_epsilon must be valid positive values")
     if cfg["prevent_inversion"] is not None and not isinstance(cfg["prevent_inversion"], (bool, np.bool_)):
         raise ValueError("prevent_inversion must be True, False, or None")
@@ -168,7 +169,7 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
             jnp.asarray(dofs, dtype=jnp.int32),
             jnp.asarray(np.repeat(body.mesh.lumped_mass[free], 3) / (dt * dt)),
             jnp.asarray(np.repeat(body.mesh.inverse_lumped_mass[free], 3)),
-            cfg["tolerance"], int(cfg["max_iterations"]), int(cfg["history_size"]),
+            cfg["absolute_tolerance"], cfg["relative_tolerance"], int(cfg["max_iterations"]), int(cfg["history_size"]),
             bool(cfg["line_search"]), int(cfg["max_line_search_iterations"]),
             cfg["line_search_reduction"], cfg["line_search_c1"], cfg["curvature_tolerance"],
             cfg["directional_epsilon"], strategy_codes[strategy],
@@ -183,14 +184,14 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
         body.last_implicit_info = {
             "converged": bool(info[0]), "iterations": int(info[1]),
             "final_residual_norm": float(info[2]), "initial_residual_norm": float(info[3]),
-            "residual_reduction_factor": float(info[6]), "line_search_steps": int(info[4]),
-            "history_length": int(info[5]),
-            "gradient_fallback_steps": int(info[7]),
-            "direction_fallback_steps": int(info[8]),
+            "convergence_threshold": float(info[4]), "residual_reduction_factor": float(info[7]), "line_search_steps": int(info[5]),
+            "history_length": int(info[6]),
+            "gradient_fallback_steps": int(info[8]),
+            "direction_fallback_steps": int(info[9]),
             "watchdog_steps": 0,
             "watchdog_acceptances": 0,
-            "rescue_steps": int(info[9]),
-            "residual_norm_history": np.asarray(info[10], dtype=np.float64)[:history_count].tolist(),
+            "rescue_steps": int(info[10]),
+            "residual_norm_history": np.asarray(info[11], dtype=np.float64)[:history_count].tolist(),
         }
         if not body.last_implicit_info["converged"] and cfg["raise_on_failure"]:
             raise RuntimeError(f"implicit BFGS solve did not converge: {body.last_implicit_info}")

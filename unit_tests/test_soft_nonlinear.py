@@ -15,7 +15,8 @@ from darerl.simulators.soft.nonlinear import (
 def solver_settings(**overrides):
     settings = {
         "max_iterations": 30,
-        "tolerance": 1.0e-10,
+        "absolute_tolerance": 1.0e-10,
+        "relative_tolerance": 1.0e-10,
         "history_size": 5,
         "line_search": True,
         "max_line_search_iterations": 12,
@@ -211,14 +212,14 @@ class TestSoftNonlinear(unittest.TestCase):
         self.assertAlmostEqual(info["residual_norm_history"][0], info["initial_residual_norm"])
         self.assertAlmostEqual(info["residual_norm_history"][-1], info["final_residual_norm"])
 
-    def test_lbfgs_solver_reports_nonconvergence_at_iteration_limit(self):
+    def test_lbfgs_solver_checks_convergence_after_final_update(self):
         residual = lambda x: np.array([x[0] - 1.0])
         directional = lambda x, direction: np.array([direction[0]])
         _, _, info = solve_lbfgs(
             np.array([0.0]), residual, directional, np.ones(1),
-            solver_settings(max_iterations=1, tolerance=1.0e-14),
+            solver_settings(max_iterations=1, relative_tolerance=1.0e-14, absolute_tolerance=0.0),
         )
-        self.assertFalse(info["converged"])
+        self.assertTrue(info["converged"])
         self.assertEqual(info["iterations"], 1)
 
 

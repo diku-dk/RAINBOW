@@ -189,7 +189,7 @@ quasi-Newton direction is not a descent direction, the diagonal
 inverse-mass direction is used. Convergence is declared when
 
 ```text
-||g(x)|| ≤ tolerance · max(||g(x⁰)||, 1).
+||g(x)|| ≤ absolute_tolerance + relative_tolerance · ||g(x⁰)||.
 ```
 
 ### Globalization and fallback
