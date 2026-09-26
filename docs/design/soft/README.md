@@ -35,6 +35,11 @@ general multi-body scene management are intentionally outside the prototype.
   examples, and tests.
 - `examples/study_soft_convergence.py` studies implicit L-BFGS residual
   convergence using the auto-tuned settings.
+- `examples/autotune-soft-scientific.py` tunes for converged, accurate
+  trajectories and writes to `output/autotune/scientific/`.
+- `examples/autotune-soft-interactive.py` tunes for finite, bounded, responsive
+  motion; it permits numerical damping and inexact implicit solves and writes
+  to `output/autotune/interactive/`.
 
 The parameterized verification portfolio can be run from the project root:
 

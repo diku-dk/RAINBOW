@@ -279,7 +279,7 @@ def main() -> None:
     parser.add_argument("--reference-substeps", type=int, default=64)
     parser.add_argument("--candidate-substeps", default="1,2,4,8,16,32,64,128,256,512")
     parser.add_argument("--max-error", type=float, default=1.0e-3)
-    parser.add_argument("--settings", type=Path, default=Path("output/auto-tuned-settings.json"))
+    parser.add_argument("--settings", type=Path, default=Path("output/autotune/scientific/auto-tuned-settings.json"))
     parser.add_argument("--backend", choices=("both", "numpy", "jax"), default="both")
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--csv", type=Path, default=None)
@@ -297,7 +297,7 @@ def main() -> None:
     if not settings_path.is_file():
         parser.error(
             f"BFGS settings file not found: {settings_path}. "
-            "Run examples/autotune-soft.py first or pass --settings."
+            "Run examples/autotune-soft-scientific.py first or pass --settings."
         )
     with settings_path.open() as stream:
         tuned = json.load(stream)

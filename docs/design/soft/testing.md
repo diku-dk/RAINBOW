@@ -105,7 +105,7 @@ diagnostics.
 method/backend, with a default duration of three seconds and `dt=0.001`. It
 compares NumPy/JAX and both semi-implicit/implicit methods over approximately
 10K--100K tetrahedra. The BFGS settings are loaded from
-`output/auto-tuned-settings.json` by default. Implicit BFGS is profiled
+`output/autotune/scientific/auto-tuned-settings.json` by default. Implicit BFGS is profiled
 separately with `tangent_action`, `closed_form`, and `finite_difference`,
 using the corresponding strategy-specific auto-tuned settings.
 
@@ -119,16 +119,33 @@ semi-implicit and all three implicit BFGS directional-residual combinations.
 Invalid candidates are recorded
 in the CSV/JSON report rather than aborting the entire mesh sweep.
 
-`examples/autotune-soft.py` tunes all available solver/backend combinations by
-default (`--backend both`) and stores them under the `combinations` key in
-`output/auto-tuned-settings.json`. It deliberately avoids a Cartesian sweep.
-For each implicit strategy it first tests a robust profile at every candidate
-timestep, then explores at most the two largest viable timesteps while varying
-one solver parameter at a time, and finally re-tests the selected profile at
-all timesteps. The default parameter values are three iteration caps
-(`10,20,30`), three history sizes (`4,8,12`), and two relative residual tolerances
-(`1e-4,1e-6`), and two line-search modes. Each combination entry contains its
-tuned timestep and solver settings.
+The autotuning examples deliberately separate two goals:
+
+- `examples/autotune-soft-scientific.py` requires finite trajectories,
+  bounded energy, successful nonlinear convergence, and a trajectory error
+  below `--max-error-percent`. Its default settings are written under
+  `output/autotune/scientific/`.
+- `examples/autotune-soft-interactive.py` treats the simulation as a graphics
+  controller. It permits inexact implicit solves and numerical damping, and
+  accepts a candidate when it remains finite and satisfies bounded-motion,
+  speed, per-step displacement, and energy-growth limits. Its default settings
+  are written under `output/autotune/interactive/`. Trajectory error and
+  energy balance are reported for diagnosis, but are not acceptance gates.
+
+Both examples avoid a full Cartesian sweep. For each implicit strategy they
+first test a robust profile at every candidate timestep. They then permissively
+pre-screen iteration caps, history sizes, and tolerances at the smallest
+timestep, removing values that cannot complete even that easiest trajectory,
+before varying the surviving parameters one at a time. The scientific profile
+uses the expanded nonlinear ranges (up to 150 iterations and tolerances from
+`1e-1` to `1e-8`); the interactive profile uses the same solver sweep but
+`raise_on_failure=False` so bounded inexact steps can be evaluated.
+
+The scientific output is intended for verification and convergence studies.
+The interactive output is intended for selecting a robust frame-time-oriented
+configuration. Neither profile proves unconditional stability: a candidate
+must still pass the particular finite-duration and energy/motion envelope
+used by that run.
 
 An invalid autotune candidate is not an accuracy result. It means the
 trajectory became non-finite or the implicit nonlinear solve failed to
@@ -137,7 +154,7 @@ backward Euler is only as stable as the nonlinear solve that computes its
 step; a mathematically stable time discretization does not guarantee that a
 finite-iteration L-BFGS solve will converge at an arbitrarily large timestep.
 
-`examples/study_soft_convergence.py` loads those strategy/backend-specific
+`examples/study_soft_convergence.py` loads the scientific strategy/backend-specific
 settings and records one residual-reduction rate for every implicit solver
 invocation over a user-specified duration. It writes per-invocation and
 mean-with-quartiles plots, for example:

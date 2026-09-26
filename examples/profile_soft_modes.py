@@ -317,7 +317,7 @@ def main() -> None:
     parser.add_argument("--dt", type=float, default=1.0e-4, help="stable integration timestep; 1e-4 is suitable for the silicone defaults")
     parser.add_argument("--runs", type=int, default=1, help="independent simulation runs")
     parser.add_argument("--force-repeats", type=int, default=1)
-    parser.add_argument("--settings", type=Path, default=Path("output/auto-tuned-settings.json"), help="auto-tuned BFGS JSON settings")
+    parser.add_argument("--settings", type=Path, default=Path("output/autotune/scientific/auto-tuned-settings.json"), help="auto-tuned BFGS JSON settings")
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
     if args.duration <= 0.0 or args.dt <= 0.0:
@@ -349,7 +349,7 @@ def main() -> None:
     if not settings_path.is_file():
         parser.error(
             f"BFGS settings file not found: {settings_path}. "
-            "Run examples/autotune-soft.py first or pass --settings."
+            "Run examples/autotune-soft-scientific.py first or pass --settings."
         )
     with settings_path.open() as stream:
         tuned_settings = json.load(stream)

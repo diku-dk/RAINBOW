@@ -1,7 +1,7 @@
 """Study implicit L-BFGS convergence over a soft-body trajectory.
 
 The study uses the best strategy/backend-specific settings written by
-``autotune-soft.py``. For every backward-Euler invocation it records the
+``autotune-soft-scientific.py``. For every backward-Euler invocation it records the
 residual reduction factor
 
 ```text
@@ -146,7 +146,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--case", choices=tuple(CASE_FACTORIES), default="bending")
     parser.add_argument("--duration", type=float, default=3.0, help="requested simulated duration in seconds")
-    parser.add_argument("--settings", type=Path, default=Path("output/auto-tuned-settings.json"))
+    parser.add_argument("--settings", type=Path, default=Path("output/autotune/scientific/auto-tuned-settings.json"))
     parser.add_argument("--backend", choices=("both", "numpy", "jax"), default="both")
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--csv", type=Path, default=None)
@@ -160,7 +160,7 @@ def main() -> None:
     project_root = Path(__file__).resolve().parents[1]
     settings_path = args.settings if args.settings.is_absolute() else project_root / args.settings
     if not settings_path.is_file():
-        raise FileNotFoundError(f"settings file not found: {settings_path}; run examples/autotune-soft.py first")
+        raise FileNotFoundError(f"settings file not found: {settings_path}; run examples/autotune-soft-scientific.py first")
     try:
         import jax  # noqa: F401
         has_jax = True

@@ -1,9 +1,9 @@
-"""Auto-tune all soft-body timestepper/backend combinations.
+"""Interactive graphics-oriented auto-tuning for soft-body timestepper/backend combinations.
 
 The reference is a fine-step semi-implicit cantilever simulation. Candidates
-are classified independently by stability, accuracy, and runtime. Implicit
-candidates additionally sweep L-BFGS settings without forming a Cartesian
-product of all settings, keeping the study practical.
+are classified by finite-state, bounded-motion, and runtime criteria. The
+interactive profile permits inexact implicit solves and numerical damping;
+it is not an accuracy or energy-conservation study.
 """
 
 from __future__ import annotations
@@ -107,6 +107,7 @@ def simulate_candidate(
     use_jax: bool,
     settings: dict,
     energy_limit: float,
+    interactive_limits: dict[str, float] | None = None,
 ) -> dict:
     steps = int(round(duration / dt))
     if not np.isclose(steps * dt, duration, rtol=1.0e-10, atol=1.0e-14):
@@ -123,9 +124,23 @@ def simulate_candidate(
         "line_search_steps",
     )
     diagnostic_totals = {name: 0 for name in diagnostic_names}
+    nonconverged_steps = 0
+    max_residual_reduction_factor = 0.0
+    max_displacement = 0.0
+    max_speed = 0.0
+    max_frame_displacement = 0.0
 
     def diagnostic_payload() -> dict[str, int]:
         return {name: int(value) for name, value in diagnostic_totals.items()}
+
+    def interactive_payload() -> dict[str, float | int]:
+        return {
+            "nonconverged_steps": int(nonconverged_steps),
+            "max_residual_reduction_factor": float(max_residual_reduction_factor),
+            "max_displacement": float(max_displacement),
+            "max_speed": float(max_speed),
+            "max_frame_displacement": float(max_frame_displacement),
+        }
 
     try:
         if use_jax:
@@ -159,6 +174,12 @@ def simulate_candidate(
                     info = body.last_implicit_info
                     for name in diagnostic_names:
                         diagnostic_totals[name] += int(info.get(name, 0))
+                    if not info.get("converged", True):
+                        nonconverged_steps += 1
+                    max_residual_reduction_factor = max(
+                        max_residual_reduction_factor,
+                        float(info.get("residual_reduction_factor", 0.0)),
+                    )
                 else:
                     body.step(dt, gravity=gravity)
                 # JAX dispatch is asynchronous. Include device completion in
@@ -170,6 +191,9 @@ def simulate_candidate(
             x = body.get_x()
             v = body.get_v()
             states[step] = x
+            max_displacement = max(max_displacement, float(np.max(np.linalg.norm(x - initial_x, axis=1))))
+            max_speed = max(max_speed, float(np.max(np.linalg.norm(v, axis=1))))
+            max_frame_displacement = max(max_frame_displacement, float(np.max(np.linalg.norm(x - previous_x, axis=1))))
             if not np.all(np.isfinite(x)) or not np.all(np.isfinite(v)):
                 return {
                     "valid": False,
@@ -178,7 +202,36 @@ def simulate_candidate(
                     "jit_seconds": jit_seconds,
                     "step_times_ms": np.asarray(step_times_ms),
                     **diagnostic_payload(),
+                    **interactive_payload(),
                 }
+            if interactive_limits is not None:
+                if max_displacement > interactive_limits["max_displacement"]:
+                    return {
+                        "valid": False,
+                        "error": f"bounded-motion displacement exceeded {interactive_limits['max_displacement']:.3e} m at step {step}",
+                        "elapsed": time.perf_counter() - start,
+                        "jit_seconds": jit_seconds,
+                        "step_times_ms": np.asarray(step_times_ms),
+                        **diagnostic_payload(), **interactive_payload(),
+                    }
+                if max_speed > interactive_limits["max_speed"]:
+                    return {
+                        "valid": False,
+                        "error": f"bounded-motion speed exceeded {interactive_limits['max_speed']:.3e} m/s at step {step}",
+                        "elapsed": time.perf_counter() - start,
+                        "jit_seconds": jit_seconds,
+                        "step_times_ms": np.asarray(step_times_ms),
+                        **diagnostic_payload(), **interactive_payload(),
+                    }
+                if max_frame_displacement > interactive_limits["max_frame_displacement"]:
+                    return {
+                        "valid": False,
+                        "error": f"frame displacement exceeded {interactive_limits['max_frame_displacement']:.3e} m at step {step}",
+                        "elapsed": time.perf_counter() - start,
+                        "jit_seconds": jit_seconds,
+                        "step_times_ms": np.asarray(step_times_ms),
+                        **diagnostic_payload(), **interactive_payload(),
+                    }
             energy_magnitudes[step], mechanical_energy[step], work_increment, previous_force = compute_energy_state(body, gravity, previous_x, previous_force)
             applied_work[step] = applied_work[step - 1] + work_increment
             previous_x = x.copy()
@@ -190,6 +243,7 @@ def simulate_candidate(
                     "jit_seconds": jit_seconds,
                     "step_times_ms": np.asarray(step_times_ms),
                     **diagnostic_payload(),
+                    **interactive_payload(),
                 }
             if energy_magnitudes[step] > energy_limit:
                 return {
@@ -199,6 +253,7 @@ def simulate_candidate(
                     "jit_seconds": jit_seconds,
                     "step_times_ms": np.asarray(step_times_ms),
                     **diagnostic_payload(),
+                    **interactive_payload(),
                 }
             if method == "implicit_bfgs":
                 iterations.append(body.last_implicit_info["iterations"])
@@ -210,6 +265,7 @@ def simulate_candidate(
             "jit_seconds": jit_seconds,
             "step_times_ms": np.asarray(locals().get("step_times_ms", [])),
             **diagnostic_payload(),
+            **interactive_payload(),
         }
     elapsed = float(np.sum(step_times_ms)) / 1000.0
     energy_scale = max(float(np.max(energy_magnitudes)), np.finfo(float).tiny)
@@ -228,6 +284,7 @@ def simulate_candidate(
         "energy_scale": energy_scale,
         "max_energy_balance_error": float(np.max(np.abs(balance_error))),
         **diagnostic_payload(),
+        **interactive_payload(),
     }
 
 
@@ -246,7 +303,7 @@ def parse_list(value: str, converter):
 
 
 def write_csv(path: Path, results: list[dict]) -> None:
-    fields = ["method", "backend", "directional_residual_strategy", "dt", "max_iterations", "history_size", "absolute_tolerance", "relative_tolerance", "line_search", "max_line_search_iterations", "globalization", "valid", "stability_valid", "accuracy_valid", "performance_valid", "error", "elapsed", "step_mean_ms", "step_p25_ms", "step_p75_ms", "jit_seconds", "mean_iterations", "direction_fallback_steps", "gradient_fallback_steps", "watchdog_steps", "watchdog_acceptances", "rescue_steps", "line_search_steps", "max_energy_ratio", "max_energy_balance_error", "trajectory_error", "trajectory_error_percent"]
+    fields = ["method", "backend", "directional_residual_strategy", "dt", "max_iterations", "history_size", "absolute_tolerance", "relative_tolerance", "line_search", "max_line_search_iterations", "globalization", "valid", "stability_valid", "accuracy_valid", "performance_valid", "error", "elapsed", "step_mean_ms", "step_p25_ms", "step_p75_ms", "jit_seconds", "mean_iterations", "nonconverged_steps", "max_residual_reduction_factor", "max_displacement", "max_speed", "max_frame_displacement", "direction_fallback_steps", "gradient_fallback_steps", "watchdog_steps", "watchdog_acceptances", "rescue_steps", "line_search_steps", "max_energy_ratio", "max_energy_balance_error", "trajectory_error", "trajectory_error_percent"]
     with path.open("w", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
@@ -409,25 +466,37 @@ def main() -> None:
     parser.add_argument(
         "--max-energy-growth",
         type=float,
-        default=10.0,
-        help="maximum candidate energy envelope relative to the reference envelope",
+        default=25.0,
+        help="maximum candidate energy envelope; used only as an explosion guard",
+    )
+    parser.add_argument(
+        "--max-displacement-factor", type=float, default=10.0,
+        help="maximum displacement relative to the reference maximum displacement",
+    )
+    parser.add_argument(
+        "--max-velocity-factor", type=float, default=10.0,
+        help="maximum speed relative to the reference maximum speed, with a beam-scale floor",
+    )
+    parser.add_argument(
+        "--max-frame-displacement", type=float, default=0.25,
+        help="maximum displacement per candidate step as a fraction of beam length",
     )
     parser.add_argument("--max-dt", type=float, default=0.1, help="largest candidate timestep")
     parser.add_argument(
-        "--max-iterations", default="5,10,15,20,25,30",
-        help="candidate L-BFGS iteration caps; swept one parameter at a time",
+        "--max-iterations", default="5,10,20,30,50,75,100,150",
+        help="candidate L-BFGS iteration caps; permissive pre-screening removes caps that cannot converge",
     )
     parser.add_argument(
         "--history-sizes", default="4,8,12",
         help="candidate L-BFGS history sizes; swept one parameter at a time",
     )
     parser.add_argument(
-        "--relative-tolerances", default="2e-1,1e-1,1e-2,1e-3,1e-4,1e-6",
-        help="candidate relative residual tolerances, including permissive solves; swept one parameter at a time",
+        "--relative-tolerances", default="5e-1,2e-1,1e-1,5e-2,1e-2,1e-3,1e-4,1e-6",
+        help="candidate relative residual tolerances; permissive pre-screening removes values that cannot converge",
     )
     parser.add_argument(
-        "--absolute-tolerances", default="1e-3,1e-4,1e-6,1e-8",
-        help="candidate absolute residual tolerances, including permissive solves; swept one parameter at a time",
+        "--absolute-tolerances", default="1e-1,1e-2,1e-3,1e-4,1e-6,1e-8",
+        help="candidate absolute residual tolerances; permissive pre-screening removes values that cannot converge",
     )
     parser.add_argument("--line-search", default="true,false")
     parser.add_argument(
@@ -438,16 +507,22 @@ def main() -> None:
         "--max-line-search-iterations", default="12,24",
         help="maximum backtracking trials for implicit candidates; swept one parameter at a time",
     )
-    parser.add_argument("--max-error-percent", type=float, default=5.0, help="maximum trajectory error relative to baseline, in percent")
+    parser.add_argument("--max-error-percent", type=float, default=100.0, help="reported trajectory error; not an interactive acceptance criterion")
     parser.add_argument("--backend", choices=("both", "numpy", "jax"), default="both")
     parser.add_argument("--output", type=Path, default=None)
-    parser.add_argument("--settings-output", type=Path, default=Path("output/auto-tuned-settings.json"))
+    parser.add_argument("--settings-output", type=Path, default=Path("output/autotune/interactive/auto-tuned-settings.json"))
     args = parser.parse_args()
 
     if args.baseline_dt <= 0.0 or args.baseline_steps < 1 or args.max_error_percent < 0.0:
         parser.error("baseline-dt must be positive, baseline-steps must be positive, and max-error-percent cannot be negative")
-    if (args.validation_duration is not None and args.validation_duration <= 0.0) or args.max_energy_growth <= 0.0:
-        parser.error("validation-duration and max-energy-growth must be positive")
+    if (
+        (args.validation_duration is not None and args.validation_duration <= 0.0)
+        or args.max_energy_growth <= 0.0
+        or args.max_displacement_factor <= 0.0
+        or args.max_velocity_factor <= 0.0
+        or args.max_frame_displacement <= 0.0
+    ):
+        parser.error("interactive bounds must be positive")
     duration = max(args.baseline_dt * args.baseline_steps, 1.0) if args.validation_duration is None else args.validation_duration
     reference_steps = int(round(duration / args.baseline_dt))
     if not np.isclose(reference_steps * args.baseline_dt, duration, rtol=1.0e-10, atol=1.0e-14):
@@ -510,13 +585,25 @@ def main() -> None:
     print(f"reference: {len(reference_states) - 1} steps, {reference_runtime:.3f} s")
     reference_energy_scale = max(float(np.max(reference_energy["magnitude"])), 1.0e-12)
     reference_energy_limit = reference_energy_scale * args.max_energy_growth
-    print(f"reference energy envelope: {np.max(reference_energy['magnitude']):.3e} J; candidate limit: {reference_energy_limit:.3e} J")
+    print(f"reference energy envelope: {np.max(reference_energy['magnitude']):.3e} J; interactive explosion limit: {reference_energy_limit:.3e} J")
     max_displacement = float(np.max(np.linalg.norm(reference_states - reference_states[0], axis=2)))
     beam_length = float(np.ptp(reference_states[0, :, 0]))
+    reference_velocities = np.diff(reference_states, axis=0) / args.baseline_dt
+    reference_max_speed = float(np.max(np.linalg.norm(reference_velocities, axis=2)))
+    interactive_limits = {
+        "max_displacement": max_displacement * args.max_displacement_factor,
+        "max_speed": max(reference_max_speed * args.max_velocity_factor, beam_length / max(duration, args.baseline_dt)),
+        "max_frame_displacement": beam_length * args.max_frame_displacement,
+    }
     displacement_percent = 100.0 * max_displacement / max(beam_length, np.finfo(float).eps)
     print(
         f"reference max displacement: {max_displacement:.4e} m "
         f"({displacement_percent:.2f}% of beam length)"
+    )
+    print(
+        f"interactive bounds: displacement={interactive_limits['max_displacement']:.3e} m, "
+        f"speed={interactive_limits['max_speed']:.3e} m/s, "
+        f"per-step displacement={interactive_limits['max_frame_displacement']:.3e} m"
     )
 
     results = []
@@ -548,10 +635,13 @@ def main() -> None:
                     "line_search": line_search,
                     "max_line_search_iterations": max_line_search_iterations,
                     "globalization": globalization,
-                    "raise_on_failure": True,
+                    "raise_on_failure": False,
                     "directional_residual_strategy": strategy,
                 }
-                candidate = simulate_candidate(args.case, args.i, args.j, args.k, dt, duration, method, use_jax, settings, reference_energy_limit)
+                candidate = simulate_candidate(
+                    args.case, args.i, args.j, args.k, dt, duration, method, use_jax,
+                    settings, reference_energy_limit, interactive_limits,
+                )
                 result = {
                     "method": method,
                     "backend": backend,
@@ -568,6 +658,11 @@ def main() -> None:
                     "elapsed": candidate["elapsed"],
                     "jit_seconds": candidate.get("jit_seconds", 0.0),
                 }
+                for metric_name in (
+                    "nonconverged_steps", "max_residual_reduction_factor",
+                    "max_displacement", "max_speed", "max_frame_displacement",
+                ):
+                    result[metric_name] = candidate.get(metric_name, np.nan)
                 for diagnostic_name in (
                     "direction_fallback_steps", "gradient_fallback_steps",
                     "watchdog_steps", "watchdog_acceptances", "rescue_steps",
@@ -584,9 +679,11 @@ def main() -> None:
                     result["max_energy_ratio"] = float(np.max(candidate["energy_magnitudes"]) / max(np.max(reference_energy["magnitude"]), np.finfo(float).tiny))
                     result["max_energy_balance_error"] = candidate["max_energy_balance_error"]
                     result["error"] = ""
-                    result["stability_valid"] = bool(np.isfinite(result["trajectory_error"]))
-                    result["accuracy_valid"] = bool(result["stability_valid"] and result["trajectory_error"] <= max_error)
-                    result["performance_valid"] = result["accuracy_valid"]
+                    result["stability_valid"] = True
+                    # Interactive tuning intentionally does not reject
+                    # bounded, damped, inexact trajectories for position error.
+                    result["accuracy_valid"] = True
+                    result["performance_valid"] = True
                 else:
                     result["trajectory_error"] = np.nan
                     result["trajectory_error_percent"] = np.nan
@@ -655,16 +752,68 @@ def main() -> None:
                 # timestep than the robust profile can handle.
                 exploration_dts = candidate_dts
 
-                # These values cover the meaningful regimes: low/medium/high
-                # iteration and history budgets, two useful convergence
-                # tolerances, and the line-search on/off choice. Each sweep is
-                # local to the robust profile, so interactions do not multiply
-                # into a full Cartesian product.
+                # First pre-screen each nonlinear parameter at the smallest
+                # timestep with a deliberately permissive solve. A value that
+                # cannot complete even this easiest candidate is not useful in
+                # the one-at-a-time sweep: tightening tolerances or increasing
+                # the timestep cannot make that same setting more viable.
+                # This keeps the expanded ranges useful without repeating
+                # obviously doomed experiments at every timestep.
+                probe_dt = candidate_dts[0]
+                probe_globalization = active_globalization_values[-1]
+                probe_base = {
+                    "iterations": max(max_iterations),
+                    "history": max(history_sizes),
+                    "absolute_tolerance": max(absolute_tolerances),
+                    "relative_tolerance": max(relative_tolerances),
+                    "line_search": True if True in line_search_values else line_search_values[0],
+                    "max_line_search_iterations": max(max_line_search_iterations),
+                    "globalization": probe_globalization,
+                }
+
+                def viable_probe(parameter, value):
+                    trial = dict(probe_base)
+                    trial[parameter] = value
+                    evaluate(probe_dt, **trial)
+                    matching = [result for result in combination_results if result["dt"] == probe_dt and (
+                        result["max_iterations"], result["history_size"],
+                        result["absolute_tolerance"], result["relative_tolerance"],
+                        result["line_search"], result["max_line_search_iterations"],
+                        result["globalization"],
+                    ) == (
+                        int(trial["iterations"]), int(trial["history"]),
+                        float(trial["absolute_tolerance"]), float(trial["relative_tolerance"]),
+                        bool(trial["line_search"]), int(trial["max_line_search_iterations"]),
+                        trial["globalization"],
+                    )]
+                    return bool(matching and matching[-1]["valid"])
+
+                viable_iterations = [value for value in max_iterations if viable_probe("iterations", value)]
+                viable_history = [value for value in history_sizes if viable_probe("history", value)]
+                viable_absolute = [value for value in absolute_tolerances if viable_probe("absolute_tolerance", value)]
+                viable_relative = [value for value in relative_tolerances if viable_probe("relative_tolerance", value)]
+
+                # Never leave a sweep empty: the permissive probe itself may
+                # fail for a physically difficult case, but the subsequent
+                # robust evaluations should still be recorded.
+                viable_iterations = viable_iterations or [max(max_iterations)]
+                viable_history = viable_history or [max(history_sizes)]
+                viable_absolute = viable_absolute or [max(absolute_tolerances)]
+                viable_relative = viable_relative or [max(relative_tolerances)]
+                print(
+                    "Prescreened nonlinear sweep: "
+                    f"iterations={viable_iterations}, history={viable_history}, "
+                    f"abs_tol={viable_absolute}, rel_tol={viable_relative}"
+                )
+
+                # These values cover the regimes that survived the permissive
+                # prescreen. Each sweep is local to the robust profile, so
+                # interactions do not multiply into a full Cartesian product.
                 parameter_values = {
-                    "iterations": max_iterations,
-                    "history": history_sizes,
-                    "absolute_tolerance": absolute_tolerances,
-                    "relative_tolerance": relative_tolerances,
+                    "iterations": viable_iterations,
+                    "history": viable_history,
+                    "absolute_tolerance": viable_absolute,
+                    "relative_tolerance": viable_relative,
                     "line_search": line_search_values,
                     "max_line_search_iterations": max_line_search_iterations,
                     "globalization": active_globalization_values,
@@ -676,13 +825,7 @@ def main() -> None:
                             trial[parameter] = value
                             evaluate(dt, **trial)
 
-                setting_candidates = [
-                    result for result in combination_results
-                    if result["valid"] and result["trajectory_error"] <= max_error
-                ]
-                setting_candidates = setting_candidates or [
-                    result for result in combination_results if result["valid"]
-                ]
+                setting_candidates = [result for result in combination_results if result["valid"]]
                 seed = min(setting_candidates, key=lambda result: result["elapsed"]) if setting_candidates else None
                 if seed is not None:
                     seed_settings = {
@@ -705,7 +848,7 @@ def main() -> None:
                 stability_best = max(stable, key=lambda result: result["dt"])
                 print(
                     f"Stability {label}: largest stable dt={stability_best['dt']:.3e} "
-                    f"(energy-bounded and finite)"
+                    f"(finite and within interactive bounds)"
                 )
             else:
                 print(f"Stability {label}: no stable candidate")
@@ -713,16 +856,16 @@ def main() -> None:
                 accuracy_best = max(accurate, key=lambda result: result["dt"])
                 performance_best = min(accurate, key=lambda result: result["elapsed"])
                 print(
-                    f"Accuracy {label}: largest acceptable dt={accuracy_best['dt']:.3e} "
-                    f"(error={accuracy_best['trajectory_error_percent']:.4f}%)"
+                    f"Interactive {label}: largest acceptable dt={accuracy_best['dt']:.3e} "
+                    f"(trajectory error={accuracy_best['trajectory_error_percent']:.4f}%, not an acceptance gate)"
                 )
                 print(
                     f"Performance {label}: fastest acceptable dt={performance_best['dt']:.3e} "
                     f"(compute={performance_best['elapsed']:.3f}s)"
                 )
             else:
-                print(f"Accuracy {label}: no candidate within {args.max_error_percent:g}%")
-                print(f"Performance {label}: unavailable because no candidate met the accuracy criterion")
+                print(f"Interactive {label}: no bounded candidate")
+                print(f"Performance {label}: unavailable because no candidate met the interactive bounds")
 
             acceptable = accurate
             if not acceptable:
@@ -756,12 +899,12 @@ def main() -> None:
                             "line_search_steps",
                         )
                     },
-                    "failure": f"no candidate met max error of {args.max_error_percent:g}%",
+                    "failure": "no candidate met the interactive boundedness criteria",
                     "stability_dt": float(max((result["dt"] for result in stable), default=np.nan)),
                     "accuracy_dt": float("nan"),
                     "performance_dt": float("nan"),
                 }
-                print(f"No valid candidate met --max-error for {label}; writing NaN settings")
+                print(f"No bounded candidate met the interactive criteria for {label}; writing NaN settings")
                 continue
             best = min(acceptable, key=lambda result: result["elapsed"])
             best_by_combination[label] = {
@@ -778,7 +921,7 @@ def main() -> None:
                     "line_search": bool(best["line_search"]),
                     "max_line_search_iterations": int(best["max_line_search_iterations"]),
                     "globalization": best["globalization"],
-                    "raise_on_failure": True,
+                    "raise_on_failure": False,
                     "directional_residual_strategy": strategy,
                 },
                 "trajectory_error": float(best["trajectory_error"]),
@@ -800,7 +943,7 @@ def main() -> None:
             print(f"Best {label}: {best_by_combination[label]}")
     if not best_by_combination:
         raise RuntimeError("no timestepper/backend combination met --max-error")
-    args.output = args.output or Path(f"output/soft_{args.case}_autotune.csv")
+    args.output = args.output or Path(f"output/autotune/interactive/soft_{args.case}_autotune.csv")
     output = args.output if args.output.is_absolute() else PROJECT_ROOT / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
     write_csv(output, results)
