@@ -99,14 +99,17 @@ def compute_step_times(
     implicit_settings: dict,
 ) -> np.ndarray:
     samples = np.empty(steps, dtype=float)
-    for step in range(steps):
-        start = time.perf_counter()
-        if method == "implicit_bfgs":
-            body.step_implicit(dt, gravity=case.gravity, settings=implicit_settings)
-        else:
-            body.step(dt, gravity=case.gravity, sync=False)
-            body.synchronize()
-        samples[step] = 1000.0 * (time.perf_counter() - start)
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        for step in range(steps):
+            start = time.perf_counter()
+            if method == "implicit_bfgs":
+                body.step_implicit(dt, gravity=case.gravity, settings=implicit_settings)
+            else:
+                body.step(dt, gravity=case.gravity, sync=False)
+                body.synchronize()
+            samples[step] = 1000.0 * (time.perf_counter() - start)
+            if not np.all(np.isfinite(body.get_x())) or not np.all(np.isfinite(body.get_v())):
+                raise FloatingPointError(f"non-finite state at timestep {step + 1}")
     return samples
 
 
@@ -120,29 +123,43 @@ def benchmark_backend(
     use_jax: bool,
     implicit_settings: dict,
 ) -> dict:
-    warmup = make_body(baseline, case, use_jax)
-    compile_start = time.perf_counter()
-    if method == "implicit_bfgs":
-        warmup.step_implicit(dt, gravity=case.gravity, settings=implicit_settings)
-    else:
-        warmup.compute_elastic_forces()
-        warmup.step(dt, gravity=case.gravity)
-    compile_seconds = time.perf_counter() - compile_start if use_jax else 0.0
+    try:
+        with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+            warmup = make_body(baseline, case, use_jax)
+            compile_start = time.perf_counter()
+            if method == "implicit_bfgs":
+                warmup.step_implicit(dt, gravity=case.gravity, settings=implicit_settings)
+            else:
+                warmup.compute_elastic_forces()
+                warmup.step(dt, gravity=case.gravity)
+            if not np.all(np.isfinite(warmup.get_x())) or not np.all(np.isfinite(warmup.get_v())):
+                raise FloatingPointError("non-finite state during warmup")
+            compile_seconds = time.perf_counter() - compile_start if use_jax else 0.0
 
-    force_ms = compute_force_time(make_body(baseline, case, use_jax), force_repeats)
-    step_samples_ms = compute_step_times(
-        make_body(baseline, case, use_jax),
-        case,
-        method,
-        steps,
-        dt,
-        implicit_settings,
-    )
+            force_ms = compute_force_time(make_body(baseline, case, use_jax), force_repeats)
+            step_samples_ms = compute_step_times(
+                make_body(baseline, case, use_jax),
+                case,
+                method,
+                steps,
+                dt,
+                implicit_settings,
+            )
+    except (FloatingPointError, RuntimeError, ValueError) as error:
+        print(f"    unstable: {error}")
+        return {
+            "compile_seconds": float("nan"),
+            "force_ms": float("nan"),
+            "step_samples_ms": np.full(steps, np.nan),
+            "step_ms": float("nan"),
+            "stable": False,
+        }
     return {
         "compile_seconds": compile_seconds,
         "force_ms": force_ms,
         "step_samples_ms": step_samples_ms,
         "step_ms": float(np.mean(step_samples_ms)),
+        "stable": True,
     }
 
 
@@ -182,23 +199,26 @@ def compute_trajectory(
     elastic = np.zeros(steps + 1)
     pressure_work = np.zeros(steps + 1)
     states = [body.get_x()]
-    for step in range(1, steps + 1):
-        if method == "implicit_bfgs":
-            body.step_implicit(dt, gravity=case.gravity, settings=implicit_settings)
-        else:
-            body.step(dt, gravity=case.gravity, sync=False)
-            body.synchronize()
-        x_current = body.get_x()
-        pressure_current = body.compute_neumann_forces(x_current)
-        displacement = x_current - x_previous
-        pressure_work[step] = pressure_work[step - 1] + 0.5 * np.sum((pressure_previous + pressure_current) * displacement)
-        velocity = body.get_v()
-        kinetic[step] = 0.5 * np.sum(mesh.lumped_mass[:, None] * velocity * velocity)
-        potential[step] = -np.sum(mesh.lumped_mass[:, None] * np.asarray(case.gravity) * x_current) - initial_potential
-        elastic[step] = body.compute_elastic_energy(x_current)
-        states.append(x_current)
-        x_previous = x_current
-        pressure_previous = pressure_current
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        for step in range(1, steps + 1):
+            if method == "implicit_bfgs":
+                body.step_implicit(dt, gravity=case.gravity, settings=implicit_settings)
+            else:
+                body.step(dt, gravity=case.gravity, sync=False)
+                body.synchronize()
+            x_current = body.get_x()
+            velocity = body.get_v()
+            if not np.all(np.isfinite(x_current)) or not np.all(np.isfinite(velocity)):
+                raise FloatingPointError(f"non-finite state at timestep {step}")
+            pressure_current = body.compute_neumann_forces(x_current)
+            displacement = x_current - x_previous
+            pressure_work[step] = pressure_work[step - 1] + 0.5 * np.sum((pressure_previous + pressure_current) * displacement)
+            kinetic[step] = 0.5 * np.sum(mesh.lumped_mass[:, None] * velocity * velocity)
+            potential[step] = -np.sum(mesh.lumped_mass[:, None] * np.asarray(case.gravity) * x_current) - initial_potential
+            elastic[step] = body.compute_elastic_energy(x_current)
+            states.append(x_current)
+            x_previous = x_current
+            pressure_previous = pressure_current
     return {
         "times": times,
         "kinetic": kinetic,
@@ -254,6 +274,8 @@ def plot_trajectory_pages(trajectories: dict, surface: np.ndarray, output: Path)
 
     with PdfPages(output) as pdf:
         for case_name, methods in trajectories.items():
+            if not methods:
+                continue
             fig, axes = plt.subplots(1, len(methods) + 1, figsize=(5 * (len(methods) + 1), 5), subplot_kw={"projection": "3d"})
             for axis, (label, data) in zip(axes, methods.items()):
                 axis.plot_trisurf(data["final"][:, 0], data["final"][:, 1], data["final"][:, 2], triangles=surface, linewidth=0.05, alpha=0.8)
@@ -381,10 +403,13 @@ def main() -> None:
                 if use_jax and not has_jax:
                     continue
                 label = f"{combination_label}/{backend_name}"
-                trajectories.setdefault(scenario_name, {})[label] = compute_trajectory(
-                    baseline, case, method, steps, args.dt, use_jax,
-                    get_settings(backend_name, strategy)
-                )
+                try:
+                    trajectories.setdefault(scenario_name, {})[label] = compute_trajectory(
+                        baseline, case, method, steps, args.dt, use_jax,
+                        get_settings(backend_name, strategy)
+                    )
+                except (FloatingPointError, RuntimeError, ValueError) as error:
+                    print(f"  {label}: trajectory unavailable ({error})")
 
     mesh = make_cantilever(largest_i, args.j, args.k, selected_scenarios[0]).mesh
     plot_scaling(all_results, output, runs, steps)
