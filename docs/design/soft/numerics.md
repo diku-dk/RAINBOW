@@ -13,9 +13,9 @@ $$
 \mathbf F=\mathbf D\mathbf D_m^{-1}.
 $$
 
-`Dₘ⁻¹` and the reference volume are precomputed by `TetMesh`. Reference
+`inv_Dm` and the reference volume are precomputed by `TetMesh`. Reference
 orientation must be positive and nondegenerate. The nodal shape-function
-gradients are the rows of `Dₘ⁻¹`, with the zeroth gradient obtained by the
+gradients are the rows of $D_m^{-1}$, with the zeroth gradient obtained by the
 partition-of-unity condition.
 
 ## Internal elastic forces

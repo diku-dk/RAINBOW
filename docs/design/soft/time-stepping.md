@@ -6,7 +6,7 @@ $$
 M\ddot{x} = F(x),
 $$
 
-where (F) includes elasticity, pressure, external forces, and gravity. The
+where $F$ includes elasticity, pressure, external forces, and gravity. The
 methods below reuse the same force kernels, directional force actions,
 inversion checks, and matrix-free L-BFGS solver. They differ in the residual
 posed for the unknown new position.
@@ -55,7 +55,13 @@ undamped oscillations accurately.
 
 ### Implicit midpoint
 
-With (x_{n+1/2}=(x_n+x_{n+1})/2), midpoint solves
+With
+
+$$
+x_{n+1/2}=\frac{x_n+x_{n+1}}{2},
+$$
+
+midpoint solves
 
 $$
 R(x)=\frac{2M}{\Delta t^2}d(x)-F\left(\frac{x_n+x}{2}\right),
@@ -81,7 +87,7 @@ force this is the same update produced by Newmark average acceleration.
 
 ### Newmark
 
-Let (a_n=M^{-1}F(x_n)). For (eta>0) and (gamma), define
+Let $a_n=M^{-1}F(x_n)$. For $\beta>0$ and $\gamma$, define
 
 $$
 a_{n+1}(x)=
@@ -101,14 +107,20 @@ $$
 v_{n+1}=v_n+\Delta t\left[(1-\gamma)a_n+\gamma a_{n+1}\right].
 $$
 
-The default is average acceleration, (eta=1/4,gamma=1/2). Other choices
+The default is average acceleration,
+
+$$
+\beta=\frac14,\qquad \gamma=\frac12.
+$$
+
+Other choices
 can introduce numerical damping and require separate verification.
 
 ## Nonlinear solution and acceptance
 
 Each implicit residual follows the same algorithm:
 
-1. predict a trial position (x_n+\Delta t,v_n);
+1. predict a trial position $x_n+\Delta t\,v_n$;
 2. evaluate the residual and directional action;
 3. compute an L-BFGS or diagonal-gradient direction;
 4. apply feasibility checks and globalization;
@@ -137,7 +149,7 @@ Results are written below `output/autotune/scientific/` and
 ### BDF2
 
 BDF2 applies the second-order backward differentiation formula to the
-first-order state (y=(x,v)):
+first-order state $y=(x,v)$:
 
 $$
 \frac{3y_{n+1}-4y_n+y_{n-1}}{2\Delta t}=G(y_{n+1}).

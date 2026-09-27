@@ -21,8 +21,9 @@ fixed vertices, pressure faces, external forces, and gravity used by plotting
 and energy-reporting code.
 
 The default geometry is 0.10 m long with a 0.02 m square section. The
-material is a soft, nearly incompressible skin approximation (`E=100 kPa`,
-`nu=0.49`, density `1100 kg/m^3`). Skin properties vary substantially, so
+material is a soft, nearly incompressible skin approximation
+($E=100\,\mathrm{kPa}$, $\nu=0.49$, density $1100\,\mathrm{kg/m^3}$). Skin
+properties vary substantially, so
 these values are intended for repeatable examples rather than biological
 calibration. Loads are intentionally amplified to make nonlinear motion
 visible in short runs.

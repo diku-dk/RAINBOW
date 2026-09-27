@@ -37,7 +37,8 @@ $$
 \mathbf D=[\mathbf x_1-\mathbf x_0\;\mathbf x_2-\mathbf x_0\;\mathbf x_3-\mathbf x_0].
 $$
 
-The mesh stores `inv_Dm = Dm⁻¹`, so the linear shape functions give
+The mesh stores `inv_Dm`, representing $D_m^{-1}$, so the linear shape
+functions give
 
 $$
 \mathbf F=\mathbf D\mathbf D_m^{-1}.
@@ -459,11 +460,14 @@ Thus pressure directional forces are included, not treated as constant loads.
 
 ### Finite difference
 
-The `finite_difference` path uses a forward difference of the complete force:
+The `finite_difference` path uses a forward difference of the complete force.
+The approximation is
 
-```text
-Jf(x)s ≈ [f(x + hs) - f(x)]/h.
-```
+$$
+J_{\mathbf f}(\mathbf x)\,\mathbf s
+\approx
+\frac{\mathbf f(\mathbf x+h\mathbf s)-\mathbf f(\mathbf x)}{h}.
+$$
 
 The implementation scales `h` from `directional_epsilon`, the current-position
 norm, and the direction norm. This makes the perturbation less sensitive to

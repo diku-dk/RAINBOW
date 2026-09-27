@@ -24,7 +24,7 @@ They cover:
   `P F^T`;
 - finite constitutive responses for near-singular and inverted deformation
   gradients;
-- explicit Stable Neo-Hookean collapsed (`J=0`) and inverted (`J<0`)
+- explicit Stable Neo-Hookean collapsed ($J=0$) and inverted ($J<0$)
   deformation-gradient and assembled-force cases;
 - restoring force directions for ±10% dilation/compression of a centered
   regular tetrahedron;

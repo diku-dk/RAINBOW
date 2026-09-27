@@ -24,7 +24,7 @@ reference vertices + tetrahedra
               │
               ▼
           TetMesh
-  Dm⁻¹, volume, shape gradients,
+  `inv_Dm`, volume, shape gradients,
   lumped mass, inverse mass
               │
               ▼
