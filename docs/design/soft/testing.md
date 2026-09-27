@@ -92,9 +92,11 @@ uv run python examples/verify_soft.py
 
 It runs both backends by default: two semi-implicit material cases, six
 implicit-BFGS material/derivative-strategy cases, and six additional implicit
-method/material cases per backend, for 28 runs in total. It checks finite trajectories and fixed vertices, reports energy
+method/material cases per backend. That is 14 cases per backend, three
+refinement trajectories per case, and 84 trajectories total. It checks finite
+trajectories and fixed vertices, reports energy
 behavior, estimates timestep convergence by successive refinement, and writes
-`output/verify_soft.pdf`. Use `--numpy` or `--jax` to select one backend,
+`output/verify_soft_bending.pdf`. Use `--numpy` or `--jax` to select one backend,
 and `--dt`, `--final-time`, and `--refinement-levels` to control the study.
 
 They run a fixed-root cantilever under gravity and verify finite state and
@@ -166,8 +168,8 @@ uv run python examples/study_soft_convergence.py --case bending --duration 3.0
 ```
 
 Use `--case twist`, `--case compress`, or `--case stretch` for the other
-canonical baselines, and `--numpy`/`--jax`-equivalent backend selection through
-`--backend numpy` or `--backend jax`.
+canonical baselines, and select the backend with `--backend numpy` or
+`--backend jax`.
 
 The profiling and comparison examples require this JSON file. If it is
 missing, they stop with a command explaining how to generate it. They can be

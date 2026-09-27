@@ -199,6 +199,93 @@ $\Delta t^2M^{-1}$. The number
 of stored pairs is limited by `history_size`; invalid or insufficient-curvature
 pairs are discarded.
 
+### L-BFGS in one implicit step
+
+The central idea is simple: L-BFGS repeatedly proposes a position correction
+using the current residual and a short memory of corrections that worked
+earlier in the same nonlinear solve. It never stores the global Jacobian or
+its inverse. The history pairs
+
+$$
+(\mathbf s^k,\mathbf y^k)
+=\bigl(\mathbf x^{k+1}-\mathbf x^k,
+\mathbf g(\mathbf x^{k+1})-\mathbf g(\mathbf x^k)\bigr)
+$$
+
+summarize how the residual changed in previously accepted directions. The
+two-loop recursion uses those pairs to transform the current residual into an
+approximate inverse-Jacobian direction.
+
+At a high level, one nonlinear iteration has this data flow:
+
+```text
+current position x, residual g
+              │
+              ▼
+     L-BFGS two-loop recursion
+       (current g + history)
+              │
+              ▼
+       proposed correction d
+              │
+              ▼
+   globalization / recovery
+       [black box here]
+              │
+              ▼
+       accepted position x⁺
+              │
+              ▼
+  evaluate residual g⁺ and form
+       s = x⁺ − x,  y = g⁺ − g
+              │
+              ▼
+       append (s, y) to history
+```
+
+The process stops when the residual is small enough. Otherwise, the accepted
+position becomes the input to the next L-BFGS iteration. The globalization and
+recovery block decides whether and how a proposed correction is shortened,
+replaced, watched, or rescued; it is deliberately treated as a black box in
+this overview. Its complete control flow is described in the [detailed solve
+algorithm](#complete-solve-algorithm) below.
+
+```text
+solve_one_implicit_step(previous_state, Δt):
+    x ← predictor(previous_state, Δt)
+    g ← residual(x)
+    history ← empty
+
+    repeat until converged or the iteration budget is exhausted:
+        if ||g|| ≤ tolerance:
+            return x
+
+        d ← L_BFGS_two_loop(-g, history)
+        trial ← globalization_and_recovery(x, g, d)
+
+        if trial is rejected:
+            return failure
+
+        x_new ← trial.position
+        g_new ← trial.residual
+        s ← x_new − x
+        y ← directional_or_difference_residual(x_new, s, g_new − g)
+
+        if (sᵀ y) passes the curvature test:
+            store (s, y) in the limited history
+
+        x, g ← x_new, g_new
+
+    return failure
+```
+
+Here `directional_or_difference_residual` denotes the implementation choice:
+the directional residual computes $\mathbf y$ with a Jacobian action, while a
+finite-difference strategy approximates the same change from residual values.
+The predictor, residual evaluation, L-BFGS recursion, and history update are
+the core quasi-Newton mechanism; globalization and fallback strategies are
+important safeguards around that mechanism, not a different optimizer.
+
 The proposed update is tested with a backtracking line search using
 
 $$
@@ -264,8 +351,9 @@ one JIT-compiled device-resident kernel.
 
 ### Complete solve algorithm
 
-The following pseudocode summarizes one fully implicit position solve. It is
-intended to show the control flow of the implementation; `free(...)` means
+The following more detailed pseudocode summarizes one fully implicit position
+solve. It is intended to show the control flow of the implementation;
+`free(...)` means
 that fixed vertex coordinates are excluded from the solve, and `feasible(...)`
 is the optional material-aware Jacobian guard.
 

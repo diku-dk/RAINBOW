@@ -19,7 +19,7 @@ posed for the unknown new position.
 | Backward Euler (`implicit_bfgs`) | 1 | Yes | Strong, increasing with timestep | One state | Robust stiff or interactive simulation |
 | Implicit midpoint (`implicit_midpoint`) | 2 | Yes | Very low for conservative oscillations | One state | Accurate undamped dynamics |
 | Trapezoidal (`trapezoidal`) | 2 | Yes | Very low to moderate | One state | General second-order dynamics |
-| Newmark average acceleration (`newmark`) | 2 | Yes | Very low to moderate | One state plus acceleration | Structural dynamics and configurable variants |
+| Newmark average acceleration (`newmark`) | 2 | Yes | Very low to moderate | Position/velocity; acceleration derived | Structural dynamics and configurable variants |
 | BDF2 | 2 | Yes | Moderate; not energy-conserving | Two previous states | Future multistep extension |
 | Generalized-α | 2 | Yes | Configurable high-frequency damping | Previous acceleration/state | Future controlled-damping extension |
 
@@ -51,7 +51,8 @@ $$
 
 Backward Euler is first-order, A-stable, and L-stable. Its strong
 high-frequency damping is useful for robustness but undesirable when tracing
-undamped oscillations accurately.
+undamped oscillations accurately. See [Stability terminology](stability.md)
+for a short recap of these terms.
 
 ### Implicit midpoint
 

@@ -199,8 +199,10 @@ steps, the callback evaluates the signed Jacobian of every current linear
 tetrahedron in the trial configuration and requires
 
 $$
-\det(\mathbf F_e)>\texttt{minimum\_jacobian}.
+\det(\mathbf F_e)>\tau_J,
 $$
+
+where $\tau_J$ is the configured `minimum_jacobian` threshold.
 
 This is an inexpensive endpoint test, not a continuous collision test or root
 solve: intermediate states between the current and trial positions are not

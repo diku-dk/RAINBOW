@@ -43,6 +43,8 @@ general multi-body scene management are intentionally outside the prototype.
   to `output/autotune/interactive/`.
 - [`time-stepping.md`](time-stepping.md) documents the implemented and planned
   integration methods, residuals, damping behavior, and tuning criteria.
+- [`stability.md`](stability.md) gives a short refresher on stability functions,
+  A-stability, and L-stability.
 
 The parameterized verification portfolio can be run from the project root:
 
@@ -50,11 +52,12 @@ The parameterized verification portfolio can be run from the project root:
 python examples/verify_soft.py
 ```
 
-It covers both NumPy and JAX backends, both materials, both time-steppers, and
-all three implicit directional-residual strategies. By default it runs 16
-backend/material/stepper combinations and writes a convergence and energy
-report to `output/verify_soft.pdf`. Pass `--numpy` or `--jax` to run only
-one backend. The profiling examples require the auto-tuner settings file
+It covers both NumPy and JAX backends, both materials, all five implemented
+time-steppers, and all three implicit directional-residual strategies for
+backward Euler. By default it evaluates 14 cases per backend, with three
+refinement levels per case, and writes a convergence and energy report to
+`output/verify_soft_bending.pdf`. Pass `--numpy` or `--jax` to run only one
+backend. The profiling examples require the auto-tuner settings file
 described in [testing](testing.md).
 
 ## Quick start

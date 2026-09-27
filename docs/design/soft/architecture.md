@@ -9,7 +9,8 @@ darerl/simulators/soft/
 ├── mesh.py       TetMesh and structured beam/surface-mesh utilities
 ├── forces.py     stateless NumPy force and energy kernels
 ├── nonlinear.py  reusable NumPy L-BFGS and Armijo solver routines
-├── time_stepper.py semi-implicit and implicit-BFGS functions
+├── time_stepper.py semi-implicit, implicit-BFGS, midpoint, trapezoidal,
+│                  and Newmark functions
 ├── solver.py     SoftBody orchestration and JAX hot kernels
 └── __init__.py  public exports
 ```
@@ -120,8 +121,8 @@ its fixed iteration bounds and history arrays are expressed directly with JAX
 primitives for compilation.
 ## Time integration
 
-`time_stepper.py` owns the time-integration algorithms. Its
-The time-step functions perform state updates, construct method-specific
+`time_stepper.py` owns the time-integration algorithms. Its time-step
+functions perform state updates, construct method-specific
 residuals, configure the L-BFGS solve, and apply the trial-state Jacobian
 guard. See [`time-stepping.md`](time-stepping.md) for equations and method
 comparisons.

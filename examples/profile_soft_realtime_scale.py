@@ -11,7 +11,7 @@ The implicit BFGS control settings are loaded from the auto-tuner JSON file::
 
     uv run python -m examples.profile_soft_realtime_scale
 
-Outputs are written to ``output/soft_body_realtime.pdf``, CSV, and JSON files.
+Outputs are written below ``output/`` as PDF, CSV, and JSON files.
 The default case is the bending cantilever. The material is a soft, nearly
 incompressible Ecoflex-like silicone.
 """
