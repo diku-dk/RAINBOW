@@ -188,6 +188,10 @@ finite-difference option does not call back into Python. A backtracking
 residual-norm line search controls updates.
 Solver diagnostics are available in `body.last_implicit_info`.
 
+The same position-only L-BFGS machinery also implements implicit midpoint,
+trapezoidal, and Newmark integration. Their residuals and numerical behavior
+are documented in [Time-stepping methods](time-stepping.md).
+
 ### Trial-state Jacobian guard
 
 The line search accepts an optional feasibility callback. For implicit soft-body

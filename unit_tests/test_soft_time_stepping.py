@@ -2,7 +2,11 @@
 
 import unittest
 
-from unit_tests.test_soft_support import _SoftBodyTests
+import numpy as np
+
+from darerl.simulators.soft import create_bending_baseline
+
+from unit_tests.test_soft_support import JAX_AVAILABLE, _SoftBodyTests
 
 
 class TestSoftTimeStepping(unittest.TestCase):
@@ -27,3 +31,36 @@ class TestSoftTimeStepping(unittest.TestCase):
     test_jax_unsynchronized_step_keeps_solver_on_device_until_getter_or_sync = _SoftBodyTests.test_jax_unsynchronized_step_keeps_solver_on_device_until_getter_or_sync
     test_jax_implicit_reduced_line_search_step_remains_finite = _SoftBodyTests.test_jax_implicit_reduced_line_search_step_remains_finite
     test_dirichlet_positions_and_velocities_are_enforced_by_both_steppers = _SoftBodyTests.test_dirichlet_positions_and_velocities_are_enforced_by_both_steppers
+
+    def test_new_implicit_methods_preserve_rest_state(self):
+        baseline = create_bending_baseline(3, 2, 2)
+        for method in ("implicit_midpoint", "trapezoidal", "newmark"):
+            body = baseline.create_body(use_jax=False)
+            rest = body.get_x()
+            body.step(
+                1.0e-4,
+                gravity=np.zeros(3),
+                method=method,
+                settings={"max_iterations": 10, "absolute_tolerance": 1.0e-10, "relative_tolerance": 1.0e-10},
+            )
+            np.testing.assert_allclose(body.get_x(), rest, rtol=0.0, atol=1.0e-12)
+            np.testing.assert_allclose(body.get_v(), 0.0, rtol=0.0, atol=1.0e-12)
+
+    @unittest.skipUnless(JAX_AVAILABLE, "JAX is not installed")
+    def test_new_implicit_methods_agree_between_numpy_and_jax(self):
+        baseline = create_bending_baseline(3, 2, 2)
+        settings = {
+            "max_iterations": 20,
+            "history_size": 4,
+            "absolute_tolerance": 1.0e-8,
+            "relative_tolerance": 1.0e-6,
+            "line_search": True,
+            "max_line_search_iterations": 12,
+        }
+        for method in ("implicit_midpoint", "trapezoidal", "newmark"):
+            numpy_body = baseline.create_body(use_jax=False)
+            jax_body = baseline.create_body(use_jax=True)
+            numpy_body.step(1.0e-4, gravity=baseline.gravity, method=method, settings=settings)
+            jax_body.step(1.0e-4, gravity=baseline.gravity, method=method, settings=settings)
+            np.testing.assert_allclose(jax_body.get_x(), numpy_body.get_x(), rtol=2.0e-6, atol=2.0e-9)
+            np.testing.assert_allclose(jax_body.get_v(), numpy_body.get_v(), rtol=2.0e-6, atol=2.0e-8)

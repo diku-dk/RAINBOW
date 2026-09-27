@@ -20,7 +20,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_autotune_module():
-    path = PROJECT_ROOT / "examples" / "autotune-soft.py"
+    path = PROJECT_ROOT / "examples" / "autotune-soft-scientific.py"
     spec = importlib.util.spec_from_file_location("autotune_soft", path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"could not load {path}")
@@ -54,11 +54,13 @@ class TestSoftExamples(unittest.TestCase):
                     self.assertTrue(np.all(np.isfinite(body.get_x())), (factory.__name__, material, use_jax))
                     self.assertTrue(np.all(np.isfinite(body.get_v())), (factory.__name__, material, use_jax))
 
-    def test_verification_portfolio_contains_eight_combinations(self):
+    def test_verification_portfolio_contains_all_implemented_combinations(self):
         cases = verify_soft.make_cases()
-        self.assertEqual(len(cases), 8)
+        self.assertEqual(len(cases), 14)
         self.assertEqual(sum(case.method == "semi_implicit" for case in cases), 2)
         self.assertEqual(sum(case.method == "implicit_bfgs" for case in cases), 6)
+        for method in ("implicit_midpoint", "trapezoidal", "newmark"):
+            self.assertEqual(sum(case.method == method for case in cases), 2)
         self.assertEqual(
             {case.strategy for case in cases if case.method == "implicit_bfgs"},
             {"tangent_action", "closed_form", "finite_difference"},

@@ -17,6 +17,8 @@ They cover:
 - fixed-vertex preservation;
 - semi-implicit gravity response;
 - implicit BFGS settings and convergence under gravity.
+- implicit midpoint, trapezoidal, and Newmark rest-state, NumPy/JAX parity,
+  and fixed-vertex preservation;
 - constitutive stress invariants: rest-state zero stress, energy-gradient
   consistency, linear-elastic limit, objectivity, isotropy, and symmetric
   `P F^T`;
@@ -88,9 +90,9 @@ The parameterized end-to-end verification portfolio is:
 uv run python examples/verify_soft.py
 ```
 
-It runs both backends by default: two semi-implicit material cases and six
-implicit-BFGS material/derivative-strategy cases per backend, for 16 runs in
-total. It checks finite trajectories and fixed vertices, reports energy
+It runs both backends by default: two semi-implicit material cases, six
+implicit-BFGS material/derivative-strategy cases, and six additional implicit
+method/material cases per backend, for 28 runs in total. It checks finite trajectories and fixed vertices, reports energy
 behavior, estimates timestep convergence by successive refinement, and writes
 `output/verify_soft.pdf`. Use `--numpy` or `--jax` to select one backend,
 and `--dt`, `--final-time`, and `--refinement-levels` to control the study.

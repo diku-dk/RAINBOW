@@ -25,6 +25,8 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from examples._output_paths import output_path
+
 from darerl.simulators.soft import (
     BENDING_GRAVITY,
     SoftBaseline,
@@ -340,9 +342,7 @@ def main() -> None:
         has_jax = True
 
     selected_scenarios = (args.case,)
-    if args.output is None:
-        args.output = Path(f"output/soft_{args.case}_modes.pdf")
-    output = args.output if args.output.is_absolute() else PROJECT_ROOT / args.output
+    output = output_path(args.output, f"soft_{args.case}_modes.pdf")
     output.parent.mkdir(parents=True, exist_ok=True)
     selected_methods = (args.method,) if args.method else METHODS
     settings_path = args.settings if args.settings.is_absolute() else PROJECT_ROOT / args.settings

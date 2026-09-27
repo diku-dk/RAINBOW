@@ -74,8 +74,18 @@ def step_semi_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, sync: b
     return body.get_x(), body.get_v()
 
 
-def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: dict | None = None):
-    """Advance ``body`` with backward Euler and matrix-free L-BFGS.
+def step_implicit(
+    body: "SoftBody",
+    dt: float,
+    gravity: np.ndarray,
+    settings: dict | None = None,
+    method: str = "implicit_bfgs",
+):
+    """Advance ``body`` with an implicit position solve and matrix-free L-BFGS.
+
+    ``method`` selects backward Euler (``implicit_bfgs``), implicit midpoint,
+    trapezoidal integration, or Newmark integration.  All four methods solve
+    for position and recover velocity from the method-specific update formula.
 
     NumPy uses residual-norm backtracking with a trial-state Jacobian guard and
     can additionally use a preconditioned gradient fallback or bounded
@@ -90,6 +100,14 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
     gravity = _validate_step_inputs(dt, gravity)
     if body._jax_enabled and body._jax_x is not None:
         body.synchronize()
+    method_codes = {
+        "implicit_bfgs": 0,
+        "implicit_midpoint": 1,
+        "trapezoidal": 2,
+        "newmark": 3,
+    }
+    if method not in method_codes:
+        raise ValueError(f"unknown implicit time-stepping method: {method}")
     cfg = {
         "max_iterations": 25,
         "absolute_tolerance": 1.0e-6,
@@ -109,6 +127,8 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
         "max_watchdog_steps": 3,
         "watchdog_growth_factor": 1.1,
         "raise_on_failure": False,
+        "newmark_beta": 0.25,
+        "newmark_gamma": 0.5,
     }
     if settings is not None:
         unknown = set(settings) - set(cfg)
@@ -147,6 +167,19 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
         raise ValueError("max_watchdog_steps must be positive")
     if not np.isfinite(cfg["watchdog_growth_factor"]) or cfg["watchdog_growth_factor"] < 1.0:
         raise ValueError("watchdog_growth_factor must be finite and at least one")
+    if method == "newmark":
+        if not np.isfinite(cfg["newmark_beta"]) or cfg["newmark_beta"] <= 0.0:
+            raise ValueError("newmark_beta must be finite and positive")
+        if not np.isfinite(cfg["newmark_gamma"]):
+            raise ValueError("newmark_gamma must be finite")
+    if method == "implicit_midpoint":
+        inertial_scale = 2.0
+    elif method == "trapezoidal":
+        inertial_scale = 4.0
+    elif method == "newmark":
+        inertial_scale = 1.0 / float(cfg["newmark_beta"])
+    else:
+        inertial_scale = 1.0
     strategy_codes = {"tangent_action": 0, "closed_form": 1, "finite_difference": 2}
     strategy = cfg["directional_residual_strategy"]
     if strategy not in strategy_codes:
@@ -175,15 +208,16 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
             jnp.asarray(x_n), jnp.asarray(v_n), jnp.asarray(body.mesh.x0), *body._static,
             jnp.asarray(body.mesh.lumped_mass), *body._pressure_static,
             body._external_forces_device, jnp.asarray(gravity),
-            *body.material.compute_lame_parameters(), body.material.model_code, dt,
+            *body.material.compute_lame_parameters(), body.material.model_code, method_codes[method], dt,
             jnp.asarray(dofs, dtype=jnp.int32),
             jnp.asarray(np.repeat(body.mesh.lumped_mass[free], 3) / (dt * dt)),
-            jnp.asarray(np.repeat(body.mesh.inverse_lumped_mass[free], 3)),
+            jnp.asarray(np.repeat(body.mesh.inverse_lumped_mass[free], 3) / inertial_scale),
             cfg["absolute_tolerance"], cfg["relative_tolerance"], int(cfg["max_iterations"]), int(cfg["history_size"]),
             bool(cfg["line_search"]), int(cfg["max_line_search_iterations"]),
             cfg["line_search_reduction"], cfg["line_search_c1"], cfg["curvature_tolerance"],
             cfg["directional_epsilon"], strategy_codes[strategy],
             cfg["minimum_jacobian"], prevent_inversion,
+            cfg["newmark_beta"], cfg["newmark_gamma"],
         )
         x_device.block_until_ready()
         body._jax_x, body._jax_v = x_device, v_device
@@ -212,20 +246,49 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
     mass_dof = np.repeat(body.mesh.lumped_mass[free], 3)
     inv_mass_dof = np.repeat(body.mesh.inverse_lumped_mass[free], 3)
     scale = mass_dof / (dt * dt)
+    force_n = body._total_forces(x_n, gravity)
+    acceleration_n = np.zeros_like(x_n)
+    acceleration_n[free] = force_n[free] * body.mesh.inverse_lumped_mass[free, None]
 
     def residual(position: np.ndarray) -> np.ndarray:
         position_array = np.asarray(position).reshape(body._x.shape)
-        force = body._total_forces(position_array, gravity)
+        if method == "implicit_midpoint":
+            force = body._total_forces(0.5 * (x_n + position_array), gravity)
+            inertial = 2.0 * scale * (position_array.reshape(-1)[dofs] - x_n.reshape(-1)[dofs] - dt * v_n.reshape(-1)[dofs])
+        elif method == "trapezoidal":
+            force = body._total_forces(position_array, gravity)
+            inertial = 4.0 * scale * (position_array.reshape(-1)[dofs] - x_n.reshape(-1)[dofs] - dt * v_n.reshape(-1)[dofs])
+            force = force + force_n
+        elif method == "newmark":
+            beta = float(cfg["newmark_beta"])
+            force = body._total_forces(position_array, gravity)
+            displacement = position_array.reshape(-1)[dofs] - x_n.reshape(-1)[dofs] - dt * v_n.reshape(-1)[dofs]
+            inertial = (scale / beta) * (displacement - dt * dt * (0.5 - beta) * acceleration_n.reshape(-1)[dofs])
+        else:
+            force = body._total_forces(position_array, gravity)
+            inertial = scale * (position_array.reshape(-1)[dofs] - x_n.reshape(-1)[dofs] - dt * v_n.reshape(-1)[dofs])
         result = np.zeros(position.size, dtype=np.float64)
-        result[dofs] = scale * (position_array.reshape(-1)[dofs] - x_n.reshape(-1)[dofs] - dt * v_n.reshape(-1)[dofs]) - force[free].reshape(-1)
+        result[dofs] = inertial - force[free].reshape(-1)
         return result
 
     def directional_residual(position: np.ndarray, direction: np.ndarray) -> np.ndarray:
         position_array = np.asarray(position).reshape(body._x.shape)
         direction_array = np.asarray(direction).reshape(body._x.shape)
-        df = body._directional_force(position_array, direction_array, gravity, cfg["directional_epsilon"], strategy)
+        force_position = position_array
+        force_direction = direction_array
+        if method == "implicit_midpoint":
+            force_position = 0.5 * (x_n + position_array)
+            force_direction = 0.5 * direction_array
+            inertial_scale = 2.0
+        elif method == "trapezoidal":
+            inertial_scale = 4.0
+        elif method == "newmark":
+            inertial_scale = 1.0 / float(cfg["newmark_beta"])
+        else:
+            inertial_scale = 1.0
+        df = body._directional_force(force_position, force_direction, gravity, cfg["directional_epsilon"], strategy)
         result = np.zeros(position.size, dtype=np.float64)
-        result[dofs] = scale * direction_array.reshape(-1)[dofs] - df[free].reshape(-1)
+        result[dofs] = inertial_scale * scale * direction_array.reshape(-1)[dofs] - df[free].reshape(-1)
         return result
 
     feasible = None
@@ -234,15 +297,40 @@ def step_implicit(body: "SoftBody", dt: float, gravity: np.ndarray, settings: di
 
     x = x.reshape(-1)
     diagonal = np.zeros(x.size, dtype=np.float64)
-    diagonal[dofs] = dt * dt * inv_mass_dof
+    diagonal[dofs] = dt * dt * inv_mass_dof / inertial_scale
     x, _, body.last_implicit_info = solve_lbfgs(x, residual, directional_residual, diagonal, cfg, feasible=feasible)
     if not body.last_implicit_info["converged"] and cfg["raise_on_failure"]:
         raise RuntimeError(f"implicit BFGS solve did not converge: {body.last_implicit_info}")
     body._x = x.reshape(x_n.shape)
-    body._v = (body._x - x_n) / dt
+    if method == "implicit_midpoint":
+        body._v = 2.0 * (body._x - x_n) / dt - v_n
+    elif method == "trapezoidal":
+        body._v = 2.0 * (body._x - x_n) / dt - v_n
+    elif method == "newmark":
+        beta = float(cfg["newmark_beta"])
+        gamma = float(cfg["newmark_gamma"])
+        acceleration = (body._x - x_n - dt * v_n - dt * dt * (0.5 - beta) * acceleration_n) / (beta * dt * dt)
+        body._v = v_n + dt * ((1.0 - gamma) * acceleration_n + gamma * acceleration)
+    else:
+        body._v = (body._x - x_n) / dt
     body._x[body.fixed] = body.mesh.x0[body.fixed]
     body._v[body.fixed] = 0.0
     return body.get_x(), body.get_v()
 
 
-__all__ = ["step_implicit", "step_semi_implicit"]
+def step_implicit_midpoint(body: "SoftBody", dt: float, gravity: np.ndarray, settings: dict | None = None):
+    return step_implicit(body, dt, gravity, settings, method="implicit_midpoint")
+
+
+def step_trapezoidal(body: "SoftBody", dt: float, gravity: np.ndarray, settings: dict | None = None):
+    return step_implicit(body, dt, gravity, settings, method="trapezoidal")
+
+
+def step_newmark(body: "SoftBody", dt: float, gravity: np.ndarray, settings: dict | None = None):
+    return step_implicit(body, dt, gravity, settings, method="newmark")
+
+
+__all__ = [
+    "step_implicit", "step_implicit_midpoint", "step_newmark",
+    "step_semi_implicit", "step_trapezoidal",
+]

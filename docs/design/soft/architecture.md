@@ -62,8 +62,9 @@ The implementation is organized by responsibility:
   kernels used as the reference implementation.
 - `nonlinear.py` contains the backend-independent L-BFGS and line-search
   routines.
-- `time_stepper.py` contains the concrete `step_semi_implicit` and
-  `step_implicit` integration functions. There are no wrapper stepper objects;
+- `time_stepper.py` contains the concrete semi-implicit, backward Euler,
+  implicit midpoint, trapezoidal, and Newmark integration functions. There are
+  no wrapper stepper objects;
   the selected algorithm is explicit at the call site.
 - `solver.py` contains `SoftBody` state, public operations, and the JAX backend
   kernels used by the time steppers. The JAX kernels are kept here because
@@ -120,9 +121,10 @@ primitives for compilation.
 ## Time integration
 
 `time_stepper.py` owns the time-integration algorithms. Its
-`step_semi_implicit` and `step_implicit` functions perform state updates,
-construct backward-Euler residuals, configure the L-BFGS solve, and apply the
-trial-state Jacobian guard.
+The time-step functions perform state updates, construct method-specific
+residuals, configure the L-BFGS solve, and apply the trial-state Jacobian
+guard. See [`time-stepping.md`](time-stepping.md) for equations and method
+comparisons.
 
 `solver.py` owns `SoftBody` state, mesh/material/load configuration, force
 evaluation, and the JAX backend kernels used by the time steppers. Its public

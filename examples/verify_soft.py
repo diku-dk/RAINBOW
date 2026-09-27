@@ -2,8 +2,8 @@
 
 The script exercises the canonical bending beam with both materials.  The
 semi-implicit method has two material combinations; implicit BFGS has three
-directional-residual strategies for each material, giving eight combinations
-in total.  It reports trajectory validity, energy behavior, and observed
+directional-residual strategies and three additional implicit methods for each
+material. It reports trajectory validity, energy behavior, and observed
 time-step convergence, and writes a PDF report.
 
 There is no useful closed-form solution for this deliberately nonlinear,
@@ -24,6 +24,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from examples._output_paths import output_path
 
 from darerl.simulators.soft import (
     SoftBody,
@@ -52,7 +54,9 @@ class Case:
         material = "SVK" if self.material == "svk" else "SNH"
         if self.method == "semi_implicit":
             return f"semi-implicit / {material}"
-        return f"implicit BFGS / {material} / {self.strategy}"
+        if self.method == "implicit_bfgs":
+            return f"implicit BFGS / {material} / {self.strategy}"
+        return f"{self.method} / {material}"
 
 
 @dataclass
@@ -74,6 +78,8 @@ def make_cases() -> list[Case]:
     for material in ("svk", "snh"):
         for strategy in ("tangent_action", "closed_form", "finite_difference"):
             cases.append(Case("implicit_bfgs", material, strategy))
+        for method in ("implicit_midpoint", "trapezoidal", "newmark"):
+            cases.append(Case(method, material))
     return cases
 
 
@@ -128,8 +134,8 @@ def run_case(
         settings["directional_residual_strategy"] = case.strategy
 
     for index in range(1, steps + 1):
-        if case.method == "implicit_bfgs":
-            body.step_implicit(dt, gravity=gravity, settings=settings)
+        if case.method in {"implicit_bfgs", "implicit_midpoint", "trapezoidal", "newmark"}:
+            body.step(dt, gravity=gravity, method=case.method, settings=settings)
         else:
             body.step(dt, gravity=gravity, sync=not use_jax)
             if use_jax:
@@ -264,7 +270,7 @@ def main() -> None:
             rate, differences = observed_convergence(runs)
             print(f"observed_order={rate:.3f} final_state_differences={[f'{value:.3e}' for value in differences]}")
             runs_by_case[(backend, case)] = runs
-    output = args.output or Path(f"output/verify_soft_{args.case}.pdf")
+    output = output_path(args.output, f"verify_soft_{args.case}.pdf")
     output.parent.mkdir(parents=True, exist_ok=True)
     plot_report(runs_by_case, output, args.final_time)
     print(f"case={args.case}")

@@ -30,6 +30,8 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from examples._output_paths import output_path
+
 from darerl.simulators.soft import (
     SoftBody,
     SoftBaseline,
@@ -378,11 +380,9 @@ def main() -> None:
             else:
                 print(f"  {method:15s}/{strategy or '-':17s}/{backend:5s} unavailable: {selection['failure']}")
 
-    args.output = args.output or Path(f"output/soft_{args.case}_realtime_scaling.pdf")
-    args.csv = args.csv or Path(f"output/soft_{args.case}_realtime_scaling.csv")
-    output = args.output if args.output.is_absolute() else PROJECT_ROOT / args.output
-    csv_path = args.csv if args.csv.is_absolute() else PROJECT_ROOT / args.csv
-    settings_output = args.settings_output if args.settings_output.is_absolute() else PROJECT_ROOT / args.settings_output
+    output = output_path(args.output, f"soft_{args.case}_realtime_scaling.pdf")
+    csv_path = output_path(args.csv, f"soft_{args.case}_realtime_scaling.csv")
+    settings_output = output_path(args.settings_output, "soft_body_realtime_settings.json")
     output.parent.mkdir(parents=True, exist_ok=True)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     settings_output.parent.mkdir(parents=True, exist_ok=True)

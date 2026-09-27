@@ -237,18 +237,22 @@ class SoftBody:
     ) -> tuple[Array, Array]:
         """Advance one step with the selected time-integration method.
 
-        ``method`` is ``"semi_implicit"`` by default or ``"implicit_bfgs"``
-        for fully implicit backward Euler solved with matrix-free L-BFGS.
+        ``method`` is ``"semi_implicit"`` by default. Fully implicit methods
+        include ``"implicit_bfgs"`` (backward Euler), ``"implicit_midpoint"``,
+        ``"trapezoidal"``, and ``"newmark"``; all use matrix-free L-BFGS.
         ``settings`` is passed to the implicit solver; see
         :meth:`step_implicit` for supported keys.
         With JAX, ``sync=False`` leaves semi-implicit state on the device and
         returns device arrays. Call ``get_x()``, ``get_v()``, or
         ``synchronize()`` when a host/rendering snapshot is required.
         """
-        if method == "implicit_bfgs":
-            return step_implicit(self, dt, np.asarray(gravity, dtype=np.float64), settings=settings)
+        if method in {"implicit_bfgs", "implicit_midpoint", "trapezoidal", "newmark"}:
+            return step_implicit(self, dt, np.asarray(gravity, dtype=np.float64), settings=settings, method=method)
         if method != "semi_implicit":
-            raise ValueError("method must be 'semi_implicit' or 'implicit_bfgs'")
+            raise ValueError(
+                "method must be 'semi_implicit', 'implicit_bfgs', "
+                "'implicit_midpoint', 'trapezoidal', or 'newmark'"
+            )
         return step_semi_implicit(self, dt, np.asarray(gravity, dtype=np.float64), sync=sync)
 
     def step_implicit(
@@ -256,9 +260,10 @@ class SoftBody:
         dt: float,
         gravity: Array = (0.0, -9.81, 0.0),
         settings: dict | None = None,
+        method: str = "implicit_bfgs",
     ) -> tuple[Array, Array]:
-        """Advance with the implicit time-stepper and matrix-free L-BFGS."""
-        return step_implicit(self, dt, gravity, settings)
+        """Advance with a selected implicit time-stepper and matrix-free L-BFGS."""
+        return step_implicit(self, dt, gravity, settings, method=method)
 
     def set_state(self, x: Array, v: Array | None = None) -> None:
         """Set the body state and invalidate any cached JAX state.
@@ -511,7 +516,7 @@ if _HAS_JAX:
         x_new = jnp.where(active[:, None], x + dt * v_new, x0)
         return x_new, v_new
 
-    @jax.jit(static_argnums=(15, 22, 23, 24, 25, 30, 32))
+    @jax.jit(static_argnums=(15, 16, 23, 24, 25, 26, 31, 33))
     def _jax_implicit_step(
         x_n,
         v_n,
@@ -529,6 +534,7 @@ if _HAS_JAX:
         lam,
         mu,
         model_code,
+        method_code,
         dt,
         dofs,
         scale,
@@ -546,8 +552,10 @@ if _HAS_JAX:
         directional_strategy,
         minimum_jacobian,
         prevent_inversion,
+        newmark_beta,
+        newmark_gamma,
     ):
-        """Fully device-resident JAX L-BFGS backward-Euler step.
+        """Fully device-resident JAX L-BFGS implicit step.
 
         The iteration and line-search bounds are static so the whole solve is
         compiled once per solver configuration.  The history is stored in
@@ -561,19 +569,41 @@ if _HAS_JAX:
             pressure_force = _jax_pressure_forces(position, pressure_faces, pressure)
             return elastic + pressure_force + external_forces + lumped_mass[:, None] * gravity
 
+        force_n = force(x_n)
+        acceleration_n = force_n * inverse_mass[:, None]
+
         def residual(position):
-            total = force(position)
             displacement = position.reshape(-1)[dofs] - x_n.reshape(-1)[dofs] - dt * v_n.reshape(-1)[dofs]
+            if method_code == 1:  # implicit midpoint
+                total = force(0.5 * (x_n + position))
+                inertial = 2.0 * scale * displacement
+                return inertial - total.reshape(-1)[dofs]
+            if method_code == 2:  # trapezoidal
+                total = force(position)
+                inertial = 4.0 * scale * displacement
+                return inertial - force_n.reshape(-1)[dofs] - total.reshape(-1)[dofs]
+            if method_code == 3:  # Newmark
+                total = force(position)
+                inertial = (scale / newmark_beta) * (
+                    displacement - dt * dt * (0.5 - newmark_beta) * acceleration_n.reshape(-1)[dofs]
+                )
+                return inertial - total.reshape(-1)[dofs]
+            total = force(position)
             return scale * displacement - total.reshape(-1)[dofs]
 
         def directional_force_action(position, direction):
+            tangent_position = position
+            tangent_direction = direction
+            if method_code == 1:
+                tangent_position = 0.5 * (x_n + position)
+                tangent_direction = 0.5 * direction
             if directional_strategy == 0:
-                _, derivative = jax.jvp(force, (position,), (direction,))
+                _, derivative = jax.jvp(force, (tangent_position,), (tangent_direction,))
                 return derivative
             if directional_strategy == 1:
                 return _jax_directional_forces(
-                    position,
-                    direction,
+                    tangent_position,
+                    tangent_direction,
                     elements,
                     inv_dm,
                     volume_grad_n,
@@ -583,9 +613,9 @@ if _HAS_JAX:
                     mu,
                     model_code,
                 )
-            length = jnp.maximum(jnp.linalg.norm(direction), 1.0)
+            length = jnp.maximum(jnp.linalg.norm(tangent_direction), 1.0)
             h = directional_epsilon * jnp.maximum(1.0, jnp.linalg.norm(position)) / length
-            return (force(position + h * direction) - force(position)) / h
+            return (force(tangent_position + h * tangent_direction) - force(tangent_position)) / h
 
         x_initial = x_n + dt * v_n
         x_initial = jnp.where(fixed[:, None], x0, x_initial)
@@ -757,7 +787,15 @@ if _HAS_JAX:
                     s = step_length * selected_direction
                     full_direction = jnp.zeros_like(x).reshape(-1).at[dofs].set(s).reshape(x.shape)
                     df = directional_force_action(trial_x, full_direction)
-                    y = scale * s - df.reshape(-1)[dofs]
+                    if method_code == 1:
+                        inertial_scale = 2.0
+                    elif method_code == 2:
+                        inertial_scale = 4.0
+                    elif method_code == 3:
+                        inertial_scale = 1.0 / newmark_beta
+                    else:
+                        inertial_scale = 1.0
+                    y = inertial_scale * scale * s - df.reshape(-1)[dofs]
                     curvature = jnp.where(accepted, jnp.dot(s, y), 0.0)
                     hist_s_new, hist_y_new, hist_rho_new, count_new = append_history(
                         hist_s, hist_y, hist_rho, count, s, y, curvature
@@ -787,7 +825,14 @@ if _HAS_JAX:
         x, g, _, _, _, history_length, residual_norm_history, done, converged, iterations, line_steps, direction_fallback_steps, gradient_fallback_steps, rescue_steps = jax.lax.fori_loop(
             0, max_iterations, iteration_body, state
         )
-        velocity = (x - x_n) / dt
+        displacement = x - x_n
+        if method_code == 1 or method_code == 2:
+            velocity = 2.0 * displacement / dt - v_n
+        elif method_code == 3:
+            acceleration = (displacement - dt * v_n - dt * dt * (0.5 - newmark_beta) * acceleration_n) / (newmark_beta * dt * dt)
+            velocity = v_n + dt * ((1.0 - newmark_gamma) * acceleration_n + newmark_gamma * acceleration)
+        else:
+            velocity = displacement / dt
         velocity = jnp.where(fixed[:, None], 0.0, velocity)
         final_norm = jnp.linalg.norm(g)
         converged = converged | (final_norm <= convergence_threshold)

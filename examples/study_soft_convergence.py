@@ -27,6 +27,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from examples._output_paths import output_path
+
 from darerl.simulators.soft import (
     create_bending_baseline,
     create_compress_baseline,
@@ -185,8 +187,8 @@ def main() -> None:
                 f"mean_rate={np.mean(rates):.3f} "
                 f"quartiles=({np.quantile(rates, .25):.3f}, {np.quantile(rates, .75):.3f})"
             )
-    output = args.output or project_root / f"output/soft_{args.case}_convergence.pdf"
-    csv_path = args.csv or project_root / f"output/soft_{args.case}_convergence.csv"
+    output = output_path(args.output, f"soft_{args.case}_convergence.pdf")
+    csv_path = output_path(args.csv, f"soft_{args.case}_convergence.csv")
     output.parent.mkdir(parents=True, exist_ok=True)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     write_csv(csv_path, results)

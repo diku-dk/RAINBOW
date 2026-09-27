@@ -17,7 +17,8 @@ The current solver supports:
 - triangular-face pressure Neumann conditions;
 - persistent nodal external forces;
 - semi-implicit Euler integration;
-- fully implicit backward Euler solved with matrix-free limited-memory BFGS;
+- fully implicit backward Euler, implicit midpoint, trapezoidal, and Newmark
+  integration solved with matrix-free limited-memory BFGS;
 - NumPy and optional JAX execution paths.
 
 Collision detection, contact, friction, damping, adaptive time stepping, and
@@ -40,6 +41,8 @@ general multi-body scene management are intentionally outside the prototype.
 - `examples/autotune-soft-interactive.py` tunes for finite, bounded, responsive
   motion; it permits numerical damping and inexact implicit solves and writes
   to `output/autotune/interactive/`.
+- [`time-stepping.md`](time-stepping.md) documents the implemented and planned
+  integration methods, residuals, damping behavior, and tuning criteria.
 
 The parameterized verification portfolio can be run from the project root:
 

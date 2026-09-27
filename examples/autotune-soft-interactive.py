@@ -29,12 +29,15 @@ from darerl.simulators.soft import (
 from darerl.simulators.soft.mesh import compute_boundary_faces
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+from examples._output_paths import output_path
 CASE_FACTORIES = {
     "bending": create_bending_baseline,
     "twist": create_twist_baseline,
     "compress": create_compress_baseline,
     "stretch": create_stretch_baseline,
 }
+IMPLICIT_METHODS = {"implicit_bfgs", "implicit_midpoint", "trapezoidal", "newmark"}
 
 
 def make_case_body(case: str, i: int, j: int, k: int, use_jax: bool) -> tuple[SoftBody, np.ndarray]:
@@ -146,8 +149,8 @@ def simulate_candidate(
         if use_jax:
             warmup, _ = make_case_body(case, i, j, k, use_jax)
             jit_start = time.perf_counter()
-            if method == "implicit_bfgs":
-                warmup.step_implicit(dt, gravity=gravity, settings=settings)
+            if method in IMPLICIT_METHODS:
+                warmup.step(dt, gravity=gravity, method=method, settings=settings)
             else:
                 warmup.step(dt, gravity=gravity)
             warmup.synchronize()
@@ -169,8 +172,8 @@ def simulate_candidate(
         for step in range(1, steps + 1):
             step_start = time.perf_counter()
             with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
-                if method == "implicit_bfgs":
-                    body.step_implicit(dt, gravity=gravity, settings=settings)
+                if method in IMPLICIT_METHODS:
+                    body.step(dt, gravity=gravity, method=method, settings=settings)
                     info = body.last_implicit_info
                     for name in diagnostic_names:
                         diagnostic_totals[name] += int(info.get(name, 0))
@@ -255,7 +258,7 @@ def simulate_candidate(
                     **diagnostic_payload(),
                     **interactive_payload(),
                 }
-            if method == "implicit_bfgs":
+            if method in IMPLICIT_METHODS:
                 iterations.append(body.last_implicit_info["iterations"])
     except Exception as error:
         return {
@@ -409,7 +412,7 @@ def plot_results(
                     key=lambda result: result["elapsed"],
                 )
                 parameters = ["dt"]
-                if best["method"] == "implicit_bfgs":
+                if best["method"] in IMPLICIT_METHODS:
                     parameters.extend(("max_iterations", "history_size", "absolute_tolerance", "relative_tolerance", "line_search", "max_line_search_iterations", "globalization"))
                 figure, axes = plt.subplots(
                     1, len(parameters), figsize=(4.2 * len(parameters), 3.8),
@@ -612,7 +615,10 @@ def main() -> None:
         ("semi_implicit", None),
         ("implicit_bfgs", "tangent_action"),
         ("implicit_bfgs", "closed_form"),
-        ("implicit_bfgs", "finite_difference"),
+                ("implicit_bfgs", "finite_difference"),
+                ("implicit_midpoint", None),
+                ("trapezoidal", None),
+                ("newmark", None),
     )
     for backend, use_jax in backends:
         for method, strategy in solver_combinations:
@@ -627,7 +633,7 @@ def main() -> None:
                 if key in seen:
                     return
                 seen.add(key)
-                settings = {} if strategy is None else {
+                settings = {} if method == "semi_implicit" else {
                     "max_iterations": iterations,
                     "history_size": history,
                     "absolute_tolerance": absolute_tolerance,
@@ -636,8 +642,9 @@ def main() -> None:
                     "max_line_search_iterations": max_line_search_iterations,
                     "globalization": globalization,
                     "raise_on_failure": False,
-                    "directional_residual_strategy": strategy,
                 }
+                if strategy is not None:
+                    settings["directional_residual_strategy"] = strategy
                 candidate = simulate_candidate(
                     args.case, args.i, args.j, args.k, dt, duration, method, use_jax,
                     settings, reference_energy_limit, interactive_limits,
@@ -705,7 +712,7 @@ def main() -> None:
                     status = f" REJECTED: error exceeds {args.max_error_percent:g}%"
                 else:
                     status = ""
-                if strategy is not None:
+                if method in IMPLICIT_METHODS:
                     print(
                         f"dt={dt:.3e} max_it={iterations:2d} history={history:2d} "
                         f"abs_tol={absolute_tolerance:.1e} rel_tol={relative_tolerance:.1e} "
@@ -869,7 +876,7 @@ def main() -> None:
 
             acceptable = accurate
             if not acceptable:
-                failed_settings = {} if strategy is None else {
+                failed_settings = {} if method == "semi_implicit" else {
                     "max_iterations": float("nan"),
                     "history_size": float("nan"),
                     "absolute_tolerance": float("nan"),
@@ -878,8 +885,9 @@ def main() -> None:
                     "max_line_search_iterations": float("nan"),
                     "globalization": "",
                     "raise_on_failure": False,
-                    "directional_residual_strategy": strategy,
                 }
+                if strategy is not None:
+                    failed_settings["directional_residual_strategy"] = strategy
                 best_by_combination[label] = {
                     "method": method,
                     "backend": backend,
@@ -913,7 +921,7 @@ def main() -> None:
                 "directional_residual_strategy": strategy,
                 "valid": True,
                 "dt": float(best["dt"]),
-                "solver_settings": {} if strategy is None else {
+                "solver_settings": {} if method == "semi_implicit" else {
                     "max_iterations": int(best["max_iterations"]),
                     "history_size": int(best["history_size"]),
                     "absolute_tolerance": float(best["absolute_tolerance"]),
@@ -922,7 +930,7 @@ def main() -> None:
                     "max_line_search_iterations": int(best["max_line_search_iterations"]),
                     "globalization": best["globalization"],
                     "raise_on_failure": False,
-                    "directional_residual_strategy": strategy,
+                    **({"directional_residual_strategy": strategy} if strategy is not None else {}),
                 },
                 "trajectory_error": float(best["trajectory_error"]),
                 "trajectory_error_percent": float(100.0 * best["trajectory_error"]),
@@ -943,8 +951,7 @@ def main() -> None:
             print(f"Best {label}: {best_by_combination[label]}")
     if not best_by_combination:
         raise RuntimeError("no timestepper/backend combination met --max-error")
-    args.output = args.output or Path(f"output/autotune/interactive/soft_{args.case}_autotune.csv")
-    output = args.output if args.output.is_absolute() else PROJECT_ROOT / args.output
+    output = output_path(args.output, f"autotune/interactive/soft_{args.case}_autotune.csv")
     output.parent.mkdir(parents=True, exist_ok=True)
     write_csv(output, results)
     plot_results(
@@ -955,7 +962,7 @@ def main() -> None:
         reference_body.mesh.elements,
         args.baseline_dt,
     )
-    settings_output = args.settings_output if args.settings_output.is_absolute() else PROJECT_ROOT / args.settings_output
+    settings_output = output_path(args.settings_output, "autotune/interactive/auto-tuned-settings.json")
     settings_output.parent.mkdir(parents=True, exist_ok=True)
     write_settings(
         settings_output, best_by_combination, args.baseline_dt, args.max_error_percent,
