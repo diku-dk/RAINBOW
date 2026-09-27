@@ -20,8 +20,6 @@ posed for the unknown new position.
 | Implicit midpoint (`implicit_midpoint`) | 2 | Yes | Very low for conservative oscillations | One state | Accurate undamped dynamics |
 | Trapezoidal (`trapezoidal`) | 2 | Yes | Very low to moderate | One state | General second-order dynamics |
 | Newmark average acceleration (`newmark`) | 2 | Yes | Very low to moderate | Position/velocity; acceleration derived | Structural dynamics and configurable variants |
-| BDF2 | 2 | Yes | Moderate; not energy-conserving | Two previous states | Future multistep extension |
-| Generalized-α | 2 | Yes | Configurable high-frequency damping | Previous acceleration/state | Future controlled-damping extension |
 
 Trapezoidal integration and Newmark with
 
@@ -144,26 +142,3 @@ than the primary acceptance gate.
 
 Results are written below `output/autotune/scientific/` and
 `output/autotune/interactive/`.
-
-## Future extensions
-
-### BDF2
-
-BDF2 applies the second-order backward differentiation formula to the
-first-order state $y=(x,v)$:
-
-$$
-\frac{3y_{n+1}-4y_n+y_{n-1}}{2\Delta t}=G(y_{n+1}).
-$$
-
-It is second-order and A-stable, but requires two previous states and a
-startup method. It is not L-stable or energy-conserving, and timestep changes
-require a consistent multistep history.
-
-### Generalized-α
-
-Generalized-α methods use separate evaluation points for inertia and internal
-force and can selectively damp high-frequency modes while retaining
-second-order low-frequency accuracy. They require additional parameters and
-acceleration history, so their spectral damping targets should be specified
-before implementation.

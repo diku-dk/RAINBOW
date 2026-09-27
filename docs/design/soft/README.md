@@ -2,8 +2,9 @@
 
 This directory documents the experimental soft-body simulator in
 `darerl/simulators/soft`. The implementation is a contact-free, first-order
-tetrahedral FEM solver intended to provide a fast reference implementation
-for later collision, contact, and material-model work.
+tetrahedral FEM solver intended to provide a fast reference implementation.
+Potential collision, contact, and material-model work is tracked in the
+[extension register](extensions.md).
 
 ## Scope
 
@@ -41,10 +42,14 @@ general multi-body scene management are intentionally outside the prototype.
 - `examples/autotune-soft-interactive.py` tunes for finite, bounded, responsive
   motion; it permits numerical damping and inexact implicit solves and writes
   to `output/autotune/interactive/`.
-- [`time-stepping.md`](time-stepping.md) documents the implemented and planned
-  integration methods, residuals, damping behavior, and tuning criteria.
+- [`time-stepping.md`](time-stepping.md) documents the implemented integration
+  methods, residuals, damping behavior, and tuning criteria.
 - [`stability.md`](stability.md) gives a short refresher on stability functions,
   A-stability, and L-stability.
+- [`extensions.md`](extensions.md) records potential extensions, their status,
+  and the possible gain of implementing them.
+- [`review.md`](review.md) surveys deformable-body simulation methods from
+  computer-graphics research and open-source systems.
 
 The parameterized verification portfolio can be run from the project root:
 

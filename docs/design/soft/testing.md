@@ -192,7 +192,8 @@ This suite is a strong numerical prototype verification suite, but it is not
 by itself a production-release gate. The repository currently has no configured
 coverage threshold, static type-checking gate, lint gate, continuous
 integration matrix, or long-running performance-regression baseline. Those
-should be added before treating solver changes as production releases.
+are tracked as a potential maintenance extension in the
+[extension register](extensions.md).
 
 - The soft solver enables JAX 64-bit arithmetic so implicit residual
   tolerances are comparable with the NumPy reference path.
@@ -200,4 +201,5 @@ should be added before treating solver changes as production releases.
   packages such as `igl`, `networkx`, and `pxr`. The focused soft-body suite
   does not depend on those packages.
 - Contact, collision, damping, and adaptive timestep behavior are not covered
-  because they are outside the current simulator scope.
+  because they are outside the current simulator scope; potential additions
+  are tracked in the [extension register](extensions.md).

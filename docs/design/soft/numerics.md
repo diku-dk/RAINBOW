@@ -67,10 +67,11 @@ conditions may change the relative result.
 
 The current engineering decision is therefore to retain analytical stress
 expressions in the production force kernels and use energy autodiff as an
-independent correctness oracle. A future performance study should compare
-both approaches through the complete `_jax_forces` path, including element
-gathering and nodal scatter, over representative mesh sizes and target
-hardware before making a broader performance claim.
+independent correctness oracle. A complete end-to-end performance study is
+listed in the [extension register](extensions.md); it should compare both
+approaches through the complete `_jax_forces` path, including element gathering
+and nodal scatter, over representative mesh sizes and target hardware before
+making a broader performance claim.
 
 ### Saint Venant--Kirchhoff
 

@@ -61,8 +61,8 @@ The implementation is organized by responsibility:
 - `mesh.py` contains `TetMesh` preprocessing and mesh construction helpers.
 - `forces.py` contains stateless NumPy force, pressure, tangent, and energy
   kernels used as the reference implementation.
-- `nonlinear.py` contains the backend-independent L-BFGS and line-search
-  routines.
+- `nonlinear.py` contains the reusable NumPy L-BFGS and line-search routines;
+  the JAX counterpart is implemented in `solver.py` for compilation.
 - `time_stepper.py` contains the concrete semi-implicit, backward Euler,
   implicit midpoint, trapezoidal, and Newmark integration functions. There are
   no wrapper stepper objects;
@@ -111,14 +111,16 @@ must provide:
 3. a matching JAX first Piola stress branch;
 4. tests for rest stress, energy-gradient consistency, and backend agreement.
 
-Future constitutive models should avoid coupling material logic to boundary
-conditions or timestepper code.
+Potential constitutive extensions and the current integration points are
+tracked in the [extension register](extensions.md). New models should avoid
+coupling material logic to boundary conditions or timestepper code.
 
 The NumPy implicit stepper delegates L-BFGS direction construction, curvature
 history management, Armijo backtracking, and residual iteration to
 `nonlinear.py`. The JAX implicit path remains device-resident in `solver.py`;
 its fixed iteration bounds and history arrays are expressed directly with JAX
-primitives for compilation.
+primitives for compilation. Potential backend and solver extensions are
+tracked in the [extension register](extensions.md).
 ## Time integration
 
 `time_stepper.py` owns the time-integration algorithms. Its time-step
