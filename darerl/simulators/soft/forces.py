@@ -102,7 +102,17 @@ def compute_energy_density(f, lam: float, mu: float, model_code: int):
         mu_hat, lam_hat = (4.0 / 3.0) * mu, lam + (5.0 / 6.0) * mu
         alpha = 1.0 + mu_hat / lam_hat - mu_hat / (4.0 * lam_hat)
         j = np.linalg.det(f)
-        return 0.5 * mu_hat * (i_c - 3.0) + 0.5 * lam_hat * (j - alpha) ** 2 - 0.5 * mu_hat * np.log(i_c + 1.0)
+        # The stable Neo-Hookean expression is defined up to an additive
+        # constant. Normalize it so the undeformed state F=I has zero elastic
+        # energy. This changes no stress or force, but makes reported
+        # mechanical energy and energy plots physically interpretable.
+        reference = 0.5 * lam_hat * (1.0 - alpha) ** 2 - 0.5 * mu_hat * np.log(4.0)
+        return (
+            0.5 * mu_hat * (i_c - 3.0)
+            + 0.5 * lam_hat * (j - alpha) ** 2
+            - 0.5 * mu_hat * np.log(i_c + 1.0)
+            - reference
+        )
     raise ValueError(f"unknown material model code: {model_code}")
 
 

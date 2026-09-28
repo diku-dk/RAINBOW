@@ -99,6 +99,11 @@ $$
  -\frac{\widehat\mu}{2}\log(I_C+1).
 $$
 
+The implementation subtracts the constant $\Psi(\mathbf I)$ so that the
+reference configuration has zero elastic energy. This normalization does not
+change the stress, forces, or time integration; it only fixes the arbitrary
+energy reference used when reporting mechanical energy.
+
 where $I_C=\operatorname{tr}(\mathbf F^{\mathsf T}\mathbf F)$ and
 $J=\det(\mathbf F)$. Its first Piola stress is
 

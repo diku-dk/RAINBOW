@@ -816,6 +816,7 @@ class _SoftBodyTests:
         mesh, x = one_tet()
         body = SoftBody(mesh, StableNeoHookeanMaterial(1000.0, 0.3, 2.0), use_jax=False)
         np.testing.assert_allclose(body.compute_elastic_forces(x), 0.0, atol=1e-12)
+        np.testing.assert_allclose(body.compute_elastic_energy(x), 0.0, atol=1e-12)
         inverted = x.copy()
         inverted[[1, 2]] = inverted[[2, 1]]
         self.assertTrue(np.all(np.isfinite(body.compute_elastic_forces(inverted))))
