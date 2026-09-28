@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from examples import profile_soft_realtime_scale
+from examples import profile_soft_interactive
 from examples import verify_soft
 from darerl.simulators.soft import (
     create_bending_baseline,
@@ -67,7 +67,7 @@ class TestSoftExamples(unittest.TestCase):
         )
 
     def test_scalability_mesh_sizes_are_monotone_and_in_range(self):
-        sizes = profile_soft_realtime_scale.compute_mesh_sizes(10_000, 100_000, 5, 8, 8)
+        sizes = profile_soft_interactive.compute_mesh_sizes(10_000, 100_000, 5, 8, 8)
         self.assertEqual(len(sizes), 5)
         self.assertEqual(sizes, sorted(sizes))
         self.assertGreaterEqual(5 * (8 - 1) * (8 - 1) * (sizes[0] - 1), 0)
@@ -76,9 +76,9 @@ class TestSoftExamples(unittest.TestCase):
     def test_realtime_error_helper_handles_finite_and_blowup_trajectories(self):
         reference = np.zeros((3, 2, 3))
         candidate = reference.copy()
-        self.assertEqual(profile_soft_realtime_scale.compute_error_against_reference(candidate, reference), 0.0)
+        self.assertEqual(profile_soft_interactive.compute_error_against_reference(candidate, reference), 0.0)
         candidate[1, 0, 0] = np.inf
-        self.assertEqual(profile_soft_realtime_scale.compute_error_against_reference(candidate, reference), np.inf)
+        self.assertEqual(profile_soft_interactive.compute_error_against_reference(candidate, reference), np.inf)
 
     def test_autotune_trajectory_error_compares_matching_time_samples(self):
         autotune = load_autotune_module()

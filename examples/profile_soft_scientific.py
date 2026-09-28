@@ -7,8 +7,8 @@ figures and energy histories.
 
 Run with::
 
-    uv run python -m examples.profile_soft_modes
-    uv run python -m examples.profile_soft_modes --case twist
+    uv run python -m examples.profile_soft_scientific
+    uv run python -m examples.profile_soft_scientific --case twist
 """
 
 from __future__ import annotations
@@ -39,12 +39,16 @@ from darerl.simulators.soft import (
 from darerl.simulators.soft.mesh import compute_boundary_faces
 
 CASES = ("bending", "twist", "compress", "stretch")
-METHODS = ("semi_implicit", "implicit_bfgs")
+METHODS = ("semi_implicit", "implicit_bfgs", "implicit_midpoint", "trapezoidal", "newmark")
+IMPLICIT_METHODS = {"implicit_bfgs", "implicit_midpoint", "trapezoidal", "newmark"}
 SOLVER_COMBINATIONS = (
     ("semi_implicit", "semi_implicit", None),
     ("implicit_bfgs/tangent_action", "implicit_bfgs", "tangent_action"),
     ("implicit_bfgs/closed_form", "implicit_bfgs", "closed_form"),
     ("implicit_bfgs/finite_difference", "implicit_bfgs", "finite_difference"),
+    ("implicit_midpoint", "implicit_midpoint", None),
+    ("trapezoidal", "trapezoidal", None),
+    ("newmark", "newmark", None),
 )
 BACKENDS = (("NumPy", False), ("JAX", True))
 
@@ -104,7 +108,7 @@ def compute_step_times(
     with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
         for step in range(steps):
             start = time.perf_counter()
-            if method == "implicit_bfgs":
+            if method in IMPLICIT_METHODS:
                 body.step_implicit(dt, gravity=case.gravity, settings=implicit_settings)
             else:
                 body.step(dt, gravity=case.gravity, sync=False)
@@ -129,7 +133,7 @@ def benchmark_backend(
         with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
             warmup = make_body(baseline, case, use_jax)
             compile_start = time.perf_counter()
-            if method == "implicit_bfgs":
+            if method in IMPLICIT_METHODS:
                 warmup.step_implicit(dt, gravity=case.gravity, settings=implicit_settings)
             else:
                 warmup.compute_elastic_forces()
@@ -203,7 +207,7 @@ def compute_trajectory(
     states = [body.get_x()]
     with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
         for step in range(1, steps + 1):
-            if method == "implicit_bfgs":
+            if method in IMPLICIT_METHODS:
                 body.step_implicit(dt, gravity=case.gravity, settings=implicit_settings)
             else:
                 body.step(dt, gravity=case.gravity, sync=False)
@@ -342,33 +346,34 @@ def main() -> None:
         has_jax = True
 
     selected_scenarios = (args.case,)
-    output = output_path(args.output, f"soft_{args.case}_modes.pdf")
+    output = output_path(args.output, f"soft_{args.case}_scientific.pdf")
     output.parent.mkdir(parents=True, exist_ok=True)
     selected_methods = (args.method,) if args.method else METHODS
-    settings_path = args.settings if args.settings.is_absolute() else PROJECT_ROOT / args.settings
-    if not settings_path.is_file():
-        parser.error(
-            f"BFGS settings file not found: {settings_path}. "
-            "Run examples/autotune-soft-scientific.py first or pass --settings."
-        )
-    with settings_path.open() as stream:
-        tuned_settings = json.load(stream)
+    tuned_settings = {}
+    if "implicit_bfgs" in selected_methods:
+        settings_path = args.settings if args.settings.is_absolute() else PROJECT_ROOT / args.settings
+        if settings_path.is_file():
+            with settings_path.open() as stream:
+                tuned_settings = json.load(stream)
+            print(f"Using BFGS settings from {settings_path}")
+        else:
+            print(
+                f"BFGS settings file not found: {settings_path}; "
+                "using solver defaults. Run autotune-soft-scientific.py for tuned settings."
+            )
     tuned_combinations = tuned_settings.get("combinations", {})
 
-    def get_settings(backend: str, strategy: str | None) -> dict:
-        if strategy is None:
-            return {}
-        entry = tuned_combinations.get(f"implicit_bfgs/{strategy}/{backend}")
-        if entry is None:
-            entry = tuned_combinations.get(f"implicit_bfgs/{backend}")
+    def get_settings(method: str, backend: str, strategy: str | None) -> dict:
+        key = f"{method}/{strategy}/{backend}" if strategy is not None else f"{method}/{backend}"
+        entry = tuned_combinations.get(key)
         if entry is not None:
             settings = dict(entry.get("solver_settings", {}))
         else:
             settings = {}
-        settings["directional_residual_strategy"] = strategy
+        if strategy is not None:
+            settings["directional_residual_strategy"] = strategy
         return settings
 
-    print(f"Using BFGS settings from {settings_path}")
     print("Material and geometry: canonical 10 cm skin-like soft-body baselines")
     all_results = {}
     trajectories = {}
@@ -387,9 +392,13 @@ def main() -> None:
                 baseline = make_cantilever(i, args.j, args.k, scenario_name)
                 mesh, fixed, pressure_faces = baseline.mesh, baseline.fixed, baseline.pressure_faces
                 row = {"elements": mesh.tet_count, "nodes": mesh.node_count, "timings": {}}
-                row["timings"]["NumPy"] = [benchmark_backend(baseline, case, method, steps, args.force_repeats, args.dt, False, get_settings("NumPy", strategy)) for _ in range(runs)]
+                print(
+                    f"Profiling {scenario_name}/{combination_label} "
+                    f"at {mesh.tet_count:,} elements ({steps:,} steps × {runs} runs)"
+                )
+                row["timings"]["NumPy"] = [benchmark_backend(baseline, case, method, steps, args.force_repeats, args.dt, False, get_settings(method, "NumPy", strategy)) for _ in range(runs)]
                 if has_jax:
-                    row["timings"]["JAX"] = [benchmark_backend(baseline, case, method, steps, args.force_repeats, args.dt, True, get_settings("JAX", strategy)) for _ in range(runs)]
+                    row["timings"]["JAX"] = [benchmark_backend(baseline, case, method, steps, args.force_repeats, args.dt, True, get_settings(method, "JAX", strategy)) for _ in range(runs)]
                 results.append(row)
                 print(f"{combination_label:35} {mesh.tet_count:7,} elements ({mesh.node_count:7,} nodes; {runs} runs × {steps} steps)")
                 for backend in row["timings"]:
@@ -406,7 +415,7 @@ def main() -> None:
                 try:
                     trajectories.setdefault(scenario_name, {})[label] = compute_trajectory(
                         baseline, case, method, steps, args.dt, use_jax,
-                        get_settings(backend_name, strategy)
+                        get_settings(method, backend_name, strategy)
                     )
                 except (FloatingPointError, RuntimeError, ValueError) as error:
                     print(f"  {label}: trajectory unavailable ({error})")

@@ -105,23 +105,33 @@ diagnostics.
 
 ## Profiling reference
 
-`examples/profile_soft_modes.py` performs one simulation run per
-method/backend, with a default duration of three seconds and `dt=0.001`. It
+`examples/profile_soft_scientific.py` performs one simulation run per
+method/backend, with a default duration of three seconds and `dt=0.0001`. It
 compares NumPy/JAX and both semi-implicit/implicit methods over approximately
 10K--100K tetrahedra. The BFGS settings are loaded from
 `output/autotune/scientific/auto-tuned-settings.json` by default. Implicit BFGS is profiled
 separately with `tangent_action`, `closed_form`, and `finite_difference`,
 using the corresponding strategy-specific auto-tuned settings.
 
+The default study is intentionally a large scaling benchmark and can take a
+long time. Use `--method semi_implicit`, a smaller `--duration`, and a reduced
+`--min-elements`/`--max-elements` range for a smoke test. The autotune JSON is
+optional for semi-implicit-only runs; implicit runs use solver defaults when
+the file is absent.
+
 The profiler also generates mesh-state and energy plots for hanging,
 extension, compression, and twisting load cases.
 
-`examples/profile_soft_realtime_scale.py` performs the real-time scalability
+`examples/profile_soft_interactive.py` performs the real-time scalability
 study. It tunes internal substeps for a 30 FPS frame budget at each mesh size,
 then reports frame time and timestep invocations per frame for NumPy/JAX
 semi-implicit and all three implicit BFGS directional-residual combinations.
 Invalid candidates are recorded
 in the CSV/JSON report rather than aborting the entire mesh sweep.
+The autotune JSON is optional; if it is absent, the profiler uses the solver's
+default implicit settings. By default it reads
+`output/autotune/interactive/auto-tuned-settings.json`, because this study
+selects settings for bounded frame-time and interactive motion.
 
 The autotuning examples deliberately separate two goals:
 

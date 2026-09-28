@@ -9,7 +9,7 @@ produce frames and reports the number of timestep invocations per frame.
 
 The implicit BFGS control settings are loaded from the auto-tuner JSON file::
 
-    uv run python -m examples.profile_soft_realtime_scale
+    uv run python -m examples.profile_soft_interactive
 
 Outputs are written below ``output/`` as PDF, CSV, and JSON files.
 The default case is the bending cantilever. The material is a soft, nearly
@@ -57,7 +57,14 @@ METHODS = (
     ("implicit_bfgs", "closed_form", "JAX", True),
     ("implicit_bfgs", "finite_difference", "NumPy", False),
     ("implicit_bfgs", "finite_difference", "JAX", True),
+    ("implicit_midpoint", None, "NumPy", False),
+    ("implicit_midpoint", None, "JAX", True),
+    ("trapezoidal", None, "NumPy", False),
+    ("trapezoidal", None, "JAX", True),
+    ("newmark", None, "NumPy", False),
+    ("newmark", None, "JAX", True),
 )
+IMPLICIT_METHODS = {"implicit_bfgs", "implicit_midpoint", "trapezoidal", "newmark"}
 
 
 def make_beam(i: int, j: int, k: int, case: str) -> SoftBaseline:
@@ -71,7 +78,7 @@ def make_body(baseline: SoftBaseline, use_jax: bool) -> SoftBody:
 def advance_frame(body: SoftBody, method: str, frame_dt: float, substeps: int, settings: dict) -> None:
     dt = frame_dt / substeps
     for _ in range(substeps):
-        if method == "implicit_bfgs":
+        if method in IMPLICIT_METHODS:
             body.step_implicit(dt, gravity=GRAVITY, settings=settings)
         else:
             body.step(dt, gravity=GRAVITY, sync=False)
@@ -239,6 +246,12 @@ def plot_results(path: Path, rows: list[dict], fps: float) -> None:
         "semi_implicit/JAX": "s-",
         "implicit_bfgs/NumPy": "^-",
         "implicit_bfgs/JAX": "D-",
+        "implicit_midpoint/NumPy": "v-",
+        "implicit_midpoint/JAX": "v--",
+        "trapezoidal/NumPy": "<-",
+        "trapezoidal/JAX": "<--",
+        "newmark/NumPy": ">-",
+        "newmark/JAX": ">--",
     }
     with PdfPages(path) as pdf:
         fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), constrained_layout=True)
@@ -281,11 +294,16 @@ def main() -> None:
     parser.add_argument("--reference-substeps", type=int, default=64)
     parser.add_argument("--candidate-substeps", default="1,2,4,8,16,32,64,128,256,512")
     parser.add_argument("--max-error", type=float, default=1.0e-3)
-    parser.add_argument("--settings", type=Path, default=Path("output/autotune/scientific/auto-tuned-settings.json"))
+    parser.add_argument(
+        "--settings",
+        type=Path,
+        default=Path("output/autotune/interactive/auto-tuned-settings.json"),
+        help="interactive autotune JSON settings",
+    )
     parser.add_argument("--backend", choices=("both", "numpy", "jax"), default="both")
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--csv", type=Path, default=None)
-    parser.add_argument("--settings-output", type=Path, default=Path("output/soft_body_realtime_settings.json"))
+    parser.add_argument("--settings-output", type=Path, default=Path("output/soft_body_interactive_settings.json"))
     args = parser.parse_args()
     if args.fps <= 0.0 or args.duration <= 0.0:
         parser.error("fps and duration must be positive")
@@ -296,26 +314,27 @@ def main() -> None:
     if not candidate_substeps or any(value < 1 for value in candidate_substeps):
         parser.error("candidate-substeps must contain positive integers")
     settings_path = args.settings if args.settings.is_absolute() else PROJECT_ROOT / args.settings
-    if not settings_path.is_file():
-        parser.error(
-            f"BFGS settings file not found: {settings_path}. "
-            "Run examples/autotune-soft-scientific.py first or pass --settings."
+    if settings_path.is_file():
+        with settings_path.open() as stream:
+            tuned = json.load(stream)
+        print(f"Using BFGS settings from {settings_path}")
+    else:
+        tuned = {}
+        print(
+            f"BFGS settings file not found: {settings_path}; "
+            "using solver defaults. Run autotune-soft-interactive.py for tuned settings."
         )
-    with settings_path.open() as stream:
-        tuned = json.load(stream)
     tuned_combinations = tuned.get("combinations", {})
 
     def get_settings(method: str, backend: str, strategy: str | None) -> dict:
-        if strategy is None:
-            return {}
-        entry = tuned_combinations.get(f"{method}/{strategy}/{backend}")
-        if entry is None:
-            entry = tuned_combinations.get(f"{method}/{backend}")
+        key = f"{method}/{strategy}/{backend}" if strategy is not None else f"{method}/{backend}"
+        entry = tuned_combinations.get(key)
         if entry is not None:
             settings = dict(entry.get("solver_settings", {}))
         else:
             settings = {}
-        settings["directional_residual_strategy"] = strategy
+        if strategy is not None:
+            settings["directional_residual_strategy"] = strategy
         return settings
     try:
         import jax  # noqa: F401
@@ -339,6 +358,7 @@ def main() -> None:
         print(f"\n{mesh.tet_count:,} elements / {mesh.node_count:,} nodes")
         for method, strategy, backend, use_jax in backends:
             settings = get_settings(method, backend, strategy)
+            print(f"  tuning {method}/{strategy or '-'} / {backend} ...", flush=True)
             selection = tune_combination(
                 baseline,
                 method,
@@ -380,9 +400,9 @@ def main() -> None:
             else:
                 print(f"  {method:15s}/{strategy or '-':17s}/{backend:5s} unavailable: {selection['failure']}")
 
-    output = output_path(args.output, f"soft_{args.case}_realtime_scaling.pdf")
-    csv_path = output_path(args.csv, f"soft_{args.case}_realtime_scaling.csv")
-    settings_output = output_path(args.settings_output, "soft_body_realtime_settings.json")
+    output = output_path(args.output, f"soft_{args.case}_interactive.pdf")
+    csv_path = output_path(args.csv, f"soft_{args.case}_interactive.csv")
+    settings_output = output_path(args.settings_output, "soft_body_interactive_settings.json")
     output.parent.mkdir(parents=True, exist_ok=True)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     settings_output.parent.mkdir(parents=True, exist_ok=True)
